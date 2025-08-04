@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Agujetas",
+    "slug": "Agujetas",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "light",
+
+    "splash": {
+      "image": "./assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F8F6F2"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#D4A574"
+      },
+
+      "package": "com.pablopilaa.Agujetas"
+    },
+    "web": {
+      "favicon": "./assets/logo.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b5bbfb4b-b88f-4e24-a95d-ade95b9d682a"
+      }
+    }
+  }
+}
