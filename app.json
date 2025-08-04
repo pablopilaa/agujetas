@@ -1,12 +1,11 @@
 {
   "expo": {
     "name": "Agujetas",
-    "slug": "Agujetas",
+    "slug": "agujetas-v102",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
-
     "splash": {
       "image": "./assets/logo.png",
       "resizeMode": "contain",
@@ -20,7 +19,6 @@
         "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#D4A574"
       },
-
       "package": "com.pablopilaa.Agujetas"
     },
     "web": {
@@ -28,8 +26,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "b5bbfb4b-b88f-4e24-a95d-ade95b9d682a"
+        "projectId": "ce175c72-cddc-4f0d-96c6-8a0203f9dbf7"
       }
-    }
+    },
+    "owner": "pablopilanskii"
   }
 }
