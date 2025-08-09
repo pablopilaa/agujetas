@@ -13,8 +13,11 @@ export const ds = {
   },
   header: {
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingTop: 8,
+    paddingBottom: 5,
+    height: 44,
     borderTopColor: '#D4A574',
+    separatorMarginTop: 7,
   },
 };
 

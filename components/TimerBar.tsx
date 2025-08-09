@@ -522,13 +522,14 @@ const TimerBar = forwardRef((
   if (minimized) {
     return (
       <View style={[styles.minimized, { backgroundColor: theme.background, borderColor: theme.border, marginTop: ds.spacing - 2, marginBottom: ds.spacing - 2, borderTopWidth: 1, borderTopColor: ds.header.borderTopColor }]}>
-        <View style={[styles.minimizedHeader, { paddingHorizontal: ds.header.paddingHorizontal, paddingVertical: ds.header.paddingVertical }] }>
+        <View style={[styles.minimizedHeader, { paddingHorizontal: ds.header.paddingHorizontal, paddingTop: ds.header.paddingTop, paddingBottom: ds.header.paddingBottom, minHeight: ds.header.height }]} >
           <Text style={[styles.minTextAligned, { color: theme.textPrimary }]}>Cronómetros</Text>
         <View style={styles.actionArea}>
           <TouchableOpacity style={[styles.expandButton, { backgroundColor: '#D4A574' }]} onPress={() => onMinimize(false)}>
             <Text style={[styles.expandButtonText, { color: '#FFFFFF' }]}>Expandir</Text>
           </TouchableOpacity>
         </View>
+        {/* No separator in minimized state to avoid double line */}
         </View>
       </View>
     );
@@ -536,7 +537,7 @@ const TimerBar = forwardRef((
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background, borderColor: theme.border, marginTop: ds.spacing - 2, marginBottom: ds.spacing - 2, borderTopWidth: 1, borderTopColor: ds.header.borderTopColor }]}>
-      <View style={[styles.header, { borderBottomColor: theme.border, paddingHorizontal: ds.header.paddingHorizontal, paddingVertical: ds.header.paddingVertical }]}> 
+      <View style={[styles.header, { paddingHorizontal: ds.header.paddingHorizontal, paddingTop: ds.header.paddingTop, paddingBottom: ds.header.paddingBottom, minHeight: ds.header.height }]}> 
         <Text style={[styles.minTextAligned, { color: theme.textPrimary }]}>Cronómetros</Text>
         <View style={styles.actionArea}>
           <TouchableOpacity style={[styles.minimizeButton, { backgroundColor: theme.buttonSecondary }]} onPress={() => onMinimize(true)}>
@@ -544,6 +545,7 @@ const TimerBar = forwardRef((
           </TouchableOpacity>
         </View>
       </View>
+      <View style={[styles.headerSeparator, { backgroundColor: theme.border, marginTop: ds.header.separatorMarginTop }]} />
       <View style={styles.timers}>
         <View style={[styles.timerBox, { backgroundColor: theme.timerBox, borderColor: theme.border }]}>
           <Text style={[styles.timerLabel, { color: theme.textSecondary }]}>Tiempo total ↑</Text>
@@ -683,7 +685,7 @@ const TimerBar = forwardRef((
 
 const styles = StyleSheet.create({
   container: {
-    borderBottomWidth: 1,
+    borderBottomWidth: 0,
     paddingVertical: 3, // Unificar con estado minimizado
     paddingHorizontal: 0,
     marginTop: 0, // Sin margen superior para estar más pegado a la línea
@@ -695,7 +697,10 @@ const styles = StyleSheet.create({
     marginBottom: 4, // Reducir margen inferior de 8 a 4
     paddingVertical: 3, // Igualar con Minimizado
     paddingHorizontal: 8, // Igualar con ExerciseList
-    borderBottomWidth: 1,
+  },
+  headerSeparator: {
+    height: 1,
+    width: '100%',
   },
   title: {
     fontSize: 18,

@@ -432,19 +432,28 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
   if (expand) {
     return (
       <View style={[styles.minimizedContainer, { backgroundColor: theme.background, borderColor: theme.border, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
-        <View style={[styles.minimizedHeader, { borderBottomColor: theme.border, paddingHorizontal: ds.header.paddingHorizontal, paddingVertical: ds.header.paddingVertical }]}>
+        <View style={[
+          styles.minimizedHeader,
+          {
+            paddingHorizontal: ds.header.paddingHorizontal,
+            paddingTop: ds.header.paddingTop,
+            paddingBottom: ds.header.paddingBottom + 3,
+            minHeight: ds.header.height,
+          },
+        ]}>
                 <Text style={[styles.minimizedTitle, { color: theme.textPrimary }]}>Ejercicios</Text>
-                <View style={[styles.headerButtons, { marginRight: 0 }]}>
+                <View style={[styles.headerButtons, { marginRight: 0, minWidth:  ds.sizes.headerActionMinWidth, alignItems: 'flex-end' }]}>
             {onOpenChatbot && (
               <TouchableOpacity style={[styles.chatbotButton, { backgroundColor: theme.buttonPrimary }]} onPress={onOpenChatbot}>
                                   <Text style={[styles.chatbotButtonText, { color: theme.buttonText }]}>Editar</Text>
               </TouchableOpacity>
             )}
-                  <TouchableOpacity style={[styles.expandButton, { backgroundColor: '#D4A574', marginRight: 0 }]} onPress={onMinimize}>
+                  <TouchableOpacity style={[styles.expandButton, { backgroundColor: '#D4A574' }]} onPress={onMinimize}>
               <Text style={[styles.expandButtonText, { color: '#FFFFFF' }]}>Expandir</Text>
             </TouchableOpacity>
           </View>
         </View>
+        <View style={[styles.headerSeparator, { backgroundColor: theme.border, marginTop: ds.header.separatorMarginTop }]} />
       </View>
     );
   }
@@ -454,9 +463,17 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
       styles.container,
       { backgroundColor: theme.background, borderColor: theme.border, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right, borderTopWidth: 1, borderTopColor: ds.header.borderTopColor }
     ]}>
-      <View style={[styles.exerciseListHeader, { borderBottomColor: theme.border, paddingHorizontal: ds.header.paddingHorizontal, paddingVertical: ds.header.paddingVertical }]}>
+      <View style={[
+        styles.exerciseListHeader,
+        {
+          paddingHorizontal: ds.header.paddingHorizontal,
+          paddingTop: ds.header.paddingTop,
+          paddingBottom: ds.header.paddingBottom + 3,
+          minHeight: ds.header.height,
+        },
+      ]}>
         <Text style={[styles.exerciseListTitle, { color: theme.textPrimary }]}>Ejercicios</Text>
-        <View style={styles.headerButtons}>
+        <View style={[styles.headerButtons, { marginRight: 0, minWidth: ds.sizes.headerActionMinWidth, alignItems: 'flex-end' }]}>
           {onOpenChatbot && (
             <TouchableOpacity style={[styles.chatbotButton, { backgroundColor: theme.buttonPrimary }]} onPress={onOpenChatbot}>
                                 <Text style={[styles.chatbotButtonText, { color: theme.buttonText }]}>Editar</Text>
@@ -467,6 +484,7 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
           </TouchableOpacity>
         </View>
       </View>
+      <View style={[styles.headerSeparator, { backgroundColor: theme.border, marginTop: ds.header.separatorMarginTop, marginBottom: 12 }]} />
       
       <ScrollView>
         {exercises.map((ex, ei) => (
@@ -811,7 +829,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 8,
-    borderBottomWidth: 1,
   },
   exerciseListTitle: {
     fontSize: 18,
@@ -851,7 +868,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 8,
     paddingVertical: 6,
-    borderBottomWidth: 1,
+  },
+  headerSeparator: {
+    height: 1,
+    width: '100%',
   },
   minimizedTitle: {
     fontSize: 18,
