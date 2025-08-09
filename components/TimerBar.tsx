@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, AppState } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, AppState, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTheme } from '../utils/theme';
+import { ds } from '../utils/design';
 import { Audio } from 'expo-av';
+import * as Notifications from 'expo-notifications';
+
 
 interface Props {
   minimized: boolean;
@@ -11,7 +14,111 @@ interface Props {
   onDurationChange?: (duration: number) => void; // Callback para reportar cambios en la duración
 }
 
-const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized, onMinimize, isDarkMode, onDurationChange }, ref) => {
+// Componente para mostrar tiempo editable
+interface TimeDisplayProps {
+  time: number;
+  onTimeChange: (newTime: number) => void;
+  isRunning: boolean;
+  theme: any;
+  formatTime: (seconds: number) => string;
+}
+
+const TimeDisplay: React.FC<TimeDisplayProps> = ({ time, onTimeChange, isRunning, theme, formatTime }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+
+  const minutes = Math.floor(time / 60);
+  const seconds = time % 60;
+
+  const handleTimePress = () => {
+    if (!isRunning) {
+      setIsEditing(true);
+      setEditValue(`${minutes.toString().padStart(2, '0')}${seconds.toString().padStart(2, '0')}`);
+    }
+  };
+
+  const formatEditInput = (input: string): string => {
+    // Remover todo excepto números
+    const numbers = input.replace(/\D/g, '');
+    
+    if (numbers.length <= 2) {
+      return numbers;
+    } else if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}:${numbers.slice(2)}`;
+    } else {
+      return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}`;
+    }
+  };
+
+  const handleEditChange = (text: string) => {
+    const formatted = formatEditInput(text);
+    setEditValue(formatted);
+  };
+
+  const handleEditSave = () => {
+    if (isEditing) {
+      // Extraer números del input
+      const numbers = editValue.replace(/\D/g, '');
+      
+      if (numbers.length >= 2) {
+        const mins = parseInt(numbers.slice(0, 2)) || 0;
+        const secs = parseInt(numbers.slice(2, 4)) || 0;
+        
+        const newTime = (mins * 60) + secs;
+        
+        if (newTime >= 0 && newTime <= 3600) { // Máximo 1 hora
+          onTimeChange(newTime);
+        }
+      }
+      setIsEditing(false);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <View style={styles.editContainer}>
+        <TextInput
+          style={[styles.timeInput, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary }]}
+          value={editValue}
+          onChangeText={handleEditChange}
+          keyboardType="numeric"
+          maxLength={5} // MM:SS
+          autoFocus
+          onBlur={handleEditSave}
+          onSubmitEditing={handleEditSave}
+          placeholder="MM:SS"
+          placeholderTextColor={theme.textSecondary}
+        />
+        <View style={styles.editButtons}>
+          <TouchableOpacity style={[styles.editBtn, { backgroundColor: theme.buttonSecondary }]} onPress={handleEditSave}>
+            <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✓</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.editBtn, { backgroundColor: theme.buttonSecondary }]} onPress={handleEditCancel}>
+            <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✗</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.timeDisplayContainer}>
+      <TouchableOpacity onPress={handleTimePress} disabled={isRunning}>
+        <Text style={[styles.timerValue, { color: theme.textPrimary }]}>{formatTime(time)}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+type TimerBarRef = { resetAllTimers: () => void };
+const TimerBar = forwardRef((
+  { minimized, onMinimize, isDarkMode, onDurationChange }: Props,
+  ref: React.Ref<TimerBarRef>
+) => {
   const insets = useSafeAreaInsets();
   const theme = getTheme(isDarkMode || false);
 
@@ -46,7 +153,7 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
       
       // Limpiar el sonido después de reproducirlo
       sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.didJustFinish) {
+        if ('didJustFinish' in status && status.didJustFinish) {
           sound.unloadAsync();
         }
       });
@@ -56,6 +163,65 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
       console.log('Error playing notification:', error);
     }
   };
+
+  // Configuración del handler global de notificaciones
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false })
+  });
+
+  // Programar notificación local con sonido para Android
+  const scheduleNotification = async (seconds: number) => {
+    try {
+      const trigger = { seconds, channelId: 'rest-finish' } as Notifications.NotificationTriggerInput;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Descanso finalizado',
+          body: '¡Volvé al set! Ya terminó tu descanso.',
+          sound: 'default',
+          vibrate: [200, 100, 200],
+          priority: Notifications.AndroidNotificationPriority.HIGH
+        },
+        trigger,
+      });
+    } catch (e) {
+      console.log('Error al programar notificación:', e);
+    }
+  };
+
+
+
+
+
+  // Solicitar permisos y crear canal Android al montar
+  useEffect(() => {
+    (async () => {
+      try {
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync('rest-finish', {
+            name: 'Fin de descanso',
+            importance: Notifications.AndroidImportance.MAX,
+            sound: 'default',
+            vibrationPattern: [200, 100, 200],
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+            bypassDnd: true,
+            enableLights: true,
+            lightColor: '#FFD9B0',
+            enableVibrate: true,
+            audioAttributes: {
+              usage: Notifications.AndroidAudioUsage.ASSISTANCE_SONIFICATION,
+              contentType: Notifications.AndroidAudioContentType.SONIFICATION,
+            },
+          });
+        }
+        const settings = await Notifications.getPermissionsAsync();
+        if (!settings.granted) {
+          await Notifications.requestPermissionsAsync();
+        }
+      } catch (e) {
+        console.log('Error configurando notificaciones:', e);
+      }
+    })();
+  }, []);
 
   // Listener para el estado de la app - simplificado
   useEffect(() => {
@@ -174,7 +340,7 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
       
       regressiveIntervalRef.current = setInterval(() => {
         const elapsed = Math.floor((Date.now() - startTime) / 1000) + regressivePausedTime;
-        const remaining = originalRegressiveTime - elapsed;
+        const remaining = regressiveTime - elapsed;
         
         if (remaining <= 0) {
           setIsRegressiveRunning(false);
@@ -182,8 +348,10 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
           setRegressiveStartTime(null);
           setRegressivePausedTime(0);
           
-          // Reproducir notificación al llegar a 00:00
+          // Reproducir sonido in-app y permitir que la notificación ya programada dispare si estaba en background
           playNotification();
+          // Cancelar futuras notificaciones programadas
+          Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
           
           // Auto-reset al llegar a 00:00
           setTimeout(() => {
@@ -199,7 +367,7 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
         regressiveIntervalRef.current = null;
       }
       if (regressiveStartTime) {
-        setRegressivePausedTime(originalRegressiveTime - regressiveTime);
+        setRegressivePausedTime(regressiveTime);
         setRegressiveStartTime(null);
       }
     }
@@ -209,7 +377,7 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
         clearInterval(regressiveIntervalRef.current);
       }
     };
-  }, [isRegressiveRunning, originalRegressiveTime]); // Solo depende de isRegressiveRunning y originalRegressiveTime
+  }, [isRegressiveRunning, regressiveTime]); // Depende del tiempo actual, no del original
 
   // Controles del cronómetro incremental
   const handleIncrementalStart = () => { 
@@ -241,6 +409,9 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
     setRegressivePausedTime(0);
     setRegressiveStartTime(null);
     setRegressiveInput(formatTime(originalRegressiveTime));
+    
+    // Cancelar notificaciones push (solo en APK compilada)
+    console.log('Notificaciones canceladas');
   };
 
   // Exponer función de reset a través de ref
@@ -261,20 +432,26 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
   };
 
   // Controles del temporizador regresivo
-  const handleRegressiveStart = () => { 
+  const handleRegressiveStart = async () => { 
     if (!isRegressiveRunning) { 
-      setIsRegressiveRunning(true); 
+      setIsRegressiveRunning(true);
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        await scheduleNotification(regressiveTime);
+      } catch {}
     } 
   };
-  const handleRegressivePause = () => { 
-    setIsRegressiveRunning(false); 
+  const handleRegressivePause = async () => { 
+    setIsRegressiveRunning(false);
+    try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {}
   };
-  const handleRegressiveReset = () => {
+  const handleRegressiveReset = async () => {
     setIsRegressiveRunning(false);
     setRegressiveTime(originalRegressiveTime);
     setRegressivePausedTime(0);
     setRegressiveStartTime(null);
     setRegressiveInput(formatTime(originalRegressiveTime));
+    try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {}
   };
   const handleRegressiveEdit = () => { setIsEditingRegressive(true); };
   const handleRegressiveSave = () => {
@@ -286,34 +463,90 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
     }
   };
   const handleRegressiveCancel = () => {
-    setRegressiveInput(formatTime(regressiveTime));
     setIsEditingRegressive(false);
+    setRegressiveInput(formatTime(regressiveTime));
+  };
+
+  const handleAdd15Seconds = () => {
+    if (isRegressiveRunning) {
+      // Si está corriendo, solo ajustar temporalmente el tiempo restante
+      const newRemainingTime = regressiveTime + 15;
+      setRegressiveTime(newRemainingTime);
+      // Resetear el tiempo pausado para que el cálculo sea correcto
+      setRegressivePausedTime(0);
+    } else {
+      // Si está quieto, modificar la configuración permanente
+      const newTime = originalRegressiveTime + 15;
+      setOriginalRegressiveTime(newTime);
+      setRegressiveTime(newTime);
+      setRegressiveInput(formatTime(newTime));
+    }
+  };
+
+  const handleSubtract15Seconds = () => {
+    if (isRegressiveRunning) {
+      // Si está corriendo, solo ajustar temporalmente el tiempo restante
+      if (regressiveTime > 15) {
+        const newRemainingTime = regressiveTime - 15;
+        setRegressiveTime(newRemainingTime);
+        // Resetear el tiempo pausado para que el cálculo sea correcto
+        setRegressivePausedTime(0);
+      }
+    } else {
+      // Si está quieto, modificar la configuración permanente
+      if (originalRegressiveTime > 15) {
+        const newTime = originalRegressiveTime - 15;
+        setOriginalRegressiveTime(newTime);
+        setRegressiveTime(newTime);
+        setRegressiveInput(formatTime(newTime));
+      }
+    }
+  };
+
+  const handleAdd1Minute = () => {
+    setIncrementalTime(incrementalTime + 60);
+    if (onDurationChange) {
+      onDurationChange(incrementalTime + 60);
+    }
+  };
+
+  const handleSubtract1Minute = () => {
+    if (incrementalTime >= 60) {
+      setIncrementalTime(incrementalTime - 60);
+      if (onDurationChange) {
+        onDurationChange(incrementalTime - 60);
+      }
+    }
   };
 
   if (minimized) {
     return (
-      <View style={[styles.minimized, { backgroundColor: theme.background, borderColor: theme.border, marginTop: 6, marginBottom: 6, borderTopWidth: 1, borderTopColor: '#D4A574' }]}>
-        <View style={styles.minimizedHeader}>
-          <Text style={[styles.minTextAligned, { color: theme.textPrimary }]}>Cronómetro</Text>
+      <View style={[styles.minimized, { backgroundColor: theme.background, borderColor: theme.border, marginTop: ds.spacing - 2, marginBottom: ds.spacing - 2, borderTopWidth: 1, borderTopColor: ds.header.borderTopColor }]}>
+        <View style={[styles.minimizedHeader, { paddingHorizontal: ds.header.paddingHorizontal, paddingVertical: ds.header.paddingVertical }] }>
+          <Text style={[styles.minTextAligned, { color: theme.textPrimary }]}>Cronómetros</Text>
+        <View style={styles.actionArea}>
           <TouchableOpacity style={[styles.expandButton, { backgroundColor: '#D4A574' }]} onPress={() => onMinimize(false)}>
             <Text style={[styles.expandButtonText, { color: '#FFFFFF' }]}>Expandir</Text>
           </TouchableOpacity>
+        </View>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background, borderColor: theme.border, marginTop: 6, marginBottom: 6, borderTopWidth: 1, borderTopColor: '#D4A574' }]}>
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <Text style={[styles.minTextAligned, { color: theme.textPrimary }]}>Cronómetro</Text>
-        <TouchableOpacity style={[styles.minimizeButton, { backgroundColor: theme.buttonSecondary }]} onPress={() => onMinimize(true)}>
-          <Text style={[styles.minimizeButtonText, { color: theme.buttonText }]}>Minimizar</Text>
-        </TouchableOpacity>
+    <View style={[styles.container, { backgroundColor: theme.background, borderColor: theme.border, marginTop: ds.spacing - 2, marginBottom: ds.spacing - 2, borderTopWidth: 1, borderTopColor: ds.header.borderTopColor }]}>
+      <View style={[styles.header, { borderBottomColor: theme.border, paddingHorizontal: ds.header.paddingHorizontal, paddingVertical: ds.header.paddingVertical }]}> 
+        <Text style={[styles.minTextAligned, { color: theme.textPrimary }]}>Cronómetros</Text>
+        <View style={styles.actionArea}>
+          <TouchableOpacity style={[styles.minimizeButton, { backgroundColor: theme.buttonSecondary }]} onPress={() => onMinimize(true)}>
+            <Text style={[styles.minimizeButtonText, { color: theme.buttonText }]}>Minimizar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.timers}>
         <View style={[styles.timerBox, { backgroundColor: theme.timerBox, borderColor: theme.border }]}>
-          <Text style={[styles.timerLabel, { color: theme.textSecondary }]}>Tiempo total</Text>
+          <Text style={[styles.timerLabel, { color: theme.textSecondary }]}>Tiempo total ↑</Text>
           {isEditingIncremental ? (
             <View style={styles.editContainer}>
               <TextInput
@@ -339,23 +572,42 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
               <Text style={[styles.timerValue, { color: theme.textPrimary }]}>{formatTime(incrementalTime)}</Text>
             </TouchableOpacity>
           )}
+          {/* Botones +/- 1 minuto para tiempo total */}
+          {!isEditingIncremental && (
+            <View style={styles.adjustButtons}>
+              <TouchableOpacity 
+                style={[styles.adjustBtn, { backgroundColor: theme.buttonSecondary }]} 
+                onPress={handleSubtract1Minute}
+                disabled={incrementalTime < 60}
+              >
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.adjustBtnText, { color: theme.buttonText }]}>-1m</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.adjustBtn, { backgroundColor: theme.buttonSecondary }]} 
+                onPress={handleAdd1Minute}
+              >
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.adjustBtnText, { color: theme.buttonText }]}>+1m</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
           <View style={styles.btnRow}>
             {!isIncrementalRunning ? (
               <TouchableOpacity style={[styles.btn, { backgroundColor: theme.buttonPrimary }]} onPress={handleIncrementalStart}>
-                <Text style={[styles.btnText, { color: theme.buttonText }]}>Iniciar</Text>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.btnText, { color: theme.buttonText }]}>Iniciar</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={[styles.btn, { backgroundColor: theme.buttonPrimary }]} onPress={handleIncrementalPause}>
-                <Text style={[styles.btnText, { color: theme.buttonText }]}>Pausar</Text>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.btnText, { color: theme.buttonText }]}>Pausar</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={[styles.btn, { backgroundColor: theme.buttonPrimary }]} onPress={handleIncrementalReset}>
-              <Text style={[styles.btnText, { color: theme.buttonText }]}>Resetear</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.btnText, { color: theme.buttonText }]}>Resetear</Text>
             </TouchableOpacity>
           </View>
         </View>
         <View style={[styles.timerBox, { backgroundColor: theme.timerBox, borderColor: theme.border }]}>
-          <Text style={[styles.timerLabel, { color: theme.textSecondary }]}>Descanso</Text>
+          <Text style={[styles.timerLabel, { color: theme.textSecondary }]}>Temporizador ↓</Text>
           {isEditingRegressive ? (
             <View style={styles.editContainer}>
               <TextInput
@@ -377,22 +629,50 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
               </View>
             </View>
           ) : (
-            <TouchableOpacity onPress={handleRegressiveEdit}>
-              <Text style={[styles.timerValue, { color: theme.textPrimary }]}>{formatTime(regressiveTime)}</Text>
-            </TouchableOpacity>
+            <TimeDisplay
+              time={regressiveTime}
+              onTimeChange={(newTime) => {
+                setRegressiveTime(newTime);
+                setOriginalRegressiveTime(newTime);
+                setRegressiveInput(formatTime(newTime));
+              }}
+              isRunning={isRegressiveRunning}
+              theme={theme}
+              formatTime={formatTime}
+            />
           )}
+          
+          {/* Botones +/- 15 segundos */}
+          {!isEditingRegressive && (
+            <View style={styles.adjustButtons}>
+              <TouchableOpacity 
+                style={[styles.adjustBtn, { backgroundColor: theme.buttonSecondary }]} 
+                onPress={handleSubtract15Seconds}
+                disabled={regressiveTime <= 15}
+              >
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.adjustBtnText, { color: theme.buttonText }]}>-15s</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.adjustBtn, { backgroundColor: theme.buttonSecondary }]} 
+                onPress={handleAdd15Seconds}
+              >
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.adjustBtnText, { color: theme.buttonText }]}>+15s</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          
           <View style={styles.btnRow}>
             {!isRegressiveRunning ? (
               <TouchableOpacity style={[styles.btn, { backgroundColor: theme.buttonPrimary }]} onPress={handleRegressiveStart}>
-                <Text style={[styles.btnText, { color: theme.buttonText }]}>Iniciar</Text>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.btnText, { color: theme.buttonText }]}>Iniciar</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={[styles.btn, { backgroundColor: theme.buttonPrimary }]} onPress={handleRegressivePause}>
-                <Text style={[styles.btnText, { color: theme.buttonText }]}>Pausar</Text>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.btnText, { color: theme.buttonText }]}>Pausar</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={[styles.btn, { backgroundColor: theme.buttonPrimary }]} onPress={handleRegressiveReset}>
-              <Text style={[styles.btnText, { color: theme.buttonText }]}>Resetear</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[styles.btnText, { color: theme.buttonText }]}>Resetear</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -404,7 +684,8 @@ const TimerBar = forwardRef<{ resetAllTimers: () => void }, Props>(({ minimized,
 const styles = StyleSheet.create({
   container: {
     borderBottomWidth: 1,
-    padding: 4, // Reducir padding de 8 a 4
+    paddingVertical: 3, // Unificar con estado minimizado
+    paddingHorizontal: 0,
     marginTop: 0, // Sin margen superior para estar más pegado a la línea
   },
   header: {
@@ -412,7 +693,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 4, // Reducir margen inferior de 8 a 4
-    paddingBottom: 4,
+    paddingVertical: 3, // Igualar con Minimizado
     paddingHorizontal: 8, // Igualar con ExerciseList
     borderBottomWidth: 1,
   },
@@ -420,7 +701,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     fontFamily: 'System',
-    marginLeft: 4, // Configuración válida
+    marginLeft: 12, // Igualar con ExerciseList
   },
   minBtn: {
     fontWeight: '600',
@@ -446,7 +727,7 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   timerValue: {
-    fontSize: 22,
+    fontSize: 30,
     fontWeight: '600',
     textAlign: 'center',
     marginBottom: 12, // Aumentar margen inferior de 10 a 12 para más separación
@@ -490,24 +771,29 @@ const styles = StyleSheet.create({
   },
   btnRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+    gap: 10,
+    width: '100%',
   },
   btn: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 6,
-    minWidth: 70,
+    width: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   btnText: {
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 12,
     textAlign: 'center',
     fontFamily: 'System',
   },
   minimized: {
     borderBottomWidth: 1,
-    padding: 2, // Reducir padding para estado minimizado
-    paddingHorizontal: 8, // Igualar con ExerciseList
+    paddingVertical: 6,
+    paddingHorizontal: 0, // Evitar doble padding horizontal (lo aporta el header)
   },
   minText: {
     fontWeight: '600',
@@ -518,35 +804,81 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 18,
     fontFamily: 'System',
-    marginLeft: 4, // Configuración válida
+    marginLeft: 12, // Igualar con ExerciseList
   },
   minimizeButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 4,
-    marginRight: 4, // Igualar con ExerciseList
+    marginRight: 0,
   },
   minimizeButtonText: {
     fontWeight: '600',
     fontSize: 12,
     fontFamily: 'System',
   },
+  actionArea: {
+    minWidth: ds.sizes.headerActionMinWidth,
+    alignItems: 'flex-end',
+  },
   minimizedHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 3, // Igualar con ExerciseList
+    paddingVertical: 6,
     paddingHorizontal: 8, // Mismo padding que ExerciseList
   },
   expandButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 4,
+    marginRight: 4, // Igualar con ExerciseList
+    // tamaño natural, sin ancho fijo
   },
   expandButtonText: {
     fontWeight: '600',
     fontSize: 12,
     fontFamily: 'System',
+  },
+  adjustButtons: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 6,
+    paddingHorizontal: 15,
+    gap: 10,
+    width: '100%',
+  },
+  adjustBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 6,
+    width: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adjustBtnText: {
+    fontWeight: '600',
+    fontSize: 12,
+    textAlign: 'center',
+    fontFamily: 'System',
+  },
+  timeDisplayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 0,
+    width: '100%',
+  },
+  timePart: {
+    fontSize: 22,
+    fontWeight: '600',
+    fontFamily: 'System',
+  },
+  timeSeparator: {
+    fontSize: 22,
+    fontWeight: '600',
+    fontFamily: 'System',
+    marginHorizontal: 4,
   },
 });
 

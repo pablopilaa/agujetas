@@ -84,7 +84,7 @@ export const darkTheme: Theme = {
   
   // Colores de componentes específicos
   exerciseBox: 'rgba(255, 255, 255, 0.05)',
-  exerciseBoxComplete: 'rgba(255, 255, 255, 0.1)',
+  exerciseBoxComplete: 'rgba(255, 255, 255, 0.25)',
   timerBox: 'rgba(255, 255, 255, 0.05)',
   buttonPrimary: '#4F766F', // Mantener verde
   buttonSecondary: '#333333', // Cambiar a gris oscuro para contraste con texto blanco

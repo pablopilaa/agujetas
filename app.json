@@ -4,7 +4,7 @@
     "slug": "agujetas-v102",
     "version": "1.0.1",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/icon-optimized.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/logo.png",
@@ -16,10 +16,18 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logo.png",
+        "foregroundImage": "./assets/icon-optimized.png",
         "backgroundColor": "#D4A574"
       },
-      "package": "com.pablopilaa.Agujetas"
+      "package": "com.pablopilaa.Agujetas",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
+      ],
+      "notification": {
+        "icon": "./assets/icon-optimized.png",
+        "color": "#D4A574"
+      }
     },
     "web": {
       "favicon": "./assets/logo.png"

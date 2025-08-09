@@ -4,11 +4,14 @@ import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Modal 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getLastExerciseRecord, ExerciseHistory } from '../utils/storage';
 import { getTheme } from '../utils/theme';
+import { ds } from '../utils/design';
 
 interface Series {
   reps: string;
   kg: string;
   rir: number | undefined;
+  tiempo?: string; // Para ejercicios aeróbicos
+  done?: boolean; // Marcador manual de serie completada
 }
 
 interface Exercise {
@@ -45,7 +48,7 @@ const predefinedExercises = [
   // Hombros
   { ejercicio: 'Press militar', musculo: 'Hombros' },
   { ejercicio: 'Press militar mancuernas', musculo: 'Hombros' },
-  { ejercicio: 'Extensiones de hombros polea', musculo: 'Hombros' },
+  { ejercicio: 'Extensión hombros polea', musculo: 'Hombros' },
   { ejercicio: 'Elevaciones laterales', musculo: 'Hombros' },
   { ejercicio: 'Elevaciones frontales', musculo: 'Hombros' },
   { ejercicio: 'Press inclinado mancuernas Smith', musculo: 'Hombros' },
@@ -53,12 +56,12 @@ const predefinedExercises = [
   
   // Tríceps
   { ejercicio: 'Tríceps Katana', musculo: 'Tríceps' },
-  { ejercicio: 'Extensiones de tríceps cable', musculo: 'Tríceps' },
-  { ejercicio: 'Extensiones de tríceps mancuerna', musculo: 'Tríceps' },
+  { ejercicio: 'Extensión tríceps cable', musculo: 'Tríceps' },
+  { ejercicio: 'Extensión tríceps mancuerna', musculo: 'Tríceps' },
   { ejercicio: 'Fondos paralelas', musculo: 'Tríceps' },
   { ejercicio: 'Fondos paralelas lastre', musculo: 'Tríceps' },
   { ejercicio: 'Press cerrado', musculo: 'Tríceps' },
-  { ejercicio: 'Extensiones de tríceps polea', musculo: 'Tríceps' },
+  { ejercicio: 'Extensión tríceps polea', musculo: 'Tríceps' },
   { ejercicio: 'Triceps sentado', musculo: 'Tríceps' },
   
   // Bíceps
@@ -84,7 +87,7 @@ const predefinedExercises = [
   { ejercicio: 'Sentadillas mancuernas', musculo: 'Cuádriceps' },
   { ejercicio: 'Sentadillas frontales', musculo: 'Cuádriceps' },
   { ejercicio: 'Prensa de piernas', musculo: 'Cuádriceps' },
-  { ejercicio: 'Extensiones de piernas', musculo: 'Cuádriceps' },
+  { ejercicio: 'Extensión piernas', musculo: 'Cuádriceps' },
   { ejercicio: 'Sentadillas búlgaras', musculo: 'Cuádriceps' },
   { ejercicio: 'Sentadillas búlgaras mancuernas', musculo: 'Cuádriceps' },
   
@@ -119,6 +122,15 @@ const predefinedExercises = [
   { ejercicio: 'Elevación de gemelos mancuerna', musculo: 'Gemelos' },
   { ejercicio: 'Elevación de gemelos escalón', musculo: 'Gemelos' },
   { ejercicio: 'Elevación de gemelos con barra', musculo: 'Gemelos' },
+  
+  // Aeróbico
+  { ejercicio: 'Cinta', musculo: 'Aeróbico' },
+  { ejercicio: 'Bicicleta', musculo: 'Aeróbico' },
+  { ejercicio: 'Bicicleta elíptica', musculo: 'Aeróbico' },
+  { ejercicio: 'Entrada en calor', musculo: 'Aeróbico' },
+  { ejercicio: 'Remorgómetro', musculo: 'Aeróbico' },
+  { ejercicio: 'Running', musculo: 'Aeróbico' },
+  { ejercicio: 'Bootcamp', musculo: 'Aeróbico' },
 ];
 
 const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, setExercises, onMinimize, onAddExercise, onOpenChatbot, isDarkMode }, ref) => {
@@ -135,6 +147,11 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
   const [customExerciseName, setCustomExerciseName] = useState('');
   const [customExerciseMuscle, setCustomExerciseMuscle] = useState('Pectoral');
 
+  // Normalizar nombres solo para mostrar (no altera storage ni claves históricas)
+  const getDisplayExerciseName = (name: string): string => {
+    return name.replace(/Extensiones de\s+/gi, 'Extensión ');
+  };
+
   // Lista de grupos musculares predefinidos
   const muscleGroups = [
     'Pectoral',
@@ -149,7 +166,8 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
     'Gemelos',
     'Trapecio',
     'Abdomen',
-    'Glúteos'
+    'Glúteos',
+    'Aeróbico'
   ];
 
   useImperativeHandle(ref, () => ({
@@ -208,6 +226,42 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
     return lowerName.includes('lastre') || lowerName.includes('asistido') || lowerName.includes('asistida');
   };
 
+  // Función para verificar si un ejercicio es aeróbico
+  const isAerobicExercise = (muscleGroup: string): boolean => {
+    return muscleGroup === 'Aeróbico';
+  };
+
+  const formatTimeInput = (input: string): string => {
+    // Remover todo excepto números
+    const numbers = input.replace(/\D/g, '');
+    
+    if (numbers.length <= 2) {
+      return numbers;
+    } else if (numbers.length <= 4) {
+      return `${numbers.slice(0, 2)}:${numbers.slice(2)}`;
+    } else if (numbers.length <= 6) {
+      return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}:${numbers.slice(4)}`;
+    } else {
+      return `${numbers.slice(0, 2)}:${numbers.slice(2, 4)}:${numbers.slice(4, 6)}`;
+    }
+  };
+
+  const parseTimeToSeconds = (timeString: string): number => {
+    const numbers = timeString.replace(/\D/g, '');
+    
+    if (numbers.length >= 4) {
+      const hours = parseInt(numbers.slice(0, 2)) || 0;
+      const minutes = parseInt(numbers.slice(2, 4)) || 0;
+      const seconds = parseInt(numbers.slice(4, 6)) || 0;
+      return (hours * 3600) + (minutes * 60) + seconds;
+    } else if (numbers.length >= 2) {
+      const minutes = parseInt(numbers.slice(0, 2)) || 0;
+      const seconds = parseInt(numbers.slice(2, 4)) || 0;
+      return (minutes * 60) + seconds;
+    }
+    return 0;
+  };
+
   const moveExerciseUp = (index: number) => {
     if (index > 0) {
       const newExercises = [...exercises];
@@ -231,7 +285,10 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
 
   const addSeries = (exerciseIndex: number) => {
     const newExercises = [...exercises];
-    newExercises[exerciseIndex].series.push({ reps: '', kg: '', rir: undefined });
+    const isAerobic = isAerobicExercise(exercises[exerciseIndex].musculo);
+    newExercises[exerciseIndex].series.push(
+      isAerobic ? { reps: '', kg: '', rir: undefined, tiempo: '', done: false } : { reps: '', kg: '', rir: undefined, done: false }
+    );
     setExercises(newExercises);
   };
 
@@ -276,13 +333,18 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
   };
 
   const addExercise = (selectedExercise: { ejercicio: string; musculo: string }) => {
+    const isAerobic = isAerobicExercise(selectedExercise.musculo);
     const newExercise: Exercise = {
       ejercicio: selectedExercise.ejercicio,
       musculo: selectedExercise.musculo,
-      series: [
-        { reps: '', kg: '', rir: undefined },
-        { reps: '', kg: '', rir: undefined },
-        { reps: '', kg: '', rir: undefined }
+      series: isAerobic ? [
+        { reps: '', kg: '', rir: undefined, tiempo: '', done: false },
+        { reps: '', kg: '', rir: undefined, tiempo: '', done: false },
+        { reps: '', kg: '', rir: undefined, tiempo: '', done: false }
+      ] : [
+        { reps: '', kg: '', rir: undefined, done: false },
+        { reps: '', kg: '', rir: undefined, done: false },
+        { reps: '', kg: '', rir: undefined, done: false }
       ],
     };
     setExercises([...exercises, newExercise]);
@@ -332,21 +394,17 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
 
   // Función para verificar si un ejercicio está completo
   const isExerciseComplete = (exercise: Exercise): boolean => {
-    return exercise.series.every(serie => 
-      serie.reps.trim() !== '' && 
-      serie.kg.trim() !== '' && 
-      serie.rir !== undefined && serie.rir !== null
-    );
+    // Un ejercicio se considera completo solo cuando TODAS sus series están marcadas como hechas manualmente
+    return exercise.series.length > 0 && exercise.series.every(serie => !!serie.done);
   };
 
   // Función para contar campos incompletos en toda la sesión
   const getIncompleteFieldsCount = (): number => {
     let count = 0;
     exercises.forEach(exercise => {
+      // Ahora el indicador de completitud depende del checkbox de cada serie, no del llenado de campos
       exercise.series.forEach(serie => {
-        if (serie.reps.trim() === '' || serie.kg.trim() === '' || serie.rir === undefined || serie.rir === null) {
-          count++;
-        }
+        if (!serie.done) count++;
       });
     });
     return count;
@@ -374,15 +432,15 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
   if (expand) {
     return (
       <View style={[styles.minimizedContainer, { backgroundColor: theme.background, borderColor: theme.border, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
-        <View style={[styles.minimizedHeader, { borderBottomColor: theme.border }]}>
-          <Text style={[styles.minimizedTitle, { color: theme.textPrimary }]}>Ejercicios</Text>
-          <View style={styles.headerButtons}>
+        <View style={[styles.minimizedHeader, { borderBottomColor: theme.border, paddingHorizontal: ds.header.paddingHorizontal, paddingVertical: ds.header.paddingVertical }]}>
+                <Text style={[styles.minimizedTitle, { color: theme.textPrimary }]}>Ejercicios</Text>
+                <View style={[styles.headerButtons, { marginRight: 0 }]}>
             {onOpenChatbot && (
               <TouchableOpacity style={[styles.chatbotButton, { backgroundColor: theme.buttonPrimary }]} onPress={onOpenChatbot}>
                                   <Text style={[styles.chatbotButtonText, { color: theme.buttonText }]}>Editar</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[styles.expandButton, { backgroundColor: '#D4A574' }]} onPress={onMinimize}>
+                  <TouchableOpacity style={[styles.expandButton, { backgroundColor: '#D4A574', marginRight: 0 }]} onPress={onMinimize}>
               <Text style={[styles.expandButtonText, { color: '#FFFFFF' }]}>Expandir</Text>
             </TouchableOpacity>
           </View>
@@ -394,9 +452,9 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
   return (
     <View style={[
       styles.container,
-      { backgroundColor: theme.background, borderColor: theme.border, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right, borderTopWidth: 1, borderTopColor: '#D4A574' }
+      { backgroundColor: theme.background, borderColor: theme.border, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right, borderTopWidth: 1, borderTopColor: ds.header.borderTopColor }
     ]}>
-      <View style={[styles.exerciseListHeader, { borderBottomColor: theme.border }]}>
+      <View style={[styles.exerciseListHeader, { borderBottomColor: theme.border, paddingHorizontal: ds.header.paddingHorizontal, paddingVertical: ds.header.paddingVertical }]}>
         <Text style={[styles.exerciseListTitle, { color: theme.textPrimary }]}>Ejercicios</Text>
         <View style={styles.headerButtons}>
           {onOpenChatbot && (
@@ -417,7 +475,10 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
             { backgroundColor: theme.exerciseBox, borderColor: theme.border },
             isExerciseComplete(ex) && { backgroundColor: theme.exerciseBoxComplete, borderColor: theme.border }
           ]}>
-            <View style={styles.exerciseHeader}>
+            <View style={[
+              styles.exerciseHeader,
+              minimizedExercises.has(ei) ? { marginBottom: 0 } : null
+            ]}>
               {editingExerciseIndex === ei ? (
                 <View style={styles.editExerciseContainer}>
                   <TextInput
@@ -444,7 +505,7 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
               ) : (
                 <>
                   <View style={styles.exerciseTitleContainer}>
-                    <Text style={[styles.exerciseTitle, { color: theme.textPrimary }]}>{ex.ejercicio} ({ex.musculo})</Text>
+                    <Text style={[styles.exerciseTitle, { color: theme.textPrimary }]}>{getDisplayExerciseName(ex.ejercicio)} ({ex.musculo})</Text>
                   </View>
                   <View style={styles.exerciseControls}>
                     <TouchableOpacity 
@@ -488,21 +549,26 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
             {!minimizedExercises.has(ei) && (
               <View style={styles.seriesContainer}>
               <View style={styles.seriesHeader}>
-                {/* Encabezados de cajitas */}
-                <View style={styles.seriesInfo}>
-                  <Text style={[styles.columnHeaderText, { color: theme.textSecondary, fontWeight: 'bold', fontSize: 14 }]}>Series</Text>
+                <View style={styles.seriesHeaderLeft}>
+                  {/* Encabezados de cajitas */}
+                  <View style={styles.seriesInfo}>
+                    <Text style={[styles.columnHeaderText, { color: theme.textSecondary, fontWeight: 'bold', fontSize: 14 }]}>Series</Text>
+                  </View>
+                  <View style={styles.headerFieldsRow}>
+                    {isAerobicExercise(ex.musculo) ? (
+                      <View style={styles.headerCellTime}><Text style={[styles.headerText, { color: theme.textSecondary }]}>Tiempo</Text></View>
+                    ) : (
+                      <>
+                        <View style={styles.headerCellSmall}><Text style={[styles.headerText, { color: theme.textSecondary }]}>Reps</Text></View>
+                        <View style={styles.headerCellSmall}><Text style={[styles.headerText, { color: theme.textSecondary }]}>Kg</Text></View>
+                        <View style={styles.headerCellSmall}><Text style={[styles.headerText, { color: theme.textSecondary }]}>RIR</Text></View>
+                      </>
+                    )}
+                  </View>
+                  <View style={styles.headerCellCheck}>
+                    <Text style={[styles.headerText, { color: theme.textSecondary }]}>✓</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-start', marginLeft: 5 }}>
-                  <Text style={[styles.columnHeaderText, { color: theme.textSecondary, textAlign: 'center', width: 50, marginRight: 8, fontWeight: 'bold', fontSize: 14 }]}>Reps</Text>
-                  <Text style={[styles.columnHeaderText, { color: theme.textSecondary, textAlign: 'center', width: 50, marginRight: 8, marginLeft: -2, fontWeight: 'bold', fontSize: 14 }]}>Kg</Text>
-                  <Text style={[styles.columnHeaderText, { color: theme.textSecondary, textAlign: 'center', width: 50, marginLeft: 2, fontWeight: 'bold', fontSize: 14 }]}>RIR</Text>
-                </View>
-                <TouchableOpacity 
-                  style={[styles.addSeriesBtn, { backgroundColor: theme.buttonPrimary }]}
-                  onPress={() => addSeries(ei)}
-                >
-                  <Text style={[styles.addSeriesBtnText, { color: theme.buttonText }]}>+ Serie</Text>
-                </TouchableOpacity>
               </View>
               
               {ex.series.map((s, si) => (
@@ -518,32 +584,92 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
                       </TouchableOpacity>
                     )}
                   </View>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary, textAlign: 'center' }]}
-                    placeholder="Reps"
-                    value={s.reps}
-                    onChangeText={v => handleChange(ei, si, 'reps', v)}
-                    keyboardType="numeric"
-                    placeholderTextColor={theme.textSecondary}
-                  />
-                  <TextInput
-                    style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary, textAlign: 'center' }]}
-                    placeholder={allowsNegativeWeight(ex.ejercicio) ? "Kg (-)" : "Kg"}
-                    value={s.kg}
-                    onChangeText={v => handleChange(ei, si, 'kg', v)}
-                    keyboardType="numeric"
-                    placeholderTextColor={theme.textSecondary}
-                  />
-                  <TextInput
-                    style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary, textAlign: 'center' }]}
-                    placeholder="RIR"
-                    value={s.rir?.toString() || ''}
-                    onChangeText={v => handleChange(ei, si, 'rir', v.replace(/\D/g, ''))}
-                    keyboardType="numeric"
-                    placeholderTextColor={theme.textSecondary}
-                  />
+                  <View style={styles.seriesFieldsRow}>
+                    {isAerobicExercise(ex.musculo) ? (
+                      <TextInput
+                        style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary, textAlign: 'center', width: 180 }]}
+                        placeholder="MM:SS"
+                        value={s.tiempo || ''}
+                        onChangeText={v => handleChange(ei, si, 'tiempo', formatTimeInput(v))}
+                        keyboardType="numeric"
+                        maxLength={8} // HH:MM:SS
+                        placeholderTextColor={theme.textSecondary}
+                      />
+                    ) : (
+                      <>
+                        <TextInput
+                          style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary, textAlign: 'center' }]}
+                          placeholder="Reps"
+                          value={s.reps}
+                          onChangeText={v => handleChange(ei, si, 'reps', v)}
+                          keyboardType="numeric"
+                          placeholderTextColor={theme.textSecondary}
+                        />
+                        <TextInput
+                          style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary, textAlign: 'center' }]}
+                          placeholder={allowsNegativeWeight(ex.ejercicio) ? "Kg (-)" : "Kg"}
+                          value={s.kg}
+                          onChangeText={v => handleChange(ei, si, 'kg', v)}
+                          keyboardType="numeric"
+                          placeholderTextColor={theme.textSecondary}
+                        />
+                        <TextInput
+                          style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary, textAlign: 'center' }]}
+                          placeholder="RIR"
+                          value={s.rir?.toString() || ''}
+                          onChangeText={v => handleChange(ei, si, 'rir', v.replace(/\D/g, ''))}
+                          keyboardType="numeric"
+                          placeholderTextColor={theme.textSecondary}
+                        />
+                      </>
+                    )}
+                  </View>
+                  <View style={{ width: 44, alignItems: 'center', justifyContent: 'center' }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        const updated = exercises.map((ex, i) =>
+                          i === ei
+                            ? {
+                                ...ex,
+                                series: ex.series.map((s2, j) => j === si ? { ...s2, done: !s2.done } : s2),
+                              }
+                            : ex
+                        );
+                        setExercises(updated);
+                      }}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                        backgroundColor: s.done ? theme.buttonPrimary : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{
+                        color: s.done ? theme.buttonText : theme.textSecondary,
+                        fontWeight: '800',
+                        fontSize: 16,
+                        lineHeight: 16,
+                      }}>
+                        {s.done ? '✓' : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
+
+              {/* Footer de series: botón para agregar serie */}
+              <View style={styles.seriesFooterRow}>
+                <TouchableOpacity 
+                  style={[styles.addSeriesBtn, { backgroundColor: theme.buttonPrimary }]}
+                  onPress={() => addSeries(ei)}
+                >
+                  <Text style={[styles.addSeriesBtnText, { color: theme.buttonText }]}>+ Agregar serie</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             )}
           </View>
@@ -675,15 +801,15 @@ const styles = StyleSheet.create({
   },
   minimizedContainer: {
     borderTopWidth: 1,
-    paddingVertical: 3, // Padding simétrico superior e inferior
+    paddingTop: 8,
+    paddingBottom: 4,
     paddingHorizontal: 8,
   },
   exerciseListHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
-    paddingBottom: 4,
+    paddingVertical: 6,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
   },
@@ -723,8 +849,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8, // Mismo padding que TimerBar
-    paddingBottom: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderBottomWidth: 1,
   },
   minimizedTitle: {
@@ -749,6 +875,7 @@ const styles = StyleSheet.create({
   exerciseBox: {
     borderWidth: 1,
     marginBottom: 12,
+    marginHorizontal: 8, // Achicar para que se vean los bordes laterales
     padding: 8,
     borderRadius: 8,
   },
@@ -816,6 +943,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginHorizontal: 2,
+    borderRadius: 6,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   controlBtnDisabled: {
     opacity: 0.5,
@@ -828,8 +960,12 @@ const styles = StyleSheet.create({
   minimizeExerciseBtn: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 6,
     marginRight: 4,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   minimizeExerciseBtnText: {
     fontWeight: '600',
@@ -843,6 +979,11 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginLeft: 4,
     backgroundColor: 'rgba(244, 202, 171, 0.15)', // Color más suave y transparente
+    borderRadius: 6,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   removeBtnText: {
     color: '#E2928D',
@@ -879,19 +1020,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
+  seriesHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
   seriesTitle: {
     fontWeight: '600',
     fontSize: 14,
     fontFamily: 'System',
   },
   addSeriesBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 8,
+    minWidth: 180,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addSeriesBtnText: {
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: 'System',
   },
   columnHeaders: {
@@ -907,6 +1057,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'System',
   },
+  headerText: {
+    fontWeight: 'bold',
+    fontSize: 14,
+    textAlign: 'center',
+    fontFamily: 'System',
+  },
+  headerCellSmall: {
+    width: 56,
+    minHeight: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 0,
+  },
+  headerCellTime: {
+    width: 180,
+    minHeight: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerCellCheck: {
+    width: 44,
+    minHeight: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerFieldsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginLeft: 0,
+  },
+  seriesFieldsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
   columnHeaderInput: {
     flex: 1,
     fontSize: 12,
@@ -917,34 +1105,45 @@ const styles = StyleSheet.create({
   seriesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  seriesFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 12,
   },
   seriesInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 80,
+    width: 100,
   },
   seriesLabel: {
     flex: 1,
     fontFamily: 'System',
   },
   removeSeriesBtn: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 2,
-    marginLeft: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    marginLeft: 6,
+    marginRight: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   removeSeriesBtnText: {
-    fontWeight: '600',
-    fontSize: 10,
+    fontWeight: '700',
+    fontSize: 12,
     fontFamily: 'System',
+    lineHeight: 12,
   },
   input: {
     borderWidth: 1,
-    width: 50,
+    width: 56,
     marginHorizontal: 4,
     paddingHorizontal: 4,
     paddingVertical: 2,
+    height: 28,
+    borderRadius: 6,
     fontSize: 12,
     fontFamily: 'System',
   },

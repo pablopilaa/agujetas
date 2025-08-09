@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Modal, Animated, Alert } from 'react-native';
+import React, { useState, useRef, useEffect, Fragment } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Modal, Animated, Alert, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTheme } from '../utils/theme';
 
@@ -224,9 +224,12 @@ const exerciseDatabase = {
   }
 };
 
-const ChatbotDrawer: React.FC<Props> = ({ open, onClose, exercises, setExercises, onAddExercise, isDarkMode }) => {
+const EditMenu: React.FC<Props> = ({ open, onClose, exercises, setExercises, onAddExercise, isDarkMode }) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState<number | null>(null);
+  const [replaceIndex, setReplaceIndex] = useState<number | null>(null);
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const slideAnimation = useRef(new Animated.Value(-300)).current;
   const theme = getTheme(isDarkMode || false);
 
@@ -247,6 +250,28 @@ const ChatbotDrawer: React.FC<Props> = ({ open, onClose, exercises, setExercises
       }).start();
     }
   }, [open]);
+
+  const getSuggestionsFor = (exerciseName: string, muscle: string): string[] => {
+    const mg = (exerciseDatabase as any)[muscle] || {};
+    const byName: string[] = mg[exerciseName] || [];
+    const base: string[] = mg['default'] || [];
+    const merged = Array.from(new Set([...(byName||[]), ...(base||[])]));
+    return merged;
+  };
+
+  const openReplacePicker = (exerciseIndex: number) => {
+    setReplaceIndex(exerciseIndex);
+    setSearchQuery('');
+    setShowReplaceModal(true);
+  };
+
+  const applyReplacement = (newName: string) => {
+    if (replaceIndex === null) return;
+    const updated = exercises.map((ex, idx) => idx === replaceIndex ? { ...ex, ejercicio: newName } : ex);
+    setExercises(updated);
+    setShowReplaceModal(false);
+    setReplaceIndex(null);
+  };
 
   const replaceExerciseWithAI = (exerciseIndex: number) => {
     const exercise = exercises[exerciseIndex];
@@ -306,6 +331,7 @@ const ChatbotDrawer: React.FC<Props> = ({ open, onClose, exercises, setExercises
   };
 
   return (
+    <>
     <Modal
       visible={open}
       transparent={true}
@@ -342,13 +368,13 @@ const ChatbotDrawer: React.FC<Props> = ({ open, onClose, exercises, setExercises
             {exercises.map((exercise, index) => (
               <View key={index} style={styles.exerciseItem}>
                 <Text style={styles.exerciseName}>{exercise.ejercicio}</Text>
-                <TouchableOpacity 
+                 <TouchableOpacity 
                   style={[styles.replaceBtn, loading === index && styles.replaceBtnDisabled]}
-                  onPress={() => replaceExerciseWithAI(index)}
+                  onPress={() => openReplacePicker(index)}
                   disabled={loading === index}
                 >
                   <Text style={styles.replaceBtnText}>
-                    {loading === index ? '...' : 'Cambiar'}
+                    Cambiar
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -368,6 +394,42 @@ const ChatbotDrawer: React.FC<Props> = ({ open, onClose, exercises, setExercises
         </Animated.View>
       </View>
     </Modal>
+
+    {/* Modal selector de reemplazo */}
+    <Modal visible={showReplaceModal} transparent animationType="fade" onRequestClose={() => setShowReplaceModal(false)}>
+      <View style={styles.overlay}>
+        <View style={[styles.replaceModal, { backgroundColor: theme.surface }] }>
+          <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Reemplazar ejercicio</Text>
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Buscar ejercicio..."
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.searchInput, { color: theme.textPrimary, borderColor: '#D4A574' }]}
+          />
+          <ScrollView style={{ maxHeight: 300 }}>
+            {(() => {
+              if (replaceIndex === null) return null;
+              const ex = exercises[replaceIndex];
+              const suggestions = getSuggestionsFor(ex.ejercicio, ex.musculo)
+                .filter((name) => name.toLowerCase().includes(searchQuery.toLowerCase()));
+              const list = suggestions.length > 0 ? suggestions : [];
+              return list.map((name, i) => (
+                <TouchableOpacity key={i} style={styles.suggestionItem} onPress={() => applyReplacement(name)}>
+                  <Text style={{ color: theme.textPrimary }}>{name}</Text>
+                </TouchableOpacity>
+              ));
+            })()}
+          </ScrollView>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+            <TouchableOpacity style={[styles.modalButton, { backgroundColor: theme.buttonSecondary }]} onPress={() => setShowReplaceModal(false)}>
+              <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 };
 
@@ -405,11 +467,19 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   closeButton: {
-    padding: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D4A574',
   },
   closeButtonText: {
-    fontSize: 20,
+    fontSize: 18,
+    fontWeight: '700',
     fontFamily: 'System',
+    lineHeight: 18,
   },
   header: {
     flexDirection: 'row',
@@ -499,6 +569,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'System',
   },
+  replaceModal: {
+    marginHorizontal: 20,
+    borderRadius: 12,
+    padding: 16,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    fontFamily: 'System',
+  },
+  suggestionItem: {
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D4A574',
+  },
+  modalButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  modalButtonText: {
+    fontWeight: '600',
+    fontFamily: 'System',
+  },
 });
 
-export default ChatbotDrawer; 
+export default EditMenu;

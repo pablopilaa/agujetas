@@ -19,6 +19,20 @@ export interface SessionRecord {
   duracion?: number; // Duración en segundos
 }
 
+// Sesiones personalizadas (plantillas)
+export interface CustomSession {
+  id: string;
+  name: string;
+  exercises: ExerciseHistory[] | any[]; // permite plantillas sin fecha
+}
+
+// Rutinas compuestas por sesiones (por defecto o personalizadas)
+export interface Routine {
+  id: string;
+  name: string;
+  sessionRefs: Array<{ type: 'default' | 'custom'; key: string }>; // key: nombre o id
+}
+
 // Guardar una sesión completada
 export const saveSession = async (session: Omit<SessionRecord, 'id'>) => {
   try {
@@ -52,6 +66,157 @@ export const getSessions = async (): Promise<SessionRecord[]> => {
   } catch (error) {
     console.error('Error obteniendo sesiones:', error);
     return [];
+  }
+};
+
+// ===== Custom Sessions API =====
+export const getCustomSessions = async (): Promise<CustomSession[]> => {
+  try {
+    const data = await AsyncStorage.getItem('customSessions');
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error obteniendo sesiones personalizadas:', error);
+    return [];
+  }
+};
+
+export const saveCustomSession = async (session: Omit<CustomSession, 'id'>) => {
+  try {
+    const id = Date.now().toString();
+    const withId: CustomSession = { ...session, id };
+    const existing = await getCustomSessions();
+    await AsyncStorage.setItem('customSessions', JSON.stringify([withId, ...existing]));
+    return withId;
+  } catch (error) {
+    console.error('Error guardando sesión personalizada:', error);
+    throw error;
+  }
+};
+
+export const deleteCustomSession = async (customId: string): Promise<boolean> => {
+  try {
+    const existing = await getCustomSessions();
+    const filtered = existing.filter(s => s.id !== customId);
+    await AsyncStorage.setItem('customSessions', JSON.stringify(filtered));
+    return true;
+  } catch (error) {
+    console.error('Error eliminando sesión personalizada:', error);
+    return false;
+  }
+};
+
+export const updateCustomSession = async (session: CustomSession): Promise<boolean> => {
+  try {
+    const existing = await getCustomSessions();
+    const updated = existing.map(s => (s.id === session.id ? session : s));
+    await AsyncStorage.setItem('customSessions', JSON.stringify(updated));
+    return true;
+  } catch (error) {
+    console.error('Error actualizando sesión personalizada:', error);
+    return false;
+  }
+};
+
+// ====== Gestión de tipos de sesión por defecto editados ======
+export const getSessionTypeOverrides = async (): Promise<Partial<Record<string, ExerciseHistory[]>>> => {
+  try {
+    const data = await AsyncStorage.getItem('sessionTypeOverrides');
+    return data ? JSON.parse(data) : {};
+  } catch (error) {
+    console.error('Error obteniendo overrides de tipos de sesión:', error);
+    return {};
+  }
+};
+
+export const saveSessionTypeOverrides = async (overrides: Partial<Record<string, ExerciseHistory[]>>): Promise<boolean> => {
+  try {
+    await AsyncStorage.setItem('sessionTypeOverrides', JSON.stringify(overrides));
+    return true;
+  } catch (error) {
+    console.error('Error guardando overrides de tipos de sesión:', error);
+    return false;
+  }
+};
+
+export const updateSessionTypeOverride = async (sessionType: string, exercises: ExerciseHistory[]): Promise<boolean> => {
+  try {
+    const overrides = await getSessionTypeOverrides();
+    overrides[sessionType] = exercises;
+    await saveSessionTypeOverrides(overrides);
+    return true;
+  } catch (error) {
+    console.error('Error actualizando override de tipo de sesión:', error);
+    return false;
+  }
+};
+
+// ====== Tipos por defecto eliminados ======
+export const getDeletedSessionTypes = async (): Promise<string[]> => {
+  try {
+    const data = await AsyncStorage.getItem('deletedSessionTypes');
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error('Error obteniendo tipos eliminados:', e);
+    return [];
+  }
+};
+
+export const addDeletedSessionType = async (name: string): Promise<void> => {
+  const current = await getDeletedSessionTypes();
+  if (current.includes(name)) return;
+  await AsyncStorage.setItem('deletedSessionTypes', JSON.stringify([...current, name]));
+};
+
+export const removeDeletedSessionType = async (name: string): Promise<void> => {
+  const current = await getDeletedSessionTypes();
+  await AsyncStorage.setItem('deletedSessionTypes', JSON.stringify(current.filter(n => n !== name)));
+};
+
+// ===== Routines API =====
+export const getRoutines = async (): Promise<Routine[]> => {
+  try {
+    const data = await AsyncStorage.getItem('routines');
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error obteniendo rutinas:', error);
+    return [];
+  }
+};
+
+export const saveRoutine = async (routine: Omit<Routine, 'id'>) => {
+  try {
+    const id = Date.now().toString();
+    const withId: Routine = { ...routine, id };
+    const existing = await getRoutines();
+    await AsyncStorage.setItem('routines', JSON.stringify([withId, ...existing]));
+    return withId;
+  } catch (error) {
+    console.error('Error guardando rutina:', error);
+    throw error;
+  }
+};
+
+export const deleteRoutine = async (routineId: string): Promise<boolean> => {
+  try {
+    const existing = await getRoutines();
+    const filtered = existing.filter(r => r.id !== routineId);
+    await AsyncStorage.setItem('routines', JSON.stringify(filtered));
+    return true;
+  } catch (error) {
+    console.error('Error eliminando rutina:', error);
+    return false;
+  }
+};
+
+export const updateRoutine = async (routine: Routine): Promise<boolean> => {
+  try {
+    const existing = await getRoutines();
+    const updated = existing.map(r => (r.id === routine.id ? routine : r));
+    await AsyncStorage.setItem('routines', JSON.stringify(updated));
+    return true;
+  } catch (error) {
+    console.error('Error actualizando rutina:', error);
+    return false;
   }
 };
 

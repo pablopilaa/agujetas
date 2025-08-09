@@ -1,12 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { View, StyleSheet } from 'react-native';
-import ChatbotDrawer from './components/ChatbotDrawer';
+import { StatusBar } from 'expo-status-bar';
+import EditMenu from './components/EditMenu';
 import TimerBar from './components/TimerBar';
 import ExerciseList, { ExerciseListRef } from './components/ExerciseList';
-import DrawerTrigger from './components/DrawerTrigger';
 import SessionSelector from './components/SessionSelector';
+import WelcomeScreen from './components/WelcomeScreen';
 import { getTheme } from './utils/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Estado inicial vacío - no hay ejercicios hasta que se seleccione una sesión
 const initialData: Array<{
@@ -22,6 +24,7 @@ export default function App() {
   const [exercises, setExercises] = useState(initialData);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(false);
   const exerciseListRef = useRef<ExerciseListRef>(null);
   const timerRef = useRef<{ resetAllTimers: () => void } | null>(null);
 
@@ -62,12 +65,37 @@ export default function App() {
 
   const theme = getTheme(isDarkMode);
 
+  // Mostrar welcome solo una vez por día (primer arranque del día)
+  useEffect(() => {
+    (async () => {
+      try {
+        const today = new Date();
+        const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const last = await AsyncStorage.getItem('welcome_last_shown');
+        if (last !== key) {
+          setShowWelcome(true);
+          await AsyncStorage.setItem('welcome_last_shown', key);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  if (showWelcome) {
+    return (
+      <WelcomeScreen 
+        isDarkMode={isDarkMode} 
+        onFinish={() => setShowWelcome(false)} 
+      />
+    );
+  }
+
   return (
     <SafeAreaProvider>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} backgroundColor={theme.background} />
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["top", "left", "right"]}>
-        <ChatbotDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} exercises={exercises} setExercises={setExercises} onAddExercise={handleAddExercise} isDarkMode={isDarkMode} />
+                 <EditMenu open={drawerOpen} onClose={() => setDrawerOpen(false)} exercises={exercises} setExercises={setExercises} onAddExercise={handleAddExercise} isDarkMode={isDarkMode} />
         <View style={styles.mainContent}>
-                  <SessionSelector 
+          <SessionSelector 
           exercises={exercises} 
           setExercises={setExercises} 
           getIncompleteFieldsCount={getIncompleteFieldsCount}
@@ -106,4 +134,5 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
   },
+
 }); 
