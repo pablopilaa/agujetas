@@ -219,8 +219,16 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
   const getBodyWeightAtLocal = (date: Date): number | null => {
     if (!bodyWeights || bodyWeights.length === 0) return null;
     const target = date.getTime();
-    const found = bodyWeights.find(r => new Date(r.dateISO).getTime() <= target);
-    return found ? found.weightKg : null;
+    let bestTime = -Infinity;
+    let bestWeight: number | null = null;
+    for (const record of bodyWeights) {
+      const t = new Date(record.dateISO).getTime();
+      if (t <= target && t > bestTime) {
+        bestTime = t;
+        bestWeight = record.weightKg;
+      }
+    }
+    return bestWeight;
   };
 
   const handleDeleteSpecificSession = async (sessionToDelete: Session) => {
