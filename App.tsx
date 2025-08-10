@@ -29,9 +29,18 @@ export default function App() {
   const [sessionDuration, setSessionDuration] = useState(0);
   const [showWelcome, setShowWelcome] = useState(true);
   const exerciseListRef = useRef<ExerciseListRef>(null);
+  const exercisePickerHandlerRef = useRef<null | ((e: { ejercicio: string; musculo: string }) => void)>(null);
   const timerRef = useRef<{ resetAllTimers: () => void } | null>(null);
 
   const handleAddExercise = () => {
+    exerciseListRef.current?.openAddExerciseModal();
+  };
+
+  const openExercisePickerForType = (onPick: (e: { ejercicio: string; musculo: string }) => void) => {
+    exercisePickerHandlerRef.current = (picked) => {
+      onPick(picked);
+      exercisePickerHandlerRef.current = null;
+    };
     exerciseListRef.current?.openAddExerciseModal();
   };
 
@@ -125,6 +134,7 @@ export default function App() {
           onToggleDarkMode={toggleDarkMode}
           sessionDuration={sessionDuration}
           onSessionFinish={handleSessionFinish}
+          onOpenExercisePickerForType={openExercisePickerForType}
         />
         <TimerBar 
           minimized={timerMinimized} 
@@ -142,6 +152,21 @@ export default function App() {
             onAddExercise={handleAddExercise}
             onOpenChatbot={() => setDrawerOpen(true)}
             isDarkMode={isDarkMode}
+            onPickExercise={(e) => {
+              if (exercisePickerHandlerRef.current) {
+                exercisePickerHandlerRef.current(e);
+              } else {
+                // flujo normal: agregar al listado principal
+                setExercises(prev => ([
+                  ...prev,
+                  { ejercicio: e.ejercicio, musculo: e.musculo, series: [
+                    { reps: '', kg: '', rir: undefined },
+                    { reps: '', kg: '', rir: undefined },
+                    { reps: '', kg: '', rir: undefined },
+                  ]}
+                ]));
+              }
+            }}
           />
         </View>
       </SafeAreaView>

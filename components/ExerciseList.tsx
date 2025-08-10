@@ -28,6 +28,7 @@ interface Props {
   onAddExercise?: () => void;
   onOpenChatbot?: () => void;
   isDarkMode?: boolean;
+  onPickExercise?: (exercise: { ejercicio: string; musculo: string }) => void;
 }
 
 export interface ExerciseListRef {
@@ -133,7 +134,7 @@ const predefinedExercises = [
   { ejercicio: 'Bootcamp', musculo: 'Aeróbico' },
 ];
 
-const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, setExercises, onMinimize, onAddExercise, onOpenChatbot, isDarkMode }, ref) => {
+const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, setExercises, onMinimize, onAddExercise, onOpenChatbot, isDarkMode, onPickExercise }, ref) => {
   const insets = useSafeAreaInsets();
   const theme = getTheme(isDarkMode || false);
   const [showAddExerciseModal, setShowAddExerciseModal] = useState(false);
@@ -739,7 +740,15 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
                 <TouchableOpacity
                   key={index}
                   style={[styles.exerciseOption, { borderBottomColor: theme.border }]}
-                  onPress={() => addExercise(exercise)}
+                  onPress={() => {
+                    if (onPickExercise) {
+                      onPickExercise(exercise);
+                      setShowAddExerciseModal(false);
+                      setSearchQuery('');
+                    } else {
+                      addExercise(exercise);
+                    }
+                  }}
                 >
                   <Text style={[styles.exerciseOptionText, { color: theme.textPrimary }]}>{exercise.ejercicio}</Text>
                   <Text style={[styles.exerciseOptionSubtext, { color: theme.textSecondary }]}>{exercise.musculo}</Text>
@@ -795,7 +804,18 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
             <View style={styles.customExerciseButtons}>
               <TouchableOpacity 
                 style={[styles.customExerciseAddButton, { backgroundColor: '#D4A574' }]}
-                onPress={handleAddCustomExercise}
+                onPress={() => {
+                  if (!customExerciseName.trim()) return;
+                  if (onPickExercise) {
+                    onPickExercise({ ejercicio: customExerciseName.trim(), musculo: customExerciseMuscle });
+                    setShowCustomExerciseModal(false);
+                    setShowAddExerciseModal(false);
+                    setCustomExerciseName('');
+                    setSearchQuery('');
+                    return;
+                  }
+                  handleAddCustomExercise();
+                }}
               >
                 <Text style={[styles.customExerciseAddButtonText, { color: '#FFFFFF' }]}>Agregar</Text>
               </TouchableOpacity>
@@ -1094,7 +1114,7 @@ const styles = StyleSheet.create({
     minHeight: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    marginHorizontal: 0,
+    marginHorizontal: 4, // igual que input
   },
   headerCellTime: {
     width: 180,

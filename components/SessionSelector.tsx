@@ -23,6 +23,7 @@ interface Props {
   onToggleDarkMode?: () => void;
   sessionDuration?: number; // Duración de la sesión en segundos
   onSessionFinish?: () => void; // Callback para resetear timers
+  onOpenExercisePickerForType?: (onPick: (e: { ejercicio: string; musculo: string }) => void) => void;
 }
 
 type SessionType = 'Push' | 'Pull' | 'Piernas' | 'Sesión mixta' | 'Sesión libre' | 'Cardio';
@@ -71,7 +72,7 @@ const getDisplaySessionName = (name: string): string => {
   return name;
 };
 
-const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExercise, getIncompleteFieldsCount, isDarkMode, onToggleDarkMode, sessionDuration, onSessionFinish }) => {
+const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExercise, getIncompleteFieldsCount, isDarkMode, onToggleDarkMode, sessionDuration, onSessionFinish, onOpenExercisePickerForType }) => {
   const insets = useSafeAreaInsets();
   const [selectedSession, setSelectedSession] = useState<SessionType | null>(null);
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -799,14 +800,18 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                     style={[styles.customNameInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.textPrimary }]}
                   />
                   <TouchableOpacity style={[styles.cancelButton, { backgroundColor: theme.buttonPrimary }]} onPress={() => {
-                    setEditingTypeExercises(prev => ([
-                      ...prev,
-                      { ejercicio: 'Nuevo ejercicio', musculo: '', series: [
-                        { reps: '', kg: '', rir: undefined },
-                        { reps: '', kg: '', rir: undefined },
-                        { reps: '', kg: '', rir: undefined },
-                      ]}
-                    ]));
+                    if (onOpenExercisePickerForType) {
+                      onOpenExercisePickerForType((picked) => {
+                        setEditingTypeExercises(prev => ([
+                          ...prev,
+                          { ejercicio: picked.ejercicio, musculo: picked.musculo, series: [
+                            { reps: '', kg: '', rir: undefined },
+                            { reps: '', kg: '', rir: undefined },
+                            { reps: '', kg: '', rir: undefined },
+                          ]}
+                        ]));
+                      });
+                    }
                   }}>
                     <Text style={[styles.cancelButtonText, { color: theme.buttonText }]}>+ Añadir ejercicio</Text>
                   </TouchableOpacity>

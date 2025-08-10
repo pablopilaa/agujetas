@@ -793,8 +793,26 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                   </TouchableOpacity>
                 </View>
 
+                {/* 2) Seguimiento Peso Corporal */}
                 <View style={[styles.separator, { backgroundColor: '#333333' }]} />
+                <TouchableOpacity 
+                  style={styles.exportSection}
+                  onPress={() => setShowBodyWeightModal(true)}
+                >
+                  <Text style={[styles.sectionTitle, { color: theme.textPrimary, flex: 0 }]}>Seguimiento Peso Corporal</Text>
+                </TouchableOpacity>
 
+                {/* 3) Exportar Histórico */}
+                <View style={[styles.separator, { backgroundColor: '#333333' }]} />
+                <TouchableOpacity 
+                  style={styles.exportSection}
+                  onPress={() => setShowExportModal(true)}
+                >
+                  <Text style={[styles.sectionTitle, { color: theme.textPrimary, flex: 0 }]}>Exportar Histórico</Text>
+                </TouchableOpacity>
+
+                {/* 4) Calendario de Entrenamiento */}
+                <View style={[styles.separator, { backgroundColor: '#333333' }]} />
                 <TouchableOpacity 
                   style={styles.calendarHeader}
                   onPress={() => setIsCalendarExpanded(!isCalendarExpanded)}
@@ -811,11 +829,9 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                     {isCalendarExpanded ? '▼' : '▶'}
                   </Text>
                 </TouchableOpacity>
-                
                 {isCalendarExpanded ? null : (
                   <View style={{ height: 8 }} />
                 )}
-                
                 {isCalendarExpanded && (
                   <>
                     <View style={styles.monthSelector}>
@@ -827,7 +843,6 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                         <Text style={[styles.monthButtonText, { color: '#FFFFFF' }]}>›</Text>
                       </TouchableOpacity>
                     </View>
-
                     <ScrollView style={[styles.calendar, { paddingBottom: 0, maxHeight: Dimensions.get('window').height * 0.40 }]}
                       contentContainerStyle={{ paddingBottom: 0 }}
                       showsVerticalScrollIndicator={false}
@@ -837,7 +852,6 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                           <Text key={day} style={[styles.weekDayText, { color: theme.textSecondary }]}>{day}</Text>
                         ))}
                       </View>
-                      
                       <View style={styles.daysGrid}>
                         {days.map((day, index) => (
                           <View key={index} style={styles.dayContainer}>
@@ -868,7 +882,6 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                         ))}
                       </View>
                     </ScrollView>
-
                     <View style={[styles.legend, { paddingVertical: 0, marginTop: 0 }]}> 
                       <View style={styles.legendItem}>
                         <View style={[styles.legendDot, { backgroundColor: '#D4A574', borderColor: '#D4A574' }]} />
@@ -881,27 +894,6 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                     </View>
                   </>
                 )}
-              </>
-            )}
-
-                {/* Sección Seguimiento Peso Corporal */}
-                <View style={[styles.separator, { backgroundColor: '#333333' }]} />
-                <TouchableOpacity 
-                  style={styles.exportSection}
-                  onPress={() => setShowBodyWeightModal(true)}
-                >
-                  <Text style={[styles.sectionTitle, { color: theme.textPrimary, flex: 0 }]}>Seguimiento Peso Corporal</Text>
-                </TouchableOpacity>
-
-            {/* Sección Exportar Histórico */}
-            <View style={[styles.separator, { backgroundColor: '#333333' }]} />
-            
-            <TouchableOpacity 
-              style={styles.exportSection}
-              onPress={() => setShowExportModal(true)}
-            >
-              <Text style={[styles.sectionTitle, { color: theme.textPrimary, flex: 0 }]}>Exportar Histórico</Text>
-            </TouchableOpacity>
 
             {/* Modal para exportar histórico */}
             <Modal
