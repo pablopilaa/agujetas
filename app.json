@@ -24,11 +24,7 @@
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE"
-      ],
-      "notification": {
-        "icon": "./assets/icon-optimized.png",
-        "color": "#D4A574"
-      }
+      ]
     },
     "plugins": [
       [

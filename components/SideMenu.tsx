@@ -1128,7 +1128,8 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
 
               {/* Footer credit removed per user request */}
             </>
-              </View>
+          )}
+        </View>
           )}
         </Animated.View>
       </View>
