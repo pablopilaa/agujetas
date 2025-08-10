@@ -9,6 +9,9 @@ import SessionSelector from './components/SessionSelector';
 import WelcomeScreen from './components/WelcomeScreen';
 import { getTheme } from './utils/theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getBodyWeights, getLastBodyWeightWarningShown, setLastBodyWeightWarningShown } from './utils/storage';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 
 // Estado inicial vacío - no hay ejercicios hasta que se seleccione una sesión
 const initialData: Array<{
@@ -24,7 +27,7 @@ export default function App() {
   const [exercises, setExercises] = useState(initialData);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
   const exerciseListRef = useRef<ExerciseListRef>(null);
   const timerRef = useRef<{ resetAllTimers: () => void } | null>(null);
 
@@ -65,17 +68,36 @@ export default function App() {
 
   const theme = getTheme(isDarkMode);
 
-  // Mostrar welcome solo una vez por día (primer arranque del día)
+  // Mostrar welcome al cold start y cerrarlo a los 1000ms
+  useEffect(() => {
+    let t: any;
+    if (showWelcome) {
+      t = setTimeout(() => setShowWelcome(false), 1000);
+    }
+    return () => { if (t) clearTimeout(t); };
+  }, [showWelcome]);
+
+  // Notificaciones push deshabilitadas por decisión del proyecto
+  useEffect(() => { /* no-op */ }, []);
+
+  // Aviso semanal de peso corporal (solo cold start)
   useEffect(() => {
     (async () => {
       try {
-        const today = new Date();
-        const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        const last = await AsyncStorage.getItem('welcome_last_shown');
-        if (last !== key) {
-          setShowWelcome(true);
-          await AsyncStorage.setItem('welcome_last_shown', key);
+        const list = await getBodyWeights();
+        if (!list || list.length === 0) return;
+        const lastWeightDate = new Date(list[0].dateISO);
+        const now = new Date();
+        const daysSince = Math.floor((now.getTime() - lastWeightDate.getTime()) / 86400000);
+        if (daysSince < 7) return;
+        const lastWarn = await getLastBodyWeightWarningShown();
+        if (lastWarn) {
+          const lastWarnDate = new Date(lastWarn);
+          const daysSinceWarn = Math.floor((now.getTime() - lastWarnDate.getTime()) / 86400000);
+          if (daysSinceWarn < 7) return;
         }
+        alert('Ya pasó una semana, cargá tu peso actual para un seguimiento más efectivo');
+        await setLastBodyWeightWarningShown(now.toISOString());
       } catch {}
     })();
   }, []);

@@ -142,6 +142,10 @@ const TimerBar = forwardRef((
   // Referencias para los intervalos
   const incrementalIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const regressiveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const scheduledNotificationIdRef = useRef<string | null>(null);
+  const isAppActiveRef = useRef<boolean>(true);
+  const isRegressiveRunningRef = useRef<boolean>(false);
+  const regressiveTimeRef = useRef<number>(regressiveTime);
 
   // Función para reproducir notificación
   const playNotification = async () => {
@@ -164,69 +168,34 @@ const TimerBar = forwardRef((
     }
   };
 
-  // Configuración del handler global de notificaciones
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({ shouldShowAlert: true, shouldPlaySound: true, shouldSetBadge: false })
-  });
-
-  // Programar notificación local con sonido para Android
-  const scheduleNotification = async (seconds: number) => {
-    try {
-      const trigger = { seconds, channelId: 'rest-finish' } as Notifications.NotificationTriggerInput;
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Descanso finalizado',
-          body: '¡Volvé al set! Ya terminó tu descanso.',
-          sound: 'default',
-          vibrate: [200, 100, 200],
-          priority: Notifications.AndroidNotificationPriority.HIGH
-        },
-        trigger,
-      });
-    } catch (e) {
-      console.log('Error al programar notificación:', e);
-    }
-  };
+  // Deshabilitado: no programar notificación push en background
+  const scheduleNotification = async (_seconds: number) => { return; };
 
 
 
 
 
-  // Solicitar permisos y crear canal Android al montar
+  // No inicializamos aquí; se hace una sola vez en App.tsx
+
+  // Listener para el estado de la app - simplificado
   useEffect(() => {
-    (async () => {
-      try {
-        if (Platform.OS === 'android') {
-          await Notifications.setNotificationChannelAsync('rest-finish', {
-            name: 'Fin de descanso',
-            importance: Notifications.AndroidImportance.MAX,
-            sound: 'default',
-            vibrationPattern: [200, 100, 200],
-            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-            bypassDnd: true,
-            enableLights: true,
-            lightColor: '#FFD9B0',
-            enableVibrate: true,
-            audioAttributes: {
-              usage: Notifications.AndroidAudioUsage.ASSISTANCE_SONIFICATION,
-              contentType: Notifications.AndroidAudioContentType.SONIFICATION,
-            },
-          });
-        }
-        const settings = await Notifications.getPermissionsAsync();
-        if (!settings.granted) {
-          await Notifications.requestPermissionsAsync();
-        }
-      } catch (e) {
-        console.log('Error configurando notificaciones:', e);
-      }
-    })();
-  }, []);
+    isRegressiveRunningRef.current = isRegressiveRunning;
+  }, [isRegressiveRunning]);
+
+  useEffect(() => {
+    regressiveTimeRef.current = regressiveTime;
+  }, [regressiveTime]);
 
   // Listener para el estado de la app - simplificado
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
+      isAppActiveRef.current = nextAppState === 'active';
       if (nextAppState === 'active') {
+        // Cancelar cualquier notificación al volver al foreground
+        if (scheduledNotificationIdRef.current) {
+          Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
+          scheduledNotificationIdRef.current = null;
+        }
         // La app volvió a primer plano, actualizar timers si están corriendo
         if (isIncrementalRunning && incrementalStartTime) {
           const elapsed = Math.floor((Date.now() - incrementalStartTime) / 1000) + incrementalPausedTime;
@@ -242,6 +211,8 @@ const TimerBar = forwardRef((
             setRegressiveTime(0);
           }
         }
+      } else {
+        // Background/inactive: no programar notificación push (deshabilitado)
       }
     };
 
@@ -348,10 +319,10 @@ const TimerBar = forwardRef((
           setRegressiveStartTime(null);
           setRegressivePausedTime(0);
           
-          // Reproducir sonido in-app y permitir que la notificación ya programada dispare si estaba en background
-          playNotification();
-          // Cancelar futuras notificaciones programadas
-          Notifications.cancelAllScheduledNotificationsAsync().catch(() => {});
+          // Reproducir sonido solo en foreground
+          if (isAppActiveRef.current) {
+            playNotification();
+          }
           
           // Auto-reset al llegar a 00:00
           setTimeout(() => {
@@ -435,15 +406,16 @@ const TimerBar = forwardRef((
   const handleRegressiveStart = async () => { 
     if (!isRegressiveRunning) { 
       setIsRegressiveRunning(true);
-      try {
-        await Notifications.cancelAllScheduledNotificationsAsync();
-        await scheduleNotification(regressiveTime);
-      } catch {}
     } 
   };
   const handleRegressivePause = async () => { 
     setIsRegressiveRunning(false);
-    try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {}
+    try {
+      if (scheduledNotificationIdRef.current) {
+        await Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current);
+        scheduledNotificationIdRef.current = null;
+      }
+    } catch {}
   };
   const handleRegressiveReset = async () => {
     setIsRegressiveRunning(false);
@@ -451,7 +423,12 @@ const TimerBar = forwardRef((
     setRegressivePausedTime(0);
     setRegressiveStartTime(null);
     setRegressiveInput(formatTime(originalRegressiveTime));
-    try { await Notifications.cancelAllScheduledNotificationsAsync(); } catch {}
+    try {
+      if (scheduledNotificationIdRef.current) {
+        await Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current);
+        scheduledNotificationIdRef.current = null;
+      }
+    } catch {}
   };
   const handleRegressiveEdit = () => { setIsEditingRegressive(true); };
   const handleRegressiveSave = () => {
@@ -474,6 +451,12 @@ const TimerBar = forwardRef((
       setRegressiveTime(newRemainingTime);
       // Resetear el tiempo pausado para que el cálculo sea correcto
       setRegressivePausedTime(0);
+      // Nunca programar notificación desde aquí. Si está en background,
+      // AppState listener se encarga de programar con el tiempo actual.
+      if (scheduledNotificationIdRef.current) {
+        Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
+        scheduledNotificationIdRef.current = null;
+      }
     } else {
       // Si está quieto, modificar la configuración permanente
       const newTime = originalRegressiveTime + 15;
@@ -491,6 +474,10 @@ const TimerBar = forwardRef((
         setRegressiveTime(newRemainingTime);
         // Resetear el tiempo pausado para que el cálculo sea correcto
         setRegressivePausedTime(0);
+        if (scheduledNotificationIdRef.current) {
+          Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
+          scheduledNotificationIdRef.current = null;
+        }
       }
     } else {
       // Si está quieto, modificar la configuración permanente
@@ -504,18 +491,32 @@ const TimerBar = forwardRef((
   };
 
   const handleAdd1Minute = () => {
-    setIncrementalTime(incrementalTime + 60);
-    if (onDurationChange) {
-      onDurationChange(incrementalTime + 60);
+    // Actualiza el tiempo mostrado
+    setIncrementalTime((prev) => {
+      const next = prev + 60;
+      if (onDurationChange) onDurationChange(next);
+      return next;
+    });
+    // Alinear el acumulado real
+    setIncrementalPausedTime((prev) => prev + 60);
+    // Si está corriendo, reiniciar el intervalo para tomar el nuevo acumulado
+    if (isIncrementalRunning) {
+      setIsIncrementalRunning(false);
+      setTimeout(() => setIsIncrementalRunning(true), 0);
     }
   };
 
   const handleSubtract1Minute = () => {
-    if (incrementalTime >= 60) {
-      setIncrementalTime(incrementalTime - 60);
-      if (onDurationChange) {
-        onDurationChange(incrementalTime - 60);
-      }
+    if (incrementalTime < 60) return;
+    setIncrementalTime((prev) => {
+      const next = prev - 60;
+      if (onDurationChange) onDurationChange(next);
+      return next;
+    });
+    setIncrementalPausedTime((prev) => Math.max(0, prev - 60));
+    if (isIncrementalRunning) {
+      setIsIncrementalRunning(false);
+      setTimeout(() => setIsIncrementalRunning(true), 0);
     }
   };
 

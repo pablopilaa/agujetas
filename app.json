@@ -2,7 +2,8 @@
   "expo": {
     "name": "Agujetas",
     "slug": "agujetas-v102",
-    "version": "1.0.1",
+    "version": "1.0.2",
+    "scheme": "agujetas",
     "orientation": "portrait",
     "icon": "./assets/icon-optimized.png",
     "userInterfaceStyle": "light",
@@ -29,6 +30,25 @@
         "color": "#D4A574"
       }
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/notification.ogg"
+          ]
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": false,
+            "minifyEnabled": false
+          }
+        }
+      ]
+    ],
     "web": {
       "favicon": "./assets/logo.png"
     },

@@ -778,11 +778,17 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
                 onChangeText={setCustomExerciseName}
                 placeholderTextColor={theme.textSecondary}
               />
-              <View style={[styles.pickerContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Text style={[styles.pickerLabel, { color: theme.textSecondary }]}>Grupo muscular: {customExerciseMuscle}</Text>
-                <Text style={[styles.pickerNote, { color: theme.textSecondary }]}>
-                  (Selector temporalmente simplificado)
-                </Text>
+              {/* Selector real de grupo muscular */}
+              <View style={[styles.pickerContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}
+              >
+                <ScrollView style={{ maxHeight: 160 }}>
+                  {muscleGroups.map((mg) => (
+                    <TouchableOpacity key={mg} style={{ paddingVertical: 8 }} onPress={() => setCustomExerciseMuscle(mg)}>
+                      <Text style={{ color: customExerciseMuscle === mg ? '#4F766F' : theme.textPrimary, fontWeight: customExerciseMuscle === mg ? '700' as const : '500' }}>{mg}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <Text style={[styles.pickerLabel, { color: theme.textSecondary, marginTop: 6 }]}>Seleccionado: {customExerciseMuscle}</Text>
               </View>
             </View>
             

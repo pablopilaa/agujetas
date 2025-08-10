@@ -17,6 +17,8 @@ export interface SessionRecord {
   fecha: string;
   ejercicios: ExerciseHistory[];
   duracion?: number; // Duración en segundos
+  rutina?: string; // Nombre de la rutina usada al guardar
+  rutinaId?: string; // ID de la rutina usada al guardar
 }
 
 // Sesiones personalizadas (plantillas)
@@ -32,6 +34,82 @@ export interface Routine {
   name: string;
   sessionRefs: Array<{ type: 'default' | 'custom'; key: string }>; // key: nombre o id
 }
+
+// ====== Peso corporal ======
+export interface BodyWeightRecord {
+  id: string;
+  dateISO: string; // YYYY-MM-DD or full ISO
+  weightKg: number;
+}
+
+const BODY_WEIGHTS_KEY = 'bodyWeights';
+const LAST_BODY_WEIGHT_WARNING_KEY = 'last_body_weight_warning_shown';
+
+export const getBodyWeights = async (): Promise<BodyWeightRecord[]> => {
+  try {
+    const data = await AsyncStorage.getItem(BODY_WEIGHTS_KEY);
+    const list: BodyWeightRecord[] = data ? JSON.parse(data) : [];
+    // Ordenar descendente por fecha
+    return list.sort((a, b) => new Date(b.dateISO).getTime() - new Date(a.dateISO).getTime());
+  } catch (error) {
+    console.error('Error obteniendo pesos corporales:', error);
+    return [];
+  }
+};
+
+export const addBodyWeight = async (record: Omit<BodyWeightRecord, 'id'>): Promise<BodyWeightRecord> => {
+  try {
+    const id = Date.now().toString();
+    const withId: BodyWeightRecord = { ...record, id };
+    const existing = await getBodyWeights();
+    const updated = [withId, ...existing];
+    await AsyncStorage.setItem(BODY_WEIGHTS_KEY, JSON.stringify(updated));
+    return withId;
+  } catch (error) {
+    console.error('Error agregando peso corporal:', error);
+    throw error;
+  }
+};
+
+export const deleteBodyWeight = async (id: string): Promise<boolean> => {
+  try {
+    const existing = await getBodyWeights();
+    const filtered = existing.filter(r => r.id !== id);
+    await AsyncStorage.setItem(BODY_WEIGHTS_KEY, JSON.stringify(filtered));
+    return true;
+  } catch (error) {
+    console.error('Error eliminando peso corporal:', error);
+    return false;
+  }
+};
+
+// Devuelve el último peso cuyo dateISO sea <= a la fecha indicada
+export const getBodyWeightAt = async (date: Date): Promise<number | null> => {
+  try {
+    const list = await getBodyWeights();
+    if (list.length === 0) return null;
+    const target = date.getTime();
+    // Encontrar el más reciente <= target
+    const found = list.find(r => new Date(r.dateISO).getTime() <= target);
+    return found ? found.weightKg : null;
+  } catch {
+    return null;
+  }
+};
+
+export const getLastBodyWeightWarningShown = async (): Promise<string | null> => {
+  try {
+    return await AsyncStorage.getItem(LAST_BODY_WEIGHT_WARNING_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const setLastBodyWeightWarningShown = async (isoDate: string): Promise<void> => {
+  try {
+    await AsyncStorage.setItem(LAST_BODY_WEIGHT_WARNING_KEY, isoDate);
+  } catch {}
+};
 
 // Guardar una sesión completada
 export const saveSession = async (session: Omit<SessionRecord, 'id'>) => {

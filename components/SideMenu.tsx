@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Image, Animated, Alert, Dimensions, TouchableWithoutFeedback, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Image, Animated, Alert, Dimensions, TouchableWithoutFeedback, Platform, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { getSessions, deleteSession } from '../utils/storage';
+import { getSessions, deleteSession, getBodyWeights, addBodyWeight, BodyWeightRecord } from '../utils/storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as XLSX from 'xlsx';
 import { getTheme } from '../utils/theme';
 
 interface Props {
@@ -32,7 +33,8 @@ interface Session {
 
 const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkMode, onAddHistoricalSession, isSavingSession, onSaveSessionToDate }) => {
   const insets = useSafeAreaInsets();
-  const currentYear = new Date().getFullYear();
+  // Footer year no longer used
+  // const currentYear = new Date().getFullYear();
   const theme = getTheme(isDarkMode);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
@@ -41,6 +43,11 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
   const [showDayDetails, setShowDayDetails] = useState(false);
   const [isContentReady, setIsContentReady] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showBodyWeightModal, setShowBodyWeightModal] = useState(false);
+  const [bodyWeights, setBodyWeights] = useState<BodyWeightRecord[]>([]);
+  const [bwDate, setBwDate] = useState<Date>(new Date());
+  const [showBwDatePicker, setShowBwDatePicker] = useState(false);
+  const [bwWeight, setBwWeight] = useState<string>('');
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [endDate, setEndDate] = useState(new Date());
   const [exportFormat, setExportFormat] = useState<'csv' | 'xlsx' | null>(null);
@@ -60,6 +67,7 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
       }).start(() => {
         // Después de la animación, cargar los datos
         loadSessions();
+        loadBodyWeights();
         setIsContentReady(true);
       });
     } else {
@@ -89,6 +97,15 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
       setSessions(savedSessions || []);
     } catch (error) {
       console.error('Error cargando sesiones:', error);
+    }
+  };
+
+  const loadBodyWeights = async () => {
+    try {
+      const list = await getBodyWeights();
+      setBodyWeights(list);
+    } catch (e) {
+      console.error('Error cargando pesos corporales:', e);
     }
   };
 
@@ -169,6 +186,14 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
 
   const handleDayPress = (day: Date) => {
     console.log('👆 Día presionado:', day.toLocaleDateString('es-ES'));
+    // Bloquear días futuros
+    const today = new Date(); today.setHours(0,0,0,0);
+    const d = new Date(day); d.setHours(0,0,0,0);
+    const isFuture = d.getTime() > today.getTime();
+    if (isFuture) {
+      Alert.alert('Fecha inválida', 'No podés seleccionar fechas futuras.');
+      return;
+    }
     
           // Si estamos en modo "guardar sesión", guardar directamente
       if (isSavingSession && onSaveSessionToDate) {
@@ -186,6 +211,14 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
     // Comportamiento normal: mostrar detalles del día
     setSelectedDay(day);
     setShowDayDetails(true);
+  };
+
+  // Helper: obtener peso corporal para una fecha desde la lista local
+  const getBodyWeightAtLocal = (date: Date): number | null => {
+    if (!bodyWeights || bodyWeights.length === 0) return null;
+    const target = date.getTime();
+    const found = bodyWeights.find(r => new Date(r.dateISO).getTime() <= target);
+    return found ? found.weightKg : null;
   };
 
   const handleDeleteSpecificSession = async (sessionToDelete: Session) => {
@@ -222,24 +255,18 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
     );
   };
 
-  // Función para exportar sesiones de un día
-  const exportDaySessions = (day: Date) => {
+  // Exportar sesiones de un día (CSV o XLSX)
+  const exportDaySessions = async (day: Date, format: 'csv' | 'xlsx') => {
     const dateString = day.toLocaleDateString('en-CA');
     if (!sessions || sessions.length === 0) {
       Alert.alert('Sin datos', 'No hay sesiones para exportar.');
       return;
     }
-    
+
     const daySessions = sessions.filter(session => {
-      // Verificar que session.fecha existe y no es null/undefined
       if (!session.fecha) return false;
-      
-      let sessionDate;
-      if (session.fecha.includes('T')) {
-        sessionDate = new Date(session.fecha).toLocaleDateString('en-CA');
-      } else {
-        sessionDate = session.fecha;
-      }
+      // fecha guardada como YYYY-MM-DD (local)
+      const sessionDate = session.fecha;
       return sessionDate === dateString;
     });
 
@@ -248,47 +275,104 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
       return;
     }
 
-    // Exportar en formato CSV
-    const date = day.toLocaleDateString('es-ES');
-    const dayOfWeek = day.toLocaleDateString('es-ES', { weekday: 'long' });
-    
-    let csvContent = `INFORME DE ENTRENAMIENTO - ${date}\n`;
-    csvContent += `================================\n`;
-    csvContent += `Día: ${dayOfWeek}\n`;
-    csvContent += `Fecha: ${date}\n`;
-    csvContent += `Sesiones realizadas: ${daySessions.length}\n`;
-    
-    // Calcular duración total
-    let totalDuration = 0;
-    daySessions.forEach(session => {
-      if (session.duracion) {
-        totalDuration += session.duracion;
-      }
-    });
-    
-    const totalMinutes = Math.floor(totalDuration / 60);
-    const totalSeconds = totalDuration % 60;
-    csvContent += `Duración total: ${totalMinutes}:${totalSeconds.toString().padStart(2, '0')}\n`;
-    csvContent += `================================\n\n`;
-    csvContent += 'Ejercicio,Músculo,Serie,Repeticiones,Peso (kg),RIR\n';
-    
-    daySessions.forEach((session, sessionIndex) => {
-      csvContent += `\n--- ${session.tipo} ---\n`;
-      if (session.duracion) {
-        const sessionMinutes = Math.floor(session.duracion / 60);
-        const sessionSeconds = session.duracion % 60;
-        csvContent += `Duración de esta sesión: ${sessionMinutes}:${sessionSeconds.toString().padStart(2, '0')}\n`;
-      }
-      session.ejercicios.forEach((exercise) => {
-        exercise.series.forEach((serie, serieIndex) => {
-          csvContent += `"${exercise.ejercicio}","${exercise.musculo}",${serieIndex + 1},"${serie.reps}","${serie.kg}",${serie.rir || ''}\n`;
+    const header = ['fecha','fecha_hora_iso','mes','semana_iso','dia_semana','rutina','rutina_id','duracion_hhmmss','duracion_seg','orden_ejercicio','numero_serie','musculo','lado','repeticiones','peso_kg','rir','volumen_kg','peso_corporal_kg'];
+    const rows: string[][] = [];
+
+    const toHHMMSS = (totalSeconds?: number) => {
+      if (!totalSeconds || totalSeconds < 0) return '';
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    };
+
+    const getMonthName = (d: Date) => d.toLocaleDateString('es-ES', { month: 'long' });
+    const getISOWeek = (d: Date) => {
+      const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayNum = date.getUTCDay() || 7; // 1..7 (Mon..Sun)
+      date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+      const weekNo = Math.ceil((((date as any) - (yearStart as any)) / 86400000 + 1) / 7);
+      return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+    };
+    const getWeekday = (d: Date) => {
+      const day = d.getDay(); // 0..6 (Sun..Sat)
+      return day === 0 ? 7 : day; // 1..7 (Mon..Sun)
+    };
+
+    daySessions.forEach((session, exerciseOrder) => {
+      session.ejercicios.forEach((ejercicio) => {
+        ejercicio.series.forEach((serie, serieIndex) => {
+          const jsDate = new Date(session.fecha);
+          const fechaIso = jsDate.toISOString();
+          const fecha = jsDate.toISOString().slice(0,10);
+          const mes = getMonthName(jsDate);
+          const semanaIso = getISOWeek(jsDate);
+          const diaSemana = String(getWeekday(jsDate));
+          const durHHMMSS = toHHMMSS(session.duracion);
+          const durSeg = String(session.duracion ?? 0);
+          const lado = '';
+          const rep = serie.reps || '';
+          const peso = serie.kg || '';
+          const rir = serie.rir?.toString() || '';
+          const vol = rep && peso ? String(Number(rep) * Number(peso)) : '';
+          const bw = getBodyWeightAtLocal(jsDate);
+          const pesoCorporal = bw != null ? String(bw) : '';
+
+          rows.push([
+            fecha,
+            fechaIso,
+            mes,
+            semanaIso,
+            diaSemana,
+            session.rutina || '',
+            session.rutinaId || '',
+            durHHMMSS,
+            durSeg,
+            String(exerciseOrder + 1),
+            String(serieIndex + 1),
+            ejercicio.musculo || '',
+            lado,
+            rep,
+            peso,
+            rir,
+            vol,
+            pesoCorporal,
+          ]);
         });
       });
     });
 
-    // Exportar directamente sin confirmación adicional
-    console.log('CSV Content:', csvContent);
-    Alert.alert('Exportado', 'Datos CSV exportados correctamente.');
+    const base = `sesion_${dateString}`;
+    const filename = format === 'xlsx' ? `${base}.xlsx` : `${base}.csv`;
+    const mimeType = format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv';
+
+    try {
+      // Generar archivo en caché y compartir (flujo simple y confiable)
+      const fileUri = FileSystem.cacheDirectory + filename;
+      if (format === 'xlsx') {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Sesion');
+        const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+        await FileSystem.writeAsStringAsync(fileUri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+      } else {
+        const csvContent = [header, ...rows].map(r => r.map(f => {
+          const needsQuotes = /[",\n]/.test(f);
+          const escaped = f.replace(/"/g, '""');
+          return needsQuotes ? `"${escaped}"` : escaped;
+        }).join(',')).join('\n');
+        await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+      }
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, { mimeType, dialogTitle: 'Exportar sesión' });
+      } else {
+        Alert.alert('Exportación', `Archivo generado en caché: ${fileUri}`);
+      }
+    } catch (e) {
+      console.error('Error exportando sesión:', e);
+      Alert.alert('Error', 'No se pudo exportar la sesión.');
+    }
   };
 
   const handleDeleteDaySessions = (day: Date) => {
@@ -383,13 +467,16 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
       return;
     }
 
+    const start = new Date(startDate); start.setHours(0,0,0,0);
+    const end = new Date(endDate); end.setHours(23,59,59,999);
     const filteredSessions = sessions.filter(session => {
-      const sessionDate = new Date(session.fecha);
-      return sessionDate >= startDate && sessionDate <= endDate;
+      const [y,m,d] = session.fecha.split('-').map(Number);
+      const sessionDate = new Date(y, (m || 1) - 1, d || 1);
+      return sessionDate >= start && sessionDate <= end;
     });
 
-    const csvData: string[][] = [];
-    csvData.push(['Fecha', 'Tipo de sesión', 'Rutina', 'Duración sesión (HH:MM:SS)', 'Ejercicio', 'Músculo', 'Orden en sesión', 'N° de Serie', 'Repes', 'Kg', 'RIR']);
+    const header = ['fecha','fecha_hora_iso','mes','semana_iso','dia_semana','rutina','rutina_id','duracion_hhmmss','duracion_seg','orden_ejercicio','numero_serie','musculo','lado','repeticiones','peso_kg','rir','volumen_kg','peso_corporal_kg'];
+    const rows: string[][] = [];
 
      const toHHMMSS = (totalSeconds?: number) => {
        if (!totalSeconds || totalSeconds < 0) return '';
@@ -399,45 +486,92 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
      };
 
-     filteredSessions.forEach(session => {
-      session.ejercicios.forEach(ejercicio => {
-        ejercicio.series.forEach((serie, serieIndex) => {
-            const row = [
-            new Date(session.fecha).toLocaleDateString('es-ES'),
-             session.tipo,
-              '', // Rutina (rellenar cuando haya integración con gestor de rutinas)
-             toHHMMSS(session.duracion),
-             ejercicio.ejercicio,
-             ejercicio.musculo || '',
-             (ejercicio.series ? ejercicio.series.length : 0).toString(),
-            (serieIndex + 1).toString(),
-            serie.reps || '',
-            serie.kg || '',
-             serie.rir?.toString() || ''
-          ];
-          csvData.push(row);
-        });
-      });
-    });
+     const getMonthName = (d: Date) => d.toLocaleDateString('es-ES', { month: 'long' });
+     const getISOWeek = (d: Date) => {
+       const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+       const dayNum = date.getUTCDay() || 7;
+       date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+       const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+       const weekNo = Math.ceil((((date as any) - (yearStart as any)) / 86400000 + 1) / 7);
+       return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+     };
+     const getWeekday = (d: Date) => {
+       const day = d.getDay();
+       return day === 0 ? 7 : day;
+     };
 
-    const csvContent = csvData.map(row => row.map(field => {
-      // Escapar comillas y envolver campos con comas
-      const needsQuotes = /[",\n]/.test(field);
-      const escaped = field.replace(/"/g, '""');
-      return needsQuotes ? `"${escaped}"` : escaped;
-    }).join(',')).join('\n');
+     filteredSessions.forEach((session, exerciseOrder) => {
+       session.ejercicios.forEach((ejercicio) => {
+         ejercicio.series.forEach((serie, serieIndex) => {
+           const [sy,sm,sd] = session.fecha.split('-').map(Number);
+           const jsDate = new Date(sy, (sm || 1) - 1, sd || 1);
+           const fecha = session.fecha;
+           const tz = -jsDate.getTimezoneOffset();
+           const sign = tz >= 0 ? '+' : '-';
+           const hh = String(Math.floor(Math.abs(tz) / 60)).padStart(2, '0');
+           const mm = String(Math.abs(tz) % 60).padStart(2, '0');
+           const fechaIso = `${fecha}T00:00:00${sign}${hh}:${mm}`;
+           const mes = getMonthName(jsDate);
+           const semanaIso = getISOWeek(jsDate);
+           const diaSemana = String(getWeekday(jsDate));
+           const durHHMMSS = toHHMMSS(session.duracion);
+           const durSeg = String(session.duracion ?? 0);
+           const lado = '';
+           const rep = serie.reps || '';
+           const peso = serie.kg || '';
+           const rir = serie.rir?.toString() || '';
+           const vol = rep && peso ? String(Number(rep) * Number(peso)) : '';
+           const bw = getBodyWeightAtLocal(jsDate);
+           const pesoCorporal = bw != null ? String(bw) : '';
+
+           const row = [
+             fecha,
+             fechaIso,
+             mes,
+             semanaIso,
+             diaSemana,
+             session.rutina || '',
+             session.rutinaId || '',
+             durHHMMSS,
+             durSeg,
+             String(exerciseOrder + 1),
+             String(serieIndex + 1),
+             ejercicio.musculo || '',
+             lado,
+             rep,
+             peso,
+             rir,
+             vol,
+             pesoCorporal,
+           ];
+           rows.push(row);
+         });
+       });
+     });
 
     const fileBase = `historico_${startDate.toISOString().slice(0,10)}_a_${endDate.toISOString().slice(0,10)}`;
-    const extension = exportFormat === 'xlsx' ? 'csv' : 'csv'; // XLSX no implementado aún; exportamos CSV
-    const mimeType = 'text/csv';
-    const filename = `${fileBase}.${extension}`;
+    const filename = exportFormat === 'xlsx' ? `${fileBase}.xlsx` : `${fileBase}.csv`;
+    const mimeType = exportFormat === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv';
 
     try {
       if (Platform.OS === 'android' && FileSystem.StorageAccessFramework) {
         const perm = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (perm.granted && perm.directoryUri) {
           const uri = await FileSystem.StorageAccessFramework.createFileAsync(perm.directoryUri, filename, mimeType);
-          await FileSystem.writeAsStringAsync(uri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+          if (exportFormat === 'xlsx') {
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+            XLSX.utils.book_append_sheet(wb, ws, 'Historico');
+            const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+            await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+          } else {
+            const csvContent = [header, ...rows].map(r => r.map(f => {
+              const needsQuotes = /[",\n]/.test(f);
+              const escaped = f.replace(/"/g, '""');
+              return needsQuotes ? `"${escaped}"` : escaped;
+            }).join(',')).join('\n');
+            await FileSystem.writeAsStringAsync(uri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+          }
           Alert.alert('Exportación completada', `Archivo guardado: ${filename}`, [{ text: 'OK', onPress: () => setShowExportModal(false) }]);
           return;
         }
@@ -446,7 +580,20 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
 
       // Fallback: compartir archivo desde caché
       const fileUri = FileSystem.cacheDirectory + filename;
-      await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+      if (exportFormat === 'xlsx') {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Historico');
+        const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+        await FileSystem.writeAsStringAsync(fileUri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+      } else {
+        const csvContent = [header, ...rows].map(r => r.map(f => {
+          const needsQuotes = /[",\n]/.test(f);
+          const escaped = f.replace(/"/g, '""');
+          return needsQuotes ? `"${escaped}"` : escaped;
+        }).join(',')).join('\n');
+        await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+      }
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, { mimeType, dialogTitle: 'Exportar histórico' });
         setShowExportModal(false);
@@ -545,8 +692,8 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                 'Exportar',
                 'Selecciona el formato',
                 [
-                  { text: 'CSV', onPress: () => exportDaySessions(selectedDay) },
-                  { text: 'XLSX', onPress: () => exportDaySessions(selectedDay) },
+                  { text: 'CSV', onPress: () => exportDaySessions(selectedDay, 'csv') },
+                  { text: 'XLSX', onPress: () => exportDaySessions(selectedDay, 'xlsx') },
                   { text: 'Cancelar', style: 'cancel' },
                 ],
                 { cancelable: true }
@@ -681,7 +828,10 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                       </TouchableOpacity>
                     </View>
 
-                    <View style={styles.calendar}>
+                    <ScrollView style={[styles.calendar, { paddingBottom: 0, maxHeight: Dimensions.get('window').height * 0.40 }]}
+                      contentContainerStyle={{ paddingBottom: 0 }}
+                      showsVerticalScrollIndicator={false}
+                    >
                       <View style={styles.weekDays}>
                         {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(day => (
                           <Text key={day} style={[styles.weekDayText, { color: theme.textSecondary }]}>{day}</Text>
@@ -717,11 +867,9 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                           </View>
                         ))}
                       </View>
-                    </View>
+                    </ScrollView>
 
-                    <View style={[styles.subSeparator, { backgroundColor: '#D4A574' }]} />
-
-                    <View style={styles.legend}>
+                    <View style={[styles.legend, { paddingVertical: 0, marginTop: 0 }]}> 
                       <View style={styles.legendItem}>
                         <View style={[styles.legendDot, { backgroundColor: '#D4A574', borderColor: '#D4A574' }]} />
                         <Text style={[styles.legendText, { color: theme.textSecondary }]}>Día de entrenamiento</Text>
@@ -736,6 +884,15 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
               </>
             )}
 
+                {/* Sección Seguimiento Peso Corporal */}
+                <View style={[styles.separator, { backgroundColor: '#333333' }]} />
+                <TouchableOpacity 
+                  style={styles.exportSection}
+                  onPress={() => setShowBodyWeightModal(true)}
+                >
+                  <Text style={[styles.sectionTitle, { color: theme.textPrimary, flex: 0 }]}>Seguimiento Peso Corporal</Text>
+                </TouchableOpacity>
+
             {/* Sección Exportar Histórico */}
             <View style={[styles.separator, { backgroundColor: '#333333' }]} />
             
@@ -744,7 +901,6 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
               onPress={() => setShowExportModal(true)}
             >
               <Text style={[styles.sectionTitle, { color: theme.textPrimary, flex: 0 }]}>Exportar Histórico</Text>
-              <Text style={[styles.exportSubtitle, { color: theme.textSecondary }]}>Seleccionar rango de días</Text>
             </TouchableOpacity>
 
             {/* Modal para exportar histórico */}
@@ -824,6 +980,138 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
               </View>
             </Modal>
 
+            {/* Modal de Seguimiento peso corporal */}
+            <Modal
+              visible={showBodyWeightModal}
+              transparent={true}
+              animationType="slide"
+              onRequestClose={() => setShowBodyWeightModal(false)}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={[styles.modalContent, { backgroundColor: theme.surface }]}> 
+                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Seguimiento peso corporal</Text>
+
+                  {/* Agregar registro */}
+                  <View style={styles.dateRangeContainer}>
+                    <Text style={[styles.dateLabel, { color: theme.textPrimary }]}>Fecha:</Text>
+                    <TouchableOpacity 
+                      style={[styles.dateButton, { backgroundColor: theme.buttonSecondary }]}
+                      onPress={() => setShowBwDatePicker(true)}
+                    >
+                      <Text style={[styles.dateButtonText, { color: theme.buttonText }]}>
+                        {bwDate.toLocaleDateString('es-ES')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.dateRangeContainer}>
+                    <Text style={[styles.dateLabel, { color: theme.textPrimary }]}>Peso (kg):</Text>
+                    <TextInput
+                      style={[styles.dateButton, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, color: theme.textPrimary }]}
+                      keyboardType="numeric"
+                      value={bwWeight}
+                      onChangeText={setBwWeight}
+                      placeholder="Ej: 78.4"
+                      placeholderTextColor={theme.textSecondary}
+                    />
+                  </View>
+
+                  {/* Histórico */}
+                  <Text style={[styles.formatLabel, { color: theme.textPrimary }]}>Histórico</Text>
+                  <ScrollView style={{ maxHeight: 200 }}>
+                    {bodyWeights.length === 0 ? (
+                      <Text style={{ color: theme.textSecondary }}>Sin registros</Text>
+                    ) : (
+                      bodyWeights.map(r => (
+                        <View key={r.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
+                          <Text style={{ color: theme.textPrimary }}>{new Date(r.dateISO).toLocaleDateString('es-ES')}</Text>
+                          <Text style={{ color: theme.textPrimary }}>{r.weightKg} kg</Text>
+                        </View>
+                      ))
+                    )}
+                  </ScrollView>
+
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity 
+                      style={[styles.modalButton, { backgroundColor: theme.buttonSecondary }]}
+                      onPress={() => setShowBodyWeightModal(false)}
+                    >
+                      <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.modalButton, { backgroundColor: theme.buttonPrimary }]}
+                      onPress={async () => {
+                        const w = Number(bwWeight.replace(',', '.'));
+                        if (isNaN(w) || w < 30 || w > 300) {
+                          Alert.alert('Valor inválido', 'Ingresá un peso entre 30 y 300 kg.');
+                          return;
+                        }
+                        try {
+                          await addBodyWeight({ dateISO: bwDate.toISOString(), weightKg: Number(w.toFixed(1)) });
+                          setBwWeight('');
+                          await loadBodyWeights();
+                          Alert.alert('Guardado', 'Peso corporal registrado.');
+                        } catch {
+                          Alert.alert('Error', 'No se pudo guardar el peso.');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Guardar</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={{ marginTop: 12 }}>
+                    <TouchableOpacity 
+                      style={[styles.modalButton, { alignSelf: 'center', backgroundColor: theme.buttonSecondary }]}
+                      onPress={async () => {
+                        if (bodyWeights.length === 0) { Alert.alert('Sin datos', 'No hay registros para exportar.'); return; }
+                        Alert.alert(
+                          'Exportar',
+                          'Selecciona el formato',
+                          [
+                            { text: 'CSV', onPress: async () => {
+                              const header = ['Fecha','Peso (kg)'];
+                              const rows = bodyWeights.map(r => [new Date(r.dateISO).toISOString().slice(0,10), String(r.weightKg)]);
+                              const filename = 'peso_corporal.csv';
+                              const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+                              const uri = FileSystem.cacheDirectory + filename;
+                              await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+                              if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Exportar peso corporal' });
+                            } },
+                            { text: 'XLSX', onPress: async () => {
+                              const header = ['Fecha','Peso (kg)'];
+                              const rows = bodyWeights.map(r => [new Date(r.dateISO).toISOString().slice(0,10), String(r.weightKg)]);
+                              const wb = XLSX.utils.book_new();
+                              const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+                              XLSX.utils.book_append_sheet(wb, ws, 'Peso');
+                              const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+                              const uri = FileSystem.cacheDirectory + 'peso_corporal.xlsx';
+                              await FileSystem.writeAsStringAsync(uri, wbout, { encoding: FileSystem.EncodingType.Base64 });
+                              if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', dialogTitle: 'Exportar peso corporal' });
+                            } },
+                            { text: 'Cancelar', style: 'cancel' },
+                          ],
+                          { cancelable: true }
+                        );
+                      }}
+                    >
+                      <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Exportar histórico</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                </View>
+              </View>
+            </Modal>
+
+            {showBwDatePicker && (
+              <DateTimePicker
+                value={bwDate}
+                mode="date"
+                display="default"
+                onChange={(e, d) => { setShowBwDatePicker(false); if (d) setBwDate(d); }}
+                maximumDate={new Date()}
+              />
+            )}
+
             {/* Date Pickers */}
             {showStartDatePicker && (
               <DateTimePicker
@@ -847,12 +1135,7 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
             )}
               </View>
 
-              {/* Footer firma (fuera de scroll, pegado al borde) */}
-              <View style={styles.footer}>
-                <Text style={[styles.footerText, { color: theme.textSecondary }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {`Desarrollado por Pablo Pilanski · ${currentYear}`}
-                </Text>
-              </View>
+              {/* Footer credit removed per user request */}
             </>
           )}
         </Animated.View>
@@ -883,6 +1166,7 @@ const styles = StyleSheet.create({
     borderColor: '#4F766F',
     zIndex: 100,
     padding: 16,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
@@ -951,7 +1235,7 @@ const styles = StyleSheet.create({
   subSeparator: {
     height: 1,
     marginHorizontal: 32,
-    marginVertical: 8,
+    marginVertical: 2,
   },
   contentContainer: {
     flex: 1,
@@ -996,12 +1280,12 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   calendar: {
-    flex: 1,
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   weekDays: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   weekDayText: {
     flex: 1,
@@ -1033,7 +1317,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   legend: {
-    padding: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
   },
   legendItem: {
     flexDirection: 'row',

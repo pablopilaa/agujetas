@@ -99,7 +99,13 @@ const EditMenu: React.FC<Props> = ({ open, onClose, exercises, setExercises, onA
               ))}
 
               {onAddExercise && (
-                <TouchableOpacity style={[styles.addExerciseBtn, { backgroundColor: theme.buttonPrimary }]} onPress={onAddExercise}>
+                <TouchableOpacity
+                  style={[styles.addExerciseBtn, { backgroundColor: theme.buttonPrimary }]}
+                  onPress={() => {
+                    // Abrir el buscador/listado completo en lugar de insertar un genérico
+                    onAddExercise();
+                  }}
+                >
                   <Text style={[styles.addExerciseBtnText, { color: theme.buttonText }]}>+ Agregar ejercicio</Text>
                 </TouchableOpacity>
               )}

@@ -387,35 +387,35 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
       'Confirmar finalización',
       confirmMessage,
       [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
+        { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Finalizar sesión',
           onPress: () => {
-            // Mostrar opciones de fecha para guardar
+            // Si se inició desde calendario, guardar directamente en esa fecha
+            if (selectedDate) {
+              const today = new Date(); today.setHours(0,0,0,0);
+              const d = new Date(selectedDate); d.setHours(0,0,0,0);
+              if (d.getTime() > today.getTime()) {
+                Alert.alert('Fecha inválida', 'No podés guardar sesiones en el futuro.');
+                return;
+              }
+              saveSessionWithDate(selectedDate);
+              return;
+            }
+            // Caso normal: ofrecer Hoy / Otro día
             Alert.alert(
               '¿Dónde quieres guardar la sesión?',
               'Elige la fecha para guardar tu entrenamiento:',
               [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: '📅 Hoy', onPress: () => saveSessionWithDate(new Date()) },
                 {
-                  text: 'Cancelar',
-                  style: 'cancel',
-                },
-                {
-                  text: '📅 Hoy',
-                  onPress: () => saveSessionWithDate(new Date()),
-                },
-                                 {
-                                     text: '📅 Otro día',
+                  text: '📅 Otro día',
                   onPress: () => {
-                    // Abrir SideMenu para seleccionar fecha
                     setShowSideMenu(true);
-                    // Marcar que estamos en modo "guardar sesión"
                     setIsEditingHistoricalSession(true);
                   },
-                 },
+                },
               ]
             );
           },
@@ -427,47 +427,48 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   // Función para guardar sesión con fecha específica
   const saveSessionWithDate = async (date: Date) => {
     try {
-      const fechaISO = date.toISOString();
+      // No permitir guardar en futuro
+      const today = new Date(); today.setHours(0,0,0,0);
+      const target = new Date(date); target.setHours(0,0,0,0);
+      if (target.getTime() > today.getTime()) {
+        Alert.alert('Fecha inválida', 'No podés guardar sesiones en el futuro.');
+        return;
+      }
+      // Usar fecha local en formato YYYY-MM-DD para evitar desfases por huso horario/DST
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const fechaLocal = `${yyyy}-${mm}-${dd}`;
       const ejerciciosHist: ExerciseHistory[] = exercises.map((ex) => ({
         ejercicio: ex.ejercicio,
         musculo: ex.musculo,
         series: ex.series,
-        fecha: fechaISO,
+        fecha: fechaLocal,
       }));
 
-              const sessionData = {
-        fecha: fechaISO,
+      const sessionData = {
+        fecha: fechaLocal,
         tipo: (selectedSession as string) || 'Sesión libre',
         duracion: sessionDuration || 0,
         ejercicios: ejerciciosHist,
+        rutina: activeRoutine?.name || undefined,
+        rutinaId: activeRoutine?.id || undefined,
       } as Omit<import('../utils/storage').SessionRecord, 'id'>;
 
               await saveSession(sessionData);
               
-      // Mostrar opciones después de guardar
-      Alert.alert(
-        'Sesión guardada',
-        `Tu sesión ha sido guardada exitosamente para el ${date.toLocaleDateString('es-ES')}. ¿Qué quieres hacer ahora?`,
-        [
-          {
-            text: 'Exportar datos',
-            onPress: () => {
-              handleExport();
-            },
+      // Después de guardar, limpiar y cerrar sin ofrecer exportación
+      Alert.alert('Sesión guardada', `Tu sesión ha sido guardada para el ${date.toLocaleDateString('es-ES')}.`, [
+        {
+          text: 'Cerrar',
+          onPress: () => {
+            setExercises([]);
+            setSelectedSession(null);
+            setIsEditingHistoricalSession(false);
+            if (onSessionFinish) onSessionFinish();
           },
-          {
-            text: 'Cerrar',
-            onPress: () => {
-              setExercises([]);
-              setSelectedSession(null);
-              setIsEditingHistoricalSession(false);
-              if (onSessionFinish) {
-                onSessionFinish();
-              }
-                    },
-                  },
-                ]
-              );
+        },
+      ]);
             } catch (error) {
       Alert.alert('Error', 'No se pudo guardar la sesión.');
     }
@@ -800,7 +801,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                   <TouchableOpacity style={[styles.cancelButton, { backgroundColor: theme.buttonPrimary }]} onPress={() => {
                     setEditingTypeExercises(prev => ([
                       ...prev,
-                      { ejercicio: 'Nuevo ejercicio', musculo: 'General', series: [
+                      { ejercicio: 'Nuevo ejercicio', musculo: '', series: [
                         { reps: '', kg: '', rir: undefined },
                         { reps: '', kg: '', rir: undefined },
                         { reps: '', kg: '', rir: undefined },
