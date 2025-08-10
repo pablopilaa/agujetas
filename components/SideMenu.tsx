@@ -1125,10 +1125,10 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                 maximumDate={new Date()}
               />
             )}
-              </View>
 
               {/* Footer credit removed per user request */}
             </>
+              </View>
           )}
         </Animated.View>
       </View>
