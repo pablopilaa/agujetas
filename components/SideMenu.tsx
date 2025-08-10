@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Image, Animated, Alert, Dimensions, TouchableWithoutFeedback, Platform, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { getSessions, deleteSession, getBodyWeights, addBodyWeight, BodyWeightRecord } from '../utils/storage';
+import { getSessions, deleteSession, getBodyWeights, addBodyWeight, deleteBodyWeight, BodyWeightRecord } from '../utils/storage';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
@@ -1022,9 +1022,27 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
                       <Text style={{ color: theme.textSecondary }}>Sin registros</Text>
                     ) : (
                       bodyWeights.map(r => (
-                        <View key={r.id} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 }}>
-                          <Text style={{ color: theme.textPrimary }}>{new Date(r.dateISO).toLocaleDateString('es-ES')}</Text>
-                          <Text style={{ color: theme.textPrimary }}>{r.weightKg} kg</Text>
+                        <View key={r.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Text style={{ color: theme.textPrimary, marginRight: 12 }}>{new Date(r.dateISO).toLocaleDateString('es-ES')}</Text>
+                            <Text style={{ color: theme.textPrimary }}>{r.weightKg} kg</Text>
+                          </View>
+                          <TouchableOpacity
+                            style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#E57373' }}
+                            onPress={() => {
+                              Alert.alert(
+                                'Eliminar registro',
+                                '¿Seguro que querés eliminar este peso corporal?',
+                                [
+                                  { text: 'Cancelar', style: 'cancel' },
+                                  { text: 'Eliminar', style: 'destructive', onPress: async () => { await deleteBodyWeight(r.id); await loadBodyWeights(); } },
+                                ],
+                                { cancelable: true }
+                              );
+                            }}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontWeight: '600' }}>Eliminar</Text>
+                          </TouchableOpacity>
                         </View>
                       ))
                     )}
