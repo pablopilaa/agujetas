@@ -455,6 +455,125 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
           </View>
         </View>
         <View style={[styles.headerSeparator, { backgroundColor: theme.border, marginTop: ds.header.separatorMarginTop }]} />
+
+        {/* Modales disponibles incluso minimizado para permitir openAddExerciseModal() */}
+        <Modal
+          visible={showAddExerciseModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowAddExerciseModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingTop: insets.top + 20 }]}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Seleccionar ejercicio</Text>
+              <TouchableOpacity 
+                style={[styles.customExerciseButton, { backgroundColor: '#D4A574' }]}
+                onPress={() => setShowCustomExerciseModal(true)}
+              >
+                <Text style={[styles.customExerciseButtonText, { color: '#FFFFFF' }]}>+ Ejercicio personalizado</Text>
+              </TouchableOpacity>
+              <View style={styles.searchContainer}>
+                <TextInput
+                  style={[styles.searchInput, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary }]}
+                  placeholder="Buscar ejercicio o músculo..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholderTextColor={theme.textSecondary}
+                />
+              </View>
+              <ScrollView style={styles.exerciseList}>
+                {filteredExercises.map((exercise, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.exerciseOption, { borderBottomColor: theme.border }]}
+                    onPress={() => {
+                      if (onPickExercise) {
+                        onPickExercise(exercise);
+                        setShowAddExerciseModal(false);
+                        setSearchQuery('');
+                      } else {
+                        addExercise(exercise);
+                      }
+                    }}
+                  >
+                    <Text style={[styles.exerciseOptionText, { color: theme.textPrimary }]}>{exercise.ejercicio}</Text>
+                    <Text style={[styles.exerciseOptionSubtext, { color: theme.textSecondary }]}>{exercise.musculo}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity 
+                style={[styles.cancelButton, { backgroundColor: theme.buttonSecondary }]}
+                onPress={() => {
+                  setShowAddExerciseModal(false);
+                  setSearchQuery('');
+                }}
+              >
+                <Text style={[styles.cancelButtonText, { color: theme.buttonText }]}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={showCustomExerciseModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowCustomExerciseModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingTop: insets.top + 20 }]}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Agregar ejercicio personalizado</Text>
+              <View style={styles.customExerciseForm}>
+                <TextInput
+                  style={[styles.customExerciseInput, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.textPrimary }]}
+                  placeholder="Nombre del ejercicio"
+                  value={customExerciseName}
+                  onChangeText={setCustomExerciseName}
+                  placeholderTextColor={theme.textSecondary}
+                />
+                <View style={[styles.pickerContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <ScrollView style={{ maxHeight: 160 }}>
+                    {muscleGroups.map((mg) => (
+                      <TouchableOpacity key={mg} style={{ paddingVertical: 8 }} onPress={() => setCustomExerciseMuscle(mg)}>
+                        <Text style={{ color: customExerciseMuscle === mg ? '#4F766F' : theme.textPrimary, fontWeight: customExerciseMuscle === mg ? '700' : '500' }}>{mg}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  <Text style={[styles.pickerLabel, { color: theme.textSecondary, marginTop: 6 }]}>Seleccionado: {customExerciseMuscle}</Text>
+                </View>
+              </View>
+              <View style={styles.customExerciseButtons}>
+                <TouchableOpacity 
+                  style={[styles.customExerciseAddButton, { backgroundColor: '#D4A574' }]}
+                  onPress={() => {
+                    if (!customExerciseName.trim()) return;
+                    if (onPickExercise) {
+                      onPickExercise({ ejercicio: customExerciseName.trim(), musculo: customExerciseMuscle });
+                      setShowCustomExerciseModal(false);
+                      setShowAddExerciseModal(false);
+                      setCustomExerciseName('');
+                      setSearchQuery('');
+                      return;
+                    }
+                    handleAddCustomExercise();
+                  }}
+                >
+                  <Text style={[styles.customExerciseAddButtonText, { color: '#FFFFFF' }]}>Agregar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.customExerciseCancelButton, { backgroundColor: theme.buttonSecondary }]}
+                  onPress={() => {
+                    setShowCustomExerciseModal(false);
+                    setCustomExerciseName('');
+                    setCustomExerciseMuscle('Pectoral');
+                  }}
+                >
+                  <Text style={[styles.customExerciseCancelButtonText, { color: theme.buttonText }]}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
