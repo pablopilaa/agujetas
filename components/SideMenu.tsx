@@ -29,6 +29,8 @@ interface Session {
     fecha: string;
   }>;
   duracion?: number;
+  rutina?: string;
+  rutinaId?: string;
 }
 
 const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkMode, onAddHistoricalSession, isSavingSession, onSaveSessionToDate }) => {
@@ -778,8 +780,6 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
               </View>
 
               <View style={[styles.contentContainer, { flex: 1 }]}>
-            {isContentReady && (
-              <>
                 <View style={styles.darkModeContainer}>
                   <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Dark Mode</Text>
                   <TouchableOpacity 
@@ -1127,9 +1127,8 @@ const SideMenu: React.FC<Props> = ({ visible, onClose, isDarkMode, onToggleDarkM
             )}
 
               {/* Footer credit removed per user request */}
+            </View>
             </>
-          )}
-        </View>
           )}
         </Animated.View>
       </View>

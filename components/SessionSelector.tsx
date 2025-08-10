@@ -585,8 +585,8 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
       Alert.alert('Rutinas', 'No hay rutinas para exportar', [{ text: 'OK' }], { cancelable: true });
       return;
     }
-    const buttons = routines.map(r => ({ text: r.name, onPress: () => exportRoutine(r) }));
-    buttons.push({ text: 'Cancelar', style: 'cancel' as const });
+    const buttons: Array<{ text: string; onPress: () => void } | { text: string }> = routines.map(r => ({ text: r.name, onPress: () => exportRoutine(r) }));
+    buttons.push({ text: 'Cancelar' });
     Alert.alert('Exportar rutina', 'Elige una rutina', buttons, { cancelable: true });
   };
 

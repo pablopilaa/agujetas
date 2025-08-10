@@ -399,7 +399,7 @@ const EditMenu: React.FC<Props> = ({ open, onClose, exercises, setExercises, onA
     <Modal visible={showReplaceModal} transparent animationType="fade" onRequestClose={() => setShowReplaceModal(false)}>
       <View style={styles.overlay}>
         <View style={[styles.replaceModal, { backgroundColor: theme.surface }] }>
-          <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Reemplazar ejercicio</Text>
+          <Text style={{ fontSize: 18, fontWeight: '600', fontFamily: 'System', color: theme.textPrimary, textAlign: 'center', marginBottom: 12 }}>Reemplazar ejercicio</Text>
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
