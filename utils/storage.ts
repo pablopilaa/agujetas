@@ -35,6 +35,17 @@ export interface Routine {
   sessionRefs: Array<{ type: 'default' | 'custom'; key: string }>; // key: nombre o id
 }
 
+export interface ExerciseCatalogItem {
+  ejercicio: string;
+  musculo: string;
+  createdAtISO: string;
+}
+
+export interface ExerciseCatalog {
+  version: 1;
+  items: ExerciseCatalogItem[];
+}
+
 // ====== Peso corporal ======
 export interface BodyWeightRecord {
   id: string;
@@ -44,6 +55,84 @@ export interface BodyWeightRecord {
 
 const BODY_WEIGHTS_KEY = 'bodyWeights';
 const LAST_BODY_WEIGHT_WARNING_KEY = 'last_body_weight_warning_shown';
+const EXERCISE_CATALOG_KEY = 'exerciseCatalog';
+
+const normalizeExerciseName = (name: string): string => {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ');
+};
+
+export const getExerciseCatalog = async (): Promise<ExerciseCatalog> => {
+  try {
+    const data = await AsyncStorage.getItem(EXERCISE_CATALOG_KEY);
+    if (!data) return { version: 1, items: [] };
+    const parsed = JSON.parse(data);
+    if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.items)) {
+      return { version: 1, items: [] };
+    }
+    const items: ExerciseCatalogItem[] = [];
+    const seen = new Set<string>();
+    for (const raw of parsed.items) {
+      if (!raw || typeof raw.ejercicio !== 'string' || typeof raw.musculo !== 'string') continue;
+      const ejercicio = raw.ejercicio.trim();
+      const musculo = raw.musculo.trim();
+      if (!ejercicio || !musculo) continue;
+      const key = normalizeExerciseName(ejercicio);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({
+        ejercicio,
+        musculo,
+        createdAtISO: typeof raw.createdAtISO === 'string' ? raw.createdAtISO : new Date().toISOString(),
+      });
+    }
+    return { version: 1, items };
+  } catch (error) {
+    console.error('Error obteniendo catálogo de ejercicios:', error);
+    return { version: 1, items: [] };
+  }
+};
+
+export const upsertExerciseInCatalog = async (
+  exercise: { ejercicio: string; musculo: string }
+): Promise<ExerciseCatalogItem | null> => {
+  const ejercicio = exercise.ejercicio?.trim();
+  const musculo = exercise.musculo?.trim();
+  if (!ejercicio || !musculo) return null;
+  try {
+    const catalog = await getExerciseCatalog();
+    const key = normalizeExerciseName(ejercicio);
+    const existingIndex = catalog.items.findIndex(item => normalizeExerciseName(item.ejercicio) === key);
+    if (existingIndex >= 0) {
+      const existing = catalog.items[existingIndex];
+      const updated = { ...existing, ejercicio, musculo };
+      if (existing.ejercicio === updated.ejercicio && existing.musculo === updated.musculo) {
+        return existing;
+      }
+      const items = [...catalog.items];
+      items[existingIndex] = updated;
+      await AsyncStorage.setItem(EXERCISE_CATALOG_KEY, JSON.stringify({ version: 1, items }));
+      return updated;
+    }
+    const created: ExerciseCatalogItem = {
+      ejercicio,
+      musculo,
+      createdAtISO: new Date().toISOString(),
+    };
+    await AsyncStorage.setItem(
+      EXERCISE_CATALOG_KEY,
+      JSON.stringify({ version: 1, items: [created, ...catalog.items] })
+    );
+    return created;
+  } catch (error) {
+    console.error('Error guardando catálogo de ejercicios:', error);
+    return null;
+  }
+};
 
 export const getBodyWeights = async (): Promise<BodyWeightRecord[]> => {
   try {
