@@ -2,7 +2,7 @@ import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'rea
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Modal } from 'react-native';
 // import { Picker } from '@react-native-picker/picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getLastExerciseRecord, ExerciseHistory } from '../utils/storage';
+import { getLastExerciseRecord, ExerciseHistory, getExerciseCatalog, upsertExerciseInCatalog } from '../utils/storage';
 import { getTheme } from '../utils/theme';
 import { ds } from '../utils/design';
 
@@ -147,6 +147,7 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
   const [showCustomExerciseModal, setShowCustomExerciseModal] = useState(false);
   const [customExerciseName, setCustomExerciseName] = useState('');
   const [customExerciseMuscle, setCustomExerciseMuscle] = useState('Pectoral');
+  const [customCatalogItems, setCustomCatalogItems] = useState<Array<{ ejercicio: string; musculo: string }>>([]);
 
   // Normalizar nombres solo para mostrar (no altera storage ni claves históricas)
   const getDisplayExerciseName = (name: string): string => {
@@ -192,6 +193,38 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
       loadPreviousRecords();
     }
   }, [exercises]);
+
+  const normalizeExerciseKey = (name: string): string => {
+    return name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const mergeExerciseCatalog = (customItems: Array<{ ejercicio: string; musculo: string }>) => {
+    const merged = new Map<string, { ejercicio: string; musculo: string }>();
+    predefinedExercises.forEach((ex) => {
+      merged.set(normalizeExerciseKey(ex.ejercicio), ex);
+    });
+    customItems.forEach((ex) => {
+      const key = normalizeExerciseKey(ex.ejercicio);
+      if (!merged.has(key)) {
+        merged.set(key, ex);
+      }
+    });
+    return Array.from(merged.values());
+  };
+
+  const refreshExerciseCatalog = async () => {
+    const catalog = await getExerciseCatalog();
+    setCustomCatalogItems(catalog.items.map(item => ({ ejercicio: item.ejercicio, musculo: item.musculo })));
+  };
+
+  useEffect(() => {
+    refreshExerciseCatalog();
+  }, []);
 
   const handleChange = (ei: number, si: number, field: keyof Series, value: string) => {
     let processedValue = value;
@@ -309,28 +342,30 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
     setMinimizedExercises(newMinimized);
   };
 
-  const handleAddCustomExercise = () => {
-    if (customExerciseName.trim() && customExerciseMuscle.trim()) {
-      const newExercise: Exercise = {
-        ejercicio: customExerciseName.trim(),
-        musculo: customExerciseMuscle.trim(),
-        series: [{ reps: '', kg: '', rir: undefined }]
-      };
-      
-      // Agregar a la lista de ejercicios predefinidos
-      predefinedExercises.push({
-        ejercicio: customExerciseName.trim(),
-        musculo: customExerciseMuscle.trim()
-      });
-      
-      // Agregar a la lista actual
-      setExercises([...exercises, newExercise]);
-      
-      // Limpiar y cerrar modal
-      setCustomExerciseName('');
-      setCustomExerciseMuscle('Pectoral');
+  const handleAddCustomExercise = async () => {
+    const name = customExerciseName.trim();
+    const muscle = customExerciseMuscle.trim();
+    if (!name || !muscle) return;
+    const exercise = { ejercicio: name, musculo: muscle };
+    await upsertExerciseInCatalog(exercise);
+    await refreshExerciseCatalog();
+    if (onPickExercise) {
+      onPickExercise(exercise);
       setShowCustomExerciseModal(false);
+      setShowAddExerciseModal(false);
+      setCustomExerciseName('');
+      setSearchQuery('');
+      return;
     }
+    const newExercise: Exercise = {
+      ejercicio: name,
+      musculo: muscle,
+      series: [{ reps: '', kg: '', rir: undefined }]
+    };
+    setExercises([...exercises, newExercise]);
+    setCustomExerciseName('');
+    setCustomExerciseMuscle('Pectoral');
+    setShowCustomExerciseModal(false);
   };
 
   const addExercise = (selectedExercise: { ejercicio: string; musculo: string }) => {
@@ -388,7 +423,8 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
   };
 
   // Filtrar ejercicios basado en la búsqueda (insensible a tildes y mayúsculas)
-  const filteredExercises = predefinedExercises.filter(exercise =>
+  const catalogExercises = mergeExerciseCatalog(customCatalogItems);
+  const filteredExercises = catalogExercises.filter(exercise =>
     normalizeText(exercise.ejercicio).includes(normalizeText(searchQuery)) ||
     normalizeText(exercise.musculo).includes(normalizeText(searchQuery))
   );
@@ -545,18 +581,7 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
               <View style={styles.customExerciseButtons}>
                 <TouchableOpacity 
                   style={[styles.customExerciseAddButton, { backgroundColor: '#D4A574' }]}
-                  onPress={() => {
-                    if (!customExerciseName.trim()) return;
-                    if (onPickExercise) {
-                      onPickExercise({ ejercicio: customExerciseName.trim(), musculo: customExerciseMuscle });
-                      setShowCustomExerciseModal(false);
-                      setShowAddExerciseModal(false);
-                      setCustomExerciseName('');
-                      setSearchQuery('');
-                      return;
-                    }
-                    handleAddCustomExercise();
-                  }}
+                  onPress={handleAddCustomExercise}
                 >
                   <Text style={[styles.customExerciseAddButtonText, { color: '#FFFFFF' }]}>Agregar</Text>
                 </TouchableOpacity>
@@ -923,18 +948,7 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
             <View style={styles.customExerciseButtons}>
               <TouchableOpacity 
                 style={[styles.customExerciseAddButton, { backgroundColor: '#D4A574' }]}
-                onPress={() => {
-                  if (!customExerciseName.trim()) return;
-                  if (onPickExercise) {
-                    onPickExercise({ ejercicio: customExerciseName.trim(), musculo: customExerciseMuscle });
-                    setShowCustomExerciseModal(false);
-                    setShowAddExerciseModal(false);
-                    setCustomExerciseName('');
-                    setSearchQuery('');
-                    return;
-                  }
-                  handleAddCustomExercise();
-                }}
+                onPress={handleAddCustomExercise}
               >
                 <Text style={[styles.customExerciseAddButtonText, { color: '#FFFFFF' }]}>Agregar</Text>
               </TouchableOpacity>
