@@ -67,8 +67,8 @@ export const darkTheme: Theme = {
   accent: '#999999',
   
   // Colores de fondo
-  background: '#000000',
-  surface: '#1A1A1A',
+  background: '#0F1113',
+  surface: '#1A1D21',
   
   // Colores de texto
   textPrimary: '#FFFFFF',

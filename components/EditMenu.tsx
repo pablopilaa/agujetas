@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Dimensions, Modal, Animated, Alert, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTheme } from '../utils/theme';
+import { getExerciseCatalog } from '../utils/storage';
+import { predefinedExercises } from '../utils/exerciseCatalog';
 
 interface Series {
   reps: string;
@@ -38,6 +40,7 @@ const EditMenu: React.FC<Props> = ({ open, onClose, exercises, setExercises, onA
   const [replaceIndex, setReplaceIndex] = useState<number | null>(null);
   const [showReplaceModal, setShowReplaceModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [customCatalogItems, setCustomCatalogItems] = useState<Array<{ ejercicio: string; musculo: string }>>([]);
   const slideAnimation = useRef(new Animated.Value(-300)).current;
   const theme = getTheme(isDarkMode || false);
 
@@ -49,11 +52,45 @@ const EditMenu: React.FC<Props> = ({ open, onClose, exercises, setExercises, onA
     }).start();
   }, [open]);
 
+  useEffect(() => {
+    if (!showReplaceModal) return;
+    let active = true;
+    (async () => {
+      const catalog = await getExerciseCatalog();
+      if (!active) return;
+      setCustomCatalogItems(catalog.items.map(item => ({ ejercicio: item.ejercicio, musculo: item.musculo })));
+    })();
+    return () => { active = false; };
+  }, [showReplaceModal]);
+
   const getSuggestionsFor = (exerciseName: string, muscle: string): string[] => {
     const mg: any = (exerciseDatabase as any)[muscle];
     if (!mg) return [];
     const base = mg.default || [];
     return base.filter((n: string) => n.toLowerCase().includes(searchQuery.toLowerCase()));
+  };
+
+  const normalizeText = (text: string): string => {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const mergeCatalog = (customItems: Array<{ ejercicio: string; musculo: string }>) => {
+    const merged = new Map<string, { ejercicio: string; musculo: string }>();
+    predefinedExercises.forEach((ex) => {
+      merged.set(normalizeText(ex.ejercicio), ex);
+    });
+    customItems.forEach((ex) => {
+      const key = normalizeText(ex.ejercicio);
+      if (!merged.has(key)) {
+        merged.set(key, ex);
+      }
+    });
+    return Array.from(merged.values());
   };
 
   const openReplacePicker = (index: number) => {
@@ -75,10 +112,10 @@ const EditMenu: React.FC<Props> = ({ open, onClose, exercises, setExercises, onA
       <Modal visible={open} transparent animationType="none" onRequestClose={onClose}>
         <View style={styles.overlay}>
           <TouchableOpacity style={styles.overlayTouchable} activeOpacity={1} onPress={onClose} />
-          <Animated.View style={[styles.drawer, { paddingTop: insets.top + 16, transform: [{ translateX: slideAnimation }] }]}>
+          <Animated.View style={[styles.drawer, { paddingTop: insets.top + 16, transform: [{ translateX: slideAnimation }], backgroundColor: theme.surface }]}>
             <View style={styles.header}>
               <View style={styles.titleContainer}>
-                <Image source={require('../assets/logo-transparent.png')} style={styles.logo} />
+                <Image source={isDarkMode ? require('../assets/logo-dark-transparent.png') : require('../assets/logo-transparent.png')} style={styles.logo} />
                 <Text style={[styles.title, { color: theme.textPrimary }]}>Editar</Text>
               </View>
               <TouchableOpacity style={[styles.closeButton, { backgroundColor: theme.buttonSecondary }]} onPress={onClose}>
@@ -86,7 +123,7 @@ const EditMenu: React.FC<Props> = ({ open, onClose, exercises, setExercises, onA
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.chatBox}>
+            <ScrollView style={[styles.chatBox, { backgroundColor: theme.surface }]}>
               <Text style={[styles.chatText]}>Hola! En este menú podés cambiar ejercicios actuales o agregar nuevos.</Text>
               <Text style={styles.sectionTitle}>Ejercicios actuales:</Text>
               {exercises.map((exercise, index) => (
@@ -127,12 +164,31 @@ const EditMenu: React.FC<Props> = ({ open, onClose, exercises, setExercises, onA
               style={[styles.searchInput, { color: theme.textPrimary, borderColor: '#D4A574' }]}
             />
             <ScrollView style={{ maxHeight: 300 }}>
-              {replaceIndex !== null && getSuggestionsFor(exercises[replaceIndex].ejercicio, exercises[replaceIndex].musculo)
-                .map((name, i) => (
-                  <TouchableOpacity key={i} style={styles.suggestionItem} onPress={() => applyReplacement(name)}>
-                    <Text>{name}</Text>
+              {(() => {
+                if (replaceIndex === null) return null;
+                const ex = exercises[replaceIndex];
+                const catalogAll = mergeCatalog(customCatalogItems);
+                const muscleKey = normalizeText(ex.musculo);
+                const currentKey = normalizeText(ex.ejercicio);
+                const sameMuscle = catalogAll.filter(item => normalizeText(item.musculo) === muscleKey);
+                const baseList = sameMuscle.length > 0 ? sameMuscle : catalogAll;
+                const q = searchQuery.trim() ? normalizeText(searchQuery) : '';
+                const applyFilter = (list: Array<{ ejercicio: string; musculo: string }>) => {
+                  const filtered = q
+                    ? list.filter(item => normalizeText(item.ejercicio).includes(q))
+                    : list;
+                  return filtered.filter(item => normalizeText(item.ejercicio) !== currentKey);
+                };
+                let list = applyFilter(baseList);
+                if (list.length === 0) {
+                  list = applyFilter(catalogAll);
+                }
+                return list.map((item, i) => (
+                  <TouchableOpacity key={i} style={styles.suggestionItem} onPress={() => applyReplacement(item.ejercicio)}>
+                    <Text style={{ color: theme.textPrimary }}>{item.ejercicio}</Text>
                   </TouchableOpacity>
-                ))}
+                ));
+              })()}
             </ScrollView>
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
               <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#6D7172' }]} onPress={() => setShowReplaceModal(false)}>

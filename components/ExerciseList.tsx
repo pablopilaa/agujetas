@@ -571,7 +571,7 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
                   <ScrollView style={{ maxHeight: 160 }}>
                     {muscleGroups.map((mg) => (
                       <TouchableOpacity key={mg} style={{ paddingVertical: 8 }} onPress={() => setCustomExerciseMuscle(mg)}>
-                        <Text style={{ color: customExerciseMuscle === mg ? '#4F766F' : theme.textPrimary, fontWeight: customExerciseMuscle === mg ? '700' : '500' }}>{mg}</Text>
+                        <Text style={{ color: customExerciseMuscle === mg ? theme.textPrimary : theme.textSecondary, fontWeight: customExerciseMuscle === mg ? '700' : '500' }}>{mg}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -937,7 +937,7 @@ const ExerciseList = forwardRef<ExerciseListRef, Props>(({ expand, exercises, se
                 <ScrollView style={{ maxHeight: 160 }}>
                   {muscleGroups.map((mg) => (
                     <TouchableOpacity key={mg} style={{ paddingVertical: 8 }} onPress={() => setCustomExerciseMuscle(mg)}>
-                      <Text style={{ color: customExerciseMuscle === mg ? '#4F766F' : theme.textPrimary, fontWeight: customExerciseMuscle === mg ? '700' as const : '500' }}>{mg}</Text>
+                      <Text style={{ color: customExerciseMuscle === mg ? theme.textPrimary : theme.textSecondary, fontWeight: customExerciseMuscle === mg ? '700' as const : '500' }}>{mg}</Text>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
