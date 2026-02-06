@@ -417,6 +417,36 @@ export const getExerciseHistory = async (exerciseName: string): Promise<Exercise
   }
 };
 
+// Reconstruir índice histórico completo (en memoria) desde sesiones guardadas
+export const getExerciseHistoryIndex = async (): Promise<Record<string, ExerciseHistory[]>> => {
+  try {
+    const sessions = await getSessions();
+    const index: Record<string, ExerciseHistory[]> = {};
+    for (const session of sessions) {
+      if (!session?.ejercicios || session.ejercicios.length === 0) continue;
+      for (const ex of session.ejercicios) {
+        if (!ex?.ejercicio) continue;
+        const key = normalizeExerciseName(ex.ejercicio);
+        if (!index[key]) index[key] = [];
+        const fecha = ex.fecha && ex.fecha.trim() ? ex.fecha : (session.fecha || '');
+        index[key].push({
+          ejercicio: ex.ejercicio,
+          musculo: ex.musculo,
+          series: ex.series,
+          fecha,
+        });
+      }
+    }
+    for (const key of Object.keys(index)) {
+      index[key].sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+    }
+    return index;
+  } catch (error) {
+    console.error('Error construyendo índice histórico de ejercicios:', error);
+    return {};
+  }
+};
+
 // Obtener el último registro de un ejercicio
 export const getLastExerciseRecord = async (exerciseName: string): Promise<ExerciseHistory | null> => {
   try {
