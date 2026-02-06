@@ -448,6 +448,129 @@ export const getExerciseHistoryIndex = async (): Promise<Record<string, Exercise
 };
 
 // Obtener el último registro de un ejercicio
+const normalizeLabel = (value: any): string => {
+  if (value === undefined || value === null) return '';
+  return String(value).trim().replace(/\s+/g, ' ');
+};
+
+const normalizeDateToISO = (value: any): string | null => {
+  if (!value) return null;
+  if (value instanceof Date && !isNaN(value.getTime())) return value.toISOString();
+  const raw = String(value).trim();
+  if (!raw) return null;
+  let date = new Date(raw);
+  if (isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    date = new Date(`${raw}T00:00:00`);
+  }
+  return isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const parseDurationSeconds = (value: any): number | undefined => {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.round(value);
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+  if (/^\d+:\d{1,2}(:\d{1,2})?$/.test(raw)) {
+    const parts = raw.split(':').map(p => parseInt(p, 10));
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  const num = parseFloat(raw.replace(',', '.'));
+  return Number.isFinite(num) ? Math.round(num) : undefined;
+};
+
+const normalizeSeries = (series: any): ExerciseHistory['series'] => {
+  if (!Array.isArray(series)) return [];
+  return series.map(s => ({
+    reps: s?.reps !== undefined && s?.reps !== null ? String(s.reps) : '',
+    kg: s?.kg !== undefined && s?.kg !== null ? String(s.kg) : '',
+    rir: s?.rir !== undefined && s?.rir !== null && s?.rir !== '' ? Number(s.rir) : undefined,
+  }));
+};
+
+const normalizeExercisesFromRow = (row: any, fallbackFecha: string): ExerciseHistory[] => {
+  let ejercicios = row?.ejercicios;
+  if (typeof ejercicios === 'string') {
+    try {
+      ejercicios = JSON.parse(ejercicios);
+    } catch {
+      ejercicios = null;
+    }
+  }
+  if (Array.isArray(ejercicios)) {
+    return ejercicios
+      .map((ex: any) => ({
+        ejercicio: normalizeLabel(ex?.ejercicio || ex?.exercise || ex?.name),
+        musculo: normalizeLabel(ex?.musculo || ex?.muscle),
+        series: normalizeSeries(ex?.series || []),
+        fecha: normalizeLabel(ex?.fecha) || fallbackFecha,
+      }))
+      .filter(ex => ex.ejercicio);
+  }
+  const ejercicio = normalizeLabel(row?.ejercicio || row?.exercise || row?.exerciseName || row?.name);
+  if (!ejercicio) return [];
+  const musculo = normalizeLabel(row?.musculo || row?.muscle || row?.grupo || row?.group);
+  const series = Array.isArray(row?.series)
+    ? normalizeSeries(row.series)
+    : [{
+        reps: row?.reps !== undefined && row?.reps !== null ? String(row.reps) : '',
+        kg: row?.kg !== undefined && row?.kg !== null ? String(row.kg) : '',
+        rir: row?.rir !== undefined && row?.rir !== null && row?.rir !== '' ? Number(row.rir) : undefined,
+      }];
+  return [{
+    ejercicio,
+    musculo,
+    series,
+    fecha: fallbackFecha,
+  }];
+};
+
+const buildImportId = (fechaISO: string, tipo: string, duracion?: number, ejercicios: ExerciseHistory[] = []): string => {
+  const exercisesPart = ejercicios.map(ex => {
+    const name = normalizeExerciseName(ex.ejercicio);
+    const series = (ex.series || []).map(s => `${s.reps}|${s.kg}|${s.rir ?? ''}`).join(',');
+    return `${name}:${series}`;
+  }).join(';');
+  return `${fechaISO}|${normalizeLabel(tipo)}|${duracion ?? ''}|${exercisesPart}`;
+};
+
+export const importSessionsFromCSV = async (rows: any[]): Promise<{ imported: number; skipped: number }> => {
+  const existing = await getSessions();
+  const existingImportIds = new Set<string>();
+  for (const s of existing as any[]) {
+    const importId = s?.source?.importId;
+    if (importId) existingImportIds.add(String(importId));
+  }
+  let imported = 0;
+  let skipped = 0;
+  const updated = [...existing];
+  for (const row of rows || []) {
+    const fechaISO = normalizeDateToISO(row?.fecha || row?.date || row?.fechaISO || row?.dateISO);
+    if (!fechaISO) { skipped++; continue; }
+    const tipo = normalizeLabel(row?.tipo || row?.type || row?.actividad || row?.activityType || row?.sessionType);
+    const duracion = parseDurationSeconds(row?.duracion || row?.duration || row?.durationSec || row?.durationSeconds);
+    const ejercicios = normalizeExercisesFromRow(row, fechaISO);
+    if (ejercicios.length === 0) { skipped++; continue; }
+    const importId = buildImportId(fechaISO, tipo, duracion, ejercicios);
+    if (existingImportIds.has(importId)) { skipped++; continue; }
+    const session: any = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      fecha: fechaISO,
+      tipo: tipo || 'Sesión',
+      duracion,
+      ejercicios,
+      source: { type: 'csv', importId },
+    };
+    updated.push(session);
+    existingImportIds.add(importId);
+    imported++;
+  }
+  if (imported > 0) {
+    await AsyncStorage.setItem('sessions', JSON.stringify(updated));
+  }
+  return { imported, skipped };
+};
+
 export const getLastExerciseRecord = async (exerciseName: string): Promise<ExerciseHistory | null> => {
   try {
     const history = await getExerciseHistory(exerciseName);
