@@ -39,6 +39,7 @@ export interface ExerciseCatalogItem {
   ejercicio: string;
   musculo: string;
   createdAtISO: string;
+  imageUri?: string;
 }
 
 export interface ExerciseCatalog {
@@ -81,6 +82,7 @@ export const getExerciseCatalog = async (): Promise<ExerciseCatalog> => {
       const ejercicio = raw.ejercicio.trim();
       const musculo = raw.musculo.trim();
       if (!ejercicio || !musculo) continue;
+      const imageUri = typeof raw.imageUri === 'string' ? raw.imageUri.trim() : '';
       const key = normalizeExerciseName(ejercicio);
       if (seen.has(key)) continue;
       seen.add(key);
@@ -88,6 +90,7 @@ export const getExerciseCatalog = async (): Promise<ExerciseCatalog> => {
         ejercicio,
         musculo,
         createdAtISO: typeof raw.createdAtISO === 'string' ? raw.createdAtISO : new Date().toISOString(),
+        ...(imageUri ? { imageUri } : {}),
       });
     }
     return { version: 1, items };
@@ -98,10 +101,12 @@ export const getExerciseCatalog = async (): Promise<ExerciseCatalog> => {
 };
 
 export const upsertExerciseInCatalog = async (
-  exercise: { ejercicio: string; musculo: string }
+  exercise: { ejercicio: string; musculo: string; imageUri?: string }
 ): Promise<ExerciseCatalogItem | null> => {
   const ejercicio = exercise.ejercicio?.trim();
   const musculo = exercise.musculo?.trim();
+  const imageUri = typeof exercise.imageUri === 'string' ? exercise.imageUri.trim() : undefined;
+  const hasImageUri = !!imageUri;
   if (!ejercicio || !musculo) return null;
   try {
     const catalog = await getExerciseCatalog();
@@ -109,8 +114,17 @@ export const upsertExerciseInCatalog = async (
     const existingIndex = catalog.items.findIndex(item => normalizeExerciseName(item.ejercicio) === key);
     if (existingIndex >= 0) {
       const existing = catalog.items[existingIndex];
-      const updated = { ...existing, ejercicio, musculo };
-      if (existing.ejercicio === updated.ejercicio && existing.musculo === updated.musculo) {
+      const updated: ExerciseCatalogItem = {
+        ...existing,
+        ejercicio,
+        musculo,
+        ...(hasImageUri ? { imageUri } : {}),
+      };
+      if (
+        existing.ejercicio === updated.ejercicio &&
+        existing.musculo === updated.musculo &&
+        (existing.imageUri || '') === (updated.imageUri || '')
+      ) {
         return existing;
       }
       const items = [...catalog.items];
@@ -122,6 +136,7 @@ export const upsertExerciseInCatalog = async (
       ejercicio,
       musculo,
       createdAtISO: new Date().toISOString(),
+      ...(hasImageUri ? { imageUri } : {}),
     };
     await AsyncStorage.setItem(
       EXERCISE_CATALOG_KEY,
@@ -131,6 +146,35 @@ export const upsertExerciseInCatalog = async (
   } catch (error) {
     console.error('Error guardando catálogo de ejercicios:', error);
     return null;
+  }
+};
+
+export const updateExerciseImage = async (ejercicio: string, imageUri: string | null): Promise<boolean> => {
+  const name = ejercicio?.trim();
+  if (!name) return false;
+  try {
+    const catalog = await getExerciseCatalog();
+    const key = normalizeExerciseName(name);
+    const index = catalog.items.findIndex(item => normalizeExerciseName(item.ejercicio) === key);
+    if (index < 0) return false;
+    const existing = catalog.items[index];
+    const updated: ExerciseCatalogItem = { ...existing };
+    const nextImage = typeof imageUri === 'string' ? imageUri.trim() : '';
+    if (nextImage) {
+      updated.imageUri = nextImage;
+    } else {
+      delete (updated as any).imageUri;
+    }
+    if ((existing.imageUri || '') === (updated.imageUri || '')) {
+      return true;
+    }
+    const items = [...catalog.items];
+    items[index] = updated;
+    await AsyncStorage.setItem(EXERCISE_CATALOG_KEY, JSON.stringify({ version: 1, items }));
+    return true;
+  } catch (error) {
+    console.error('Error actualizando imagen de ejercicio:', error);
+    return false;
   }
 };
 
