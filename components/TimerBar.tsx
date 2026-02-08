@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } f
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, AppState, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTheme } from '../utils/theme';
+import { createRestTimerController, createSessionTimerController } from '../utils/timerEngine';
 import { ds } from '../utils/design';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
@@ -127,8 +128,6 @@ const TimerBar = forwardRef((
   const [isIncrementalRunning, setIsIncrementalRunning] = useState(false);
   const [incrementalInput, setIncrementalInput] = useState('00:00'); // Para editar el tiempo
   const [isEditingIncremental, setIsEditingIncremental] = useState(false);
-  const [incrementalStartTime, setIncrementalStartTime] = useState<number | null>(null);
-  const [incrementalPausedTime, setIncrementalPausedTime] = useState(0);
 
   // Estados para el temporizador regresivo
   const [regressiveTime, setRegressiveTime] = useState(60); // 1 minuto por defecto
@@ -136,16 +135,14 @@ const TimerBar = forwardRef((
   const [originalRegressiveTime, setOriginalRegressiveTime] = useState(60);
   const [regressiveInput, setRegressiveInput] = useState('01:00'); // Para editar el tiempo
   const [isEditingRegressive, setIsEditingRegressive] = useState(false);
-  const [regressiveStartTime, setRegressiveStartTime] = useState<number | null>(null);
-  const [regressivePausedTime, setRegressivePausedTime] = useState(0);
 
-  // Referencias para los intervalos
-  const incrementalIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const regressiveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const scheduledNotificationIdRef = useRef<string | null>(null);
   const isAppActiveRef = useRef<boolean>(true);
   const isRegressiveRunningRef = useRef<boolean>(false);
   const regressiveTimeRef = useRef<number>(regressiveTime);
+  const originalRegressiveTimeRef = useRef<number>(originalRegressiveTime);
+  const sessionTimerRef = useRef(createSessionTimerController({ initialElapsedSeconds: 0 }));
+  const restTimerRef = useRef<ReturnType<typeof createRestTimerController> | null>(null);
 
   // Función para reproducir notificación
   const playNotification = async () => {
@@ -169,6 +166,22 @@ const TimerBar = forwardRef((
   };
 
   // Deshabilitado: no programar notificación push en background
+  if (!restTimerRef.current) {
+    restTimerRef.current = createRestTimerController({
+      durationSeconds: originalRegressiveTimeRef.current,
+      onFinished: () => {
+        if (isAppActiveRef.current) {
+          playNotification();
+        }
+        setTimeout(() => {
+          const duration = originalRegressiveTimeRef.current;
+          restTimerRef.current?.setDurationSeconds(duration);
+          restTimerRef.current?.setRemainingSeconds(duration);
+        }, 1000);
+      },
+    });
+  }
+
   const scheduleNotification = async (_seconds: number) => { return; };
 
 
@@ -186,6 +199,10 @@ const TimerBar = forwardRef((
     regressiveTimeRef.current = regressiveTime;
   }, [regressiveTime]);
 
+  useEffect(() => {
+    originalRegressiveTimeRef.current = originalRegressiveTime;
+  }, [originalRegressiveTime]);
+
   // Listener para el estado de la app - simplificado
   useEffect(() => {
     const handleAppStateChange = (nextAppState: string) => {
@@ -196,20 +213,14 @@ const TimerBar = forwardRef((
           Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
           scheduledNotificationIdRef.current = null;
         }
-        // La app volvió a primer plano, actualizar timers si están corriendo
-        if (isIncrementalRunning && incrementalStartTime) {
-          const elapsed = Math.floor((Date.now() - incrementalStartTime) / 1000) + incrementalPausedTime;
-          setIncrementalTime(elapsed);
-        }
-        if (isRegressiveRunning && regressiveStartTime) {
-          const elapsed = Math.floor((Date.now() - regressiveStartTime) / 1000) + regressivePausedTime;
-          const remaining = originalRegressiveTime - elapsed;
-          if (remaining > 0) {
-            setRegressiveTime(remaining);
-          } else {
-            setIsRegressiveRunning(false);
-            setRegressiveTime(0);
-          }
+        // La app volvió a primer plano, sincronizar timers desde el engine
+        const sessionState = sessionTimerRef.current.getState();
+        setIncrementalTime(sessionState.elapsedSeconds);
+        setIsIncrementalRunning(sessionState.running);
+        const restState = restTimerRef.current?.getState();
+        if (restState) {
+          setRegressiveTime(restState.remainingSeconds);
+          setIsRegressiveRunning(restState.running);
         }
       } else {
         // Background/inactive: no programar notificación push (deshabilitado)
@@ -275,111 +286,52 @@ const TimerBar = forwardRef((
     return cleaned;
   };
 
-  // Cronómetro incremental - simplificado
   useEffect(() => {
-    if (isIncrementalRunning) {
-      const startTime = Date.now();
-      setIncrementalStartTime(startTime);
-      
-      incrementalIntervalRef.current = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000) + incrementalPausedTime;
-        setIncrementalTime(elapsed);
-      }, 1000);
-    } else {
-      if (incrementalIntervalRef.current) {
-        clearInterval(incrementalIntervalRef.current);
-        incrementalIntervalRef.current = null;
-      }
-      if (incrementalStartTime) {
-        setIncrementalPausedTime(incrementalTime);
-        setIncrementalStartTime(null);
-      }
-    }
+    const unsubscribe = sessionTimerRef.current.subscribe((state) => {
+      setIncrementalTime(state.elapsedSeconds);
+      setIsIncrementalRunning(state.running);
+    });
+    return () => { unsubscribe(); };
+  }, []);
 
-    return () => {
-      if (incrementalIntervalRef.current) {
-        clearInterval(incrementalIntervalRef.current);
-      }
-    };
-  }, [isIncrementalRunning]); // Solo depende de isIncrementalRunning
-
-  // Temporizador regresivo - simplificado
   useEffect(() => {
-    if (isRegressiveRunning && regressiveTime > 0) {
-      const startTime = Date.now();
-      setRegressiveStartTime(startTime);
-      
-      regressiveIntervalRef.current = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTime) / 1000) + regressivePausedTime;
-        const remaining = regressiveTime - elapsed;
-        
-        if (remaining <= 0) {
-          setIsRegressiveRunning(false);
-          setRegressiveTime(0);
-          setRegressiveStartTime(null);
-          setRegressivePausedTime(0);
-          
-          // Reproducir sonido solo en foreground
-          if (isAppActiveRef.current) {
-            playNotification();
-          }
-          
-          // Auto-reset al llegar a 00:00
-          setTimeout(() => {
-            setRegressiveTime(originalRegressiveTime);
-          }, 1000);
-        } else {
-          setRegressiveTime(remaining);
-        }
-      }, 1000);
-    } else {
-      if (regressiveIntervalRef.current) {
-        clearInterval(regressiveIntervalRef.current);
-        regressiveIntervalRef.current = null;
-      }
-      if (regressiveStartTime) {
-        setRegressivePausedTime(regressiveTime);
-        setRegressiveStartTime(null);
-      }
-    }
+    const unsubscribe = restTimerRef.current?.subscribe((state) => {
+      setRegressiveTime(state.remainingSeconds);
+      setIsRegressiveRunning(state.running);
+    });
+    return () => { if (unsubscribe) unsubscribe(); };
+  }, []);
 
-    return () => {
-      if (regressiveIntervalRef.current) {
-        clearInterval(regressiveIntervalRef.current);
-      }
-    };
-  }, [isRegressiveRunning, regressiveTime]); // Depende del tiempo actual, no del original
+  useEffect(() => {
+    if (!restTimerRef.current) return;
+    restTimerRef.current.setDurationSeconds(originalRegressiveTime);
+    if (!isRegressiveRunning) {
+      restTimerRef.current.setRemainingSeconds(originalRegressiveTime);
+    }
+  }, [originalRegressiveTime, isRegressiveRunning]);
 
   // Controles del cronómetro incremental
   const handleIncrementalStart = () => { 
-    setIsIncrementalRunning(true); 
+    sessionTimerRef.current.start(); 
   };
   const handleIncrementalPause = () => { 
-    setIsIncrementalRunning(false); 
+    sessionTimerRef.current.pause(); 
   };
   const handleIncrementalReset = () => {
-    setIsIncrementalRunning(false);
-    setIncrementalTime(0);
-    setIncrementalPausedTime(0);
-    setIncrementalStartTime(null);
+    sessionTimerRef.current.reset();
     setIncrementalInput('00:00');
   };
 
   // Función para resetear todos los timers (llamada desde fuera)
   const resetAllTimers = () => {
     // Resetear timer incremental
-    setIsIncrementalRunning(false);
-    setIncrementalTime(0);
-    setIncrementalPausedTime(0);
-    setIncrementalStartTime(null);
+    sessionTimerRef.current.reset();
     setIncrementalInput('00:00');
     
     // Resetear timer regresivo
-    setIsRegressiveRunning(false);
-    setRegressiveTime(originalRegressiveTime);
-    setRegressivePausedTime(0);
-    setRegressiveStartTime(null);
-    setRegressiveInput(formatTime(originalRegressiveTime));
+    restTimerRef.current?.setDurationSeconds(originalRegressiveTimeRef.current);
+    restTimerRef.current?.reset();
+    setRegressiveInput(formatTime(originalRegressiveTimeRef.current));
     
     // Cancelar notificaciones push (solo en APK compilada)
     console.log('Notificaciones canceladas');
@@ -393,7 +345,8 @@ const TimerBar = forwardRef((
   const handleIncrementalSave = () => {
     if (isValidTimeFormat(incrementalInput)) {
       const newTime = parseTime(incrementalInput);
-      setIncrementalTime(newTime);
+      sessionTimerRef.current.setElapsedSeconds(newTime);
+      setIncrementalInput(formatTime(newTime));
       setIsEditingIncremental(false);
     }
   };
@@ -405,11 +358,11 @@ const TimerBar = forwardRef((
   // Controles del temporizador regresivo
   const handleRegressiveStart = async () => { 
     if (!isRegressiveRunning) { 
-      setIsRegressiveRunning(true);
+      restTimerRef.current?.start();
     } 
   };
   const handleRegressivePause = async () => { 
-    setIsRegressiveRunning(false);
+    restTimerRef.current?.pause();
     try {
       if (scheduledNotificationIdRef.current) {
         await Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current);
@@ -418,11 +371,9 @@ const TimerBar = forwardRef((
     } catch {}
   };
   const handleRegressiveReset = async () => {
-    setIsRegressiveRunning(false);
-    setRegressiveTime(originalRegressiveTime);
-    setRegressivePausedTime(0);
-    setRegressiveStartTime(null);
-    setRegressiveInput(formatTime(originalRegressiveTime));
+    restTimerRef.current?.setDurationSeconds(originalRegressiveTimeRef.current);
+    restTimerRef.current?.reset();
+    setRegressiveInput(formatTime(originalRegressiveTimeRef.current));
     try {
       if (scheduledNotificationIdRef.current) {
         await Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current);
@@ -434,8 +385,9 @@ const TimerBar = forwardRef((
   const handleRegressiveSave = () => {
     if (isValidTimeFormat(regressiveInput)) {
       const newTime = parseTime(regressiveInput);
-      setRegressiveTime(newTime);
       setOriginalRegressiveTime(newTime);
+      restTimerRef.current?.setDurationSeconds(newTime);
+      restTimerRef.current?.setRemainingSeconds(newTime);
       setIsEditingRegressive(false);
     }
   };
@@ -448,9 +400,7 @@ const TimerBar = forwardRef((
     if (isRegressiveRunning) {
       // Si está corriendo, solo ajustar temporalmente el tiempo restante
       const newRemainingTime = regressiveTime + 15;
-      setRegressiveTime(newRemainingTime);
-      // Resetear el tiempo pausado para que el cálculo sea correcto
-      setRegressivePausedTime(0);
+      restTimerRef.current?.setRemainingSeconds(newRemainingTime);
       // Nunca programar notificación desde aquí. Si está en background,
       // AppState listener se encarga de programar con el tiempo actual.
       if (scheduledNotificationIdRef.current) {
@@ -461,7 +411,8 @@ const TimerBar = forwardRef((
       // Si está quieto, modificar la configuración permanente
       const newTime = originalRegressiveTime + 15;
       setOriginalRegressiveTime(newTime);
-      setRegressiveTime(newTime);
+      restTimerRef.current?.setDurationSeconds(newTime);
+      restTimerRef.current?.setRemainingSeconds(newTime);
       setRegressiveInput(formatTime(newTime));
     }
   };
@@ -471,9 +422,7 @@ const TimerBar = forwardRef((
       // Si está corriendo, solo ajustar temporalmente el tiempo restante
       if (regressiveTime > 15) {
         const newRemainingTime = regressiveTime - 15;
-        setRegressiveTime(newRemainingTime);
-        // Resetear el tiempo pausado para que el cálculo sea correcto
-        setRegressivePausedTime(0);
+        restTimerRef.current?.setRemainingSeconds(newRemainingTime);
         if (scheduledNotificationIdRef.current) {
           Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
           scheduledNotificationIdRef.current = null;
@@ -484,40 +433,20 @@ const TimerBar = forwardRef((
       if (originalRegressiveTime > 15) {
         const newTime = originalRegressiveTime - 15;
         setOriginalRegressiveTime(newTime);
-        setRegressiveTime(newTime);
+        restTimerRef.current?.setDurationSeconds(newTime);
+        restTimerRef.current?.setRemainingSeconds(newTime);
         setRegressiveInput(formatTime(newTime));
       }
     }
   };
 
   const handleAdd1Minute = () => {
-    // Actualiza el tiempo mostrado
-    setIncrementalTime((prev) => {
-      const next = prev + 60;
-      if (onDurationChange) onDurationChange(next);
-      return next;
-    });
-    // Alinear el acumulado real
-    setIncrementalPausedTime((prev) => prev + 60);
-    // Si está corriendo, reiniciar el intervalo para tomar el nuevo acumulado
-    if (isIncrementalRunning) {
-      setIsIncrementalRunning(false);
-      setTimeout(() => setIsIncrementalRunning(true), 0);
-    }
+    sessionTimerRef.current.setElapsedSeconds(incrementalTime + 60);
   };
 
   const handleSubtract1Minute = () => {
     if (incrementalTime < 60) return;
-    setIncrementalTime((prev) => {
-      const next = prev - 60;
-      if (onDurationChange) onDurationChange(next);
-      return next;
-    });
-    setIncrementalPausedTime((prev) => Math.max(0, prev - 60));
-    if (isIncrementalRunning) {
-      setIsIncrementalRunning(false);
-      setTimeout(() => setIsIncrementalRunning(true), 0);
-    }
+    sessionTimerRef.current.setElapsedSeconds(Math.max(0, incrementalTime - 60));
   };
 
   if (minimized) {
@@ -635,8 +564,9 @@ const TimerBar = forwardRef((
             <TimeDisplay
               time={regressiveTime}
               onTimeChange={(newTime) => {
-                setRegressiveTime(newTime);
                 setOriginalRegressiveTime(newTime);
+                restTimerRef.current?.setDurationSeconds(newTime);
+                restTimerRef.current?.setRemainingSeconds(newTime);
                 setRegressiveInput(formatTime(newTime));
               }}
               isRunning={isRegressiveRunning}
