@@ -91,6 +91,14 @@ export default function App() {
     }
   };
 
+  const clearActiveSessionDraft = async () => {
+    try {
+      await AsyncStorage.removeItem(ACTIVE_SESSION_DRAFT_KEY);
+    } catch {
+      // no-op
+    }
+  };
+
   const getIncompleteFieldsCount = (): number => {
     let count = 0;
     exercises.forEach(exercise => {
@@ -237,6 +245,7 @@ export default function App() {
           onToggleDarkMode={toggleDarkMode}
           sessionDuration={sessionDuration}
           onSessionFinish={handleSessionFinish}
+          onClearActiveSessionDraft={clearActiveSessionDraft}
           onOpenExercisePickerForType={openExercisePickerForType}
           onOpenAnalytics={openAnalytics}
           onOpenImageManager={openImageManager}

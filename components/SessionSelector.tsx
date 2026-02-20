@@ -23,6 +23,7 @@ interface Props {
   onToggleDarkMode?: () => void;
   sessionDuration?: number; // Duración de la sesión en segundos
   onSessionFinish?: () => void; // Callback para resetear timers
+  onClearActiveSessionDraft?: () => void;
   onOpenExercisePickerForType?: (onPick: (e: { ejercicio: string; musculo: string }) => void) => void;
   onOpenImageManager?: () => void;
   onOpenAnalytics?: () => void;
@@ -94,21 +95,30 @@ const fixSessionLabel = (value: string): string =>
       .replace(/\s+/g, ' ')
       .trim();
 
-  const buildEmptySeries = (series?: Array<{ reps?: string; kg?: string; rir?: number | undefined }>) => {
-    const count = series && series.length > 0 ? series.length : 1;
-    return Array.from({ length: count }, () => ({ reps: '', kg: '', rir: undefined as number | undefined }));
-  };
+const buildEmptySeries = (series?: Array<{ reps?: string; kg?: string; rir?: number | undefined }>) => {
+  const count = series && series.length > 0 ? series.length : 1;
+  return Array.from({ length: count }, () => ({ reps: '', kg: '', rir: undefined as number | undefined }));
+};
 
-  const cloneExercisesWithEmptySeries = (items: any[] = []): Exercise[] =>
-    (items || [])
-      .map((item) => ({
-        ejercicio: String(item?.ejercicio || '').trim(),
-        musculo: String(item?.musculo || '').trim(),
-        series: buildEmptySeries(item?.series),
-      }))
-      .filter((item) => item.ejercicio && item.musculo);
+const cloneExercisesWithEmptySeries = (items: any[] = []): Exercise[] =>
+  (items || [])
+    .map((item) => ({
+      ejercicio: String(item?.ejercicio || '').trim(),
+      musculo: String(item?.musculo || '').trim(),
+      series: buildEmptySeries(item?.series),
+    }))
+    .filter((item) => item.ejercicio && item.musculo);
 
-const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExercise, getIncompleteFieldsCount, isDarkMode, onToggleDarkMode, sessionDuration, onSessionFinish, onOpenExercisePickerForType, onOpenImageManager, onOpenAnalytics }) => {
+const sortRoutinesList = (items: Routine[]): Routine[] =>
+  [...items].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+
+const sortCustomSessionsList = (items: CustomSession[]): CustomSession[] =>
+  [...items].sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+
+const sortSessionTypeKeys = (items: string[]): string[] =>
+  [...items].sort((a, b) => fixSessionLabel(a).localeCompare(fixSessionLabel(b), 'es', { sensitivity: 'base' }));
+
+const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExercise, getIncompleteFieldsCount, isDarkMode, onToggleDarkMode, sessionDuration, onSessionFinish, onClearActiveSessionDraft, onOpenExercisePickerForType, onOpenImageManager, onOpenAnalytics }) => {
   const insets = useSafeAreaInsets();
   const [selectedSession, setSelectedSession] = useState<SessionType | null>(null);
   const [showSessionModal, setShowSessionModal] = useState(false);
@@ -154,6 +164,25 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   const sessionPickerThumbTop = sessionPickerHasScroll
     ? (Math.min(sessionPickerScrollY, sessionPickerMaxScroll) / sessionPickerMaxScroll) * (sessionPickerViewportHeight - sessionPickerThumbHeight)
     : 0;
+  const sortedDefaultSessionTypes = sortSessionTypeKeys(
+    Object.keys(sessionExercises).filter((st) => !deletedDefaultTypes.includes(st))
+  );
+  const buildSessionTypeEntries = () => {
+    const defaults = sortedDefaultSessionTypes.map((st) => ({
+      kind: 'default' as const,
+      key: st,
+      label: fixSessionLabel(st),
+      count: getSessionTemplate(st as SessionType).length,
+    }));
+    const customs = customSessions.map((cs) => ({
+      kind: 'custom' as const,
+      key: cs.id,
+      label: cs.name,
+      count: cs.exercises?.length || 0,
+      custom: cs,
+    }));
+    return [...defaults, ...customs].sort((a, b) => a.label.localeCompare(b.label, 'es', { sensitivity: 'base' }));
+  };
 
   const getSessionTemplate = (sessionType: SessionType): Exercise[] => {
     const overrides = sessionOverrides[sessionType];
@@ -307,7 +336,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   useEffect(() => {
     (async () => {
       const cs = await getCustomSessions();
-      setCustomSessions(cs);
+      setCustomSessions(sortCustomSessionsList(cs));
       let rs = await getRoutines();
       // Asegurar plantillas por defecto SIEMPRE que no existan por nombre
       const seeds: Array<Omit<Routine, 'id'>> = [
@@ -371,7 +400,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
       } catch (e) {
         // noop
       }
-      setRoutines(rs);
+      setRoutines(sortRoutinesList(rs));
     })();
   }, []);
 
@@ -380,7 +409,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
     if (!customSessionName.trim()) return;
     try {
       const created = await saveCustomSession({ name: customSessionName.trim(), exercises });
-      setCustomSessions([created, ...customSessions]);
+      setCustomSessions(sortCustomSessionsList([created, ...customSessions]));
       setCustomSessionName('');
       setShowCustomNameModal(false);
       if (pendingFinalizeAfterCustomSave) {
@@ -432,7 +461,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
     }
     setShowRoutineModal(false);
     const rs = await getRoutines();
-    setRoutines(rs);
+    setRoutines(sortRoutinesList(rs));
     setRoutineMode('list');
   };
 
@@ -505,7 +534,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
     setPendingAssignRef(null);
     setShowRoutineModal(false);
     const rs = await getRoutines();
-    setRoutines(rs);
+    setRoutines(sortRoutinesList(rs));
     Alert.alert('Rutina', 'Sesión asignada correctamente a la rutina.');
   };
 
@@ -673,6 +702,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
     setPendingFinalizeAfterCustomSave(false);
     setCustomSessionName('');
     if (onSessionFinish) onSessionFinish();
+    if (onClearActiveSessionDraft) onClearActiveSessionDraft();
   };
 
   const saveSportSessionWithDate = async (date: Date, sport: string, durationSeconds?: number) => {
@@ -863,7 +893,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
               }
               await saveRoutine({ name: routineObj.name, sessionRefs: routineObj.sessionRefs });
               const rs = await getRoutines();
-              setRoutines(rs);
+              setRoutines(sortRoutinesList(rs));
               Alert.alert('Importaci\u00f3n', 'Rutina importada correctamente');
             } catch (err) {
               Alert.alert('Error', 'No se pudo importar la rutina');
@@ -957,28 +987,17 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                 onContentSizeChange={(_, h) => setSessionPickerContentHeight(Math.max(1, h))}
                 onScroll={(e) => setSessionPickerScrollY(e.nativeEvent.contentOffset.y)}
               >
-              {Object.keys(sessionExercises).filter(st => !deletedDefaultTypes.includes(st)).map((sessionType) => (
+              {buildSessionTypeEntries().map((entry) => (
                 <TouchableOpacity
-                  key={sessionType}
-                  style={[styles.sessionOption, { borderBottomColor: theme.border }]}
-                  onPress={() => handleSessionSelect(sessionType as SessionType)}
-                  onLongPress={() => {
-                        // Abrir editor visual del tipo de sesión (misma lógica que rutinas)
-                        setShowSessionModal(false);
-                        openSessionTypeEditor(sessionType as SessionType);
-                      }}
-                >
-                  <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{fixSessionLabel(sessionType)}</Text>
-                      <Text style={[styles.sessionOptionSubtext, { color: theme.textSecondary }]}> 
-                        {getSessionTemplate(sessionType as SessionType).length} ejercicios
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              {customSessions.map((cs) => (
-                <TouchableOpacity
-                  key={cs.id}
+                  key={`${entry.kind}-${entry.key}`}
                   style={[styles.sessionOption, { borderBottomColor: theme.border }]}
                   onPress={() => {
+                    if (entry.kind === 'default') {
+                      handleSessionSelect(entry.key as SessionType);
+                      return;
+                    }
+                    const cs = entry.custom || customSessions.find((c) => c.id === entry.key);
+                    if (!cs) return;
                     setActiveRoutine(null);
                     setSelectedSession(cs.name as any);
                     // @ts-ignore plantilla a estructura Exercise
@@ -986,12 +1005,22 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                     setShowSessionModal(false);
                   }}
                   onLongPress={() => {
-                    openCustomSessionEditor(cs);
+                    if (entry.kind === 'default') {
+                      setShowSessionModal(false);
+                      openSessionTypeEditor(entry.key as SessionType);
+                      return;
+                    }
+                    if (entry.custom) {
+                      openCustomSessionEditor(entry.custom);
+                    } else {
+                      const cs = customSessions.find((c) => c.id === entry.key);
+                      if (cs) openCustomSessionEditor(cs);
+                    }
                   }}
                 >
-                  <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{cs.name} (Personalizada)</Text>
+                  <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{entry.label}</Text>
                   <Text style={[styles.sessionOptionSubtext, { color: theme.textSecondary }]}>
-                    {(cs.exercises?.length || 0)} ejercicios
+                    {entry.count} ejercicios
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -1130,7 +1159,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                         const updated = { ...found, name: editingTypeName, exercises: editingTypeExercises } as CustomSession;
                         await updateCustomSession(updated);
                         const next = await getCustomSessions();
-                        setCustomSessions(next);
+                        setCustomSessions(sortCustomSessionsList(next));
                       }
                       setShowSessionTypeEditor(false);
                     }
@@ -1154,7 +1183,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                           const ok = await deleteCustomSession(editingTypeKey);
                           if (ok) {
                             const next = await getCustomSessions();
-                            setCustomSessions(next);
+                            setCustomSessions(sortCustomSessionsList(next));
                             setShowSessionTypeEditor(false);
                           }
                         } }
@@ -1289,7 +1318,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                       {editingRoutine.sessionRefs.map((ref, idx) => (
                         <View key={`${ref.type}-${ref.key}-${idx}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}>
                           <Text style={{ color: theme.textPrimary }}>
-                            {ref.type === 'default' ?ref.key : (customSessions.find(c => c.id === ref.key)?.name || 'Personalizada')}
+                            {ref.type === 'default' ?ref.key : (customSessions.find(c => c.id === ref.key)?.name || '')}
                           </Text>
                           <View style={{ flexDirection: 'row' }}>
                             <TouchableOpacity onPress={() => moveSessionRef(idx, -1)} style={{ marginRight: 8 }}>
@@ -1321,7 +1350,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                       const ok = await deleteRoutine(editingRoutine.id);
                       if (ok) {
                         const rs = await getRoutines();
-                        setRoutines(rs);
+                        setRoutines(sortRoutinesList(rs));
                         setShowRoutineModal(false);
                         setRoutineMode('list');
                       }
@@ -1349,7 +1378,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                     {editingRoutine.sessionRefs.map((ref, idx) => (
                       <TouchableOpacity key={`${ref.type}-${ref.key}-${idx}`} style={[styles.sessionOption, { borderBottomColor: theme.border }]} onPress={() => startRoutineWithSessionRef(ref)}>
                         <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>
-                          {ref.type === 'default' ?ref.key : (customSessions.find(c => c.id === ref.key)?.name || 'Personalizada')}
+                          {ref.type === 'default' ?ref.key : (customSessions.find(c => c.id === ref.key)?.name || '')}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -1376,16 +1405,16 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                     style={[styles.customNameInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.textPrimary }]}
                   />
                   <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator persistentScrollbar>
-                    {Object.keys(sessionExercises).filter(st => !deletedDefaultTypes.includes(st as string)).map((st, idx) => (
-                      <TouchableOpacity key={`${st}-${idx}`} style={[styles.sessionOption, { borderBottomColor: theme.border }]} onPress={() => handleAddSessionTypeToRoutine({ type: 'default', key: st })}>
-                        <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{st}</Text>
-                        <Text style={[styles.sessionOptionSubtext, { color: theme.textSecondary }]}>{sessionExercises[st as SessionType].length} ejercicios</Text>
-                      </TouchableOpacity>
-                    ))}
-                    {customSessions.map((cs, idx) => (
-                      <TouchableOpacity key={`${cs.id}-${idx}`} style={[styles.sessionOption, { borderBottomColor: theme.border }]} onPress={() => handleAddSessionTypeToRoutine({ type: 'custom', key: cs.id })}>
-                        <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{cs.name} (Personalizada)</Text>
-                        <Text style={[styles.sessionOptionSubtext, { color: theme.textSecondary }]}>{(cs.exercises?.length || 0)} ejercicios</Text>
+                    {buildSessionTypeEntries().map((entry, idx) => (
+                      <TouchableOpacity
+                        key={`${entry.kind}-${entry.key}-${idx}`}
+                        style={[styles.sessionOption, { borderBottomColor: theme.border }]}
+                        onPress={() => handleAddSessionTypeToRoutine({ type: entry.kind, key: entry.key })}
+                      >
+                        <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{entry.label}</Text>
+                        <Text style={[styles.sessionOptionSubtext, { color: theme.textSecondary }]}>
+                          {entry.count} ejercicios
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
