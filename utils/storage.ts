@@ -40,6 +40,8 @@ export interface ExerciseCatalogItem {
   musculo: string;
   createdAtISO: string;
   imageUri?: string;
+  aliasFor?: string;
+  exerciseId?: string;
 }
 
 export interface ExerciseCatalog {
@@ -67,6 +69,12 @@ const normalizeExerciseName = (name: string): string => {
     .replace(/\s+/g, ' ');
 };
 
+const getCatalogKey = (name?: string): string =>
+  normalizeExerciseName(name || '');
+
+const getCatalogItemKey = (item: { ejercicio: string; aliasFor?: string }): string =>
+  getCatalogKey(item.aliasFor || item.ejercicio);
+
 export const getExerciseCatalog = async (): Promise<ExerciseCatalog> => {
   try {
     const data = await AsyncStorage.getItem(EXERCISE_CATALOG_KEY);
@@ -77,21 +85,45 @@ export const getExerciseCatalog = async (): Promise<ExerciseCatalog> => {
     }
     const items: ExerciseCatalogItem[] = [];
     const seen = new Set<string>();
+    const existingIds = new Set<string>();
+    let needsIdUpdate = false;
+    const generateExerciseId = (): string => {
+      let next = '';
+      do {
+        next = `custom_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      } while (existingIds.has(next));
+      existingIds.add(next);
+      return next;
+    };
     for (const raw of parsed.items) {
       if (!raw || typeof raw.ejercicio !== 'string' || typeof raw.musculo !== 'string') continue;
       const ejercicio = raw.ejercicio.trim();
       const musculo = raw.musculo.trim();
       if (!ejercicio || !musculo) continue;
       const imageUri = typeof raw.imageUri === 'string' ? raw.imageUri.trim() : '';
-      const key = normalizeExerciseName(ejercicio);
-      if (seen.has(key)) continue;
+      const aliasFor = typeof raw.aliasFor === 'string' ? raw.aliasFor.trim() : '';
+      const exerciseId = typeof raw.exerciseId === 'string' ? raw.exerciseId.trim() : '';
+      const key = getCatalogKey(aliasFor || ejercicio);
+      if (!key || seen.has(key)) continue;
       seen.add(key);
+      if (exerciseId) existingIds.add(exerciseId);
       items.push({
         ejercicio,
         musculo,
         createdAtISO: typeof raw.createdAtISO === 'string' ? raw.createdAtISO : new Date().toISOString(),
         ...(imageUri ? { imageUri } : {}),
+        ...(aliasFor ? { aliasFor } : {}),
+        ...(exerciseId ? { exerciseId } : {}),
       });
+    }
+    for (const item of items) {
+      if (!item.exerciseId) {
+        item.exerciseId = generateExerciseId();
+        needsIdUpdate = true;
+      }
+    }
+    if (needsIdUpdate) {
+      await AsyncStorage.setItem(EXERCISE_CATALOG_KEY, JSON.stringify({ version: 1, items }));
     }
     return { version: 1, items };
   } catch (error) {
@@ -101,17 +133,29 @@ export const getExerciseCatalog = async (): Promise<ExerciseCatalog> => {
 };
 
 export const upsertExerciseInCatalog = async (
-  exercise: { ejercicio: string; musculo: string; imageUri?: string }
+  exercise: { ejercicio: string; musculo: string; imageUri?: string; aliasFor?: string }
 ): Promise<ExerciseCatalogItem | null> => {
   const ejercicio = exercise.ejercicio?.trim();
   const musculo = exercise.musculo?.trim();
   const imageUri = typeof exercise.imageUri === 'string' ? exercise.imageUri.trim() : undefined;
+  const aliasFor = typeof exercise.aliasFor === 'string' ? exercise.aliasFor.trim() : '';
   const hasImageUri = !!imageUri;
   if (!ejercicio || !musculo) return null;
   try {
     const catalog = await getExerciseCatalog();
-    const key = normalizeExerciseName(ejercicio);
-    const existingIndex = catalog.items.findIndex(item => normalizeExerciseName(item.ejercicio) === key);
+    const existingIds = new Set(
+      catalog.items.map((item) => item.exerciseId).filter(Boolean) as string[]
+    );
+    const generateExerciseId = (): string => {
+      let next = '';
+      do {
+        next = `custom_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      } while (existingIds.has(next));
+      existingIds.add(next);
+      return next;
+    };
+    const key = getCatalogKey(aliasFor || ejercicio);
+    const existingIndex = catalog.items.findIndex(item => getCatalogItemKey(item) === key || getCatalogKey(item.ejercicio) === key);
     if (existingIndex >= 0) {
       const existing = catalog.items[existingIndex];
       const updated: ExerciseCatalogItem = {
@@ -119,11 +163,15 @@ export const upsertExerciseInCatalog = async (
         ejercicio,
         musculo,
         ...(hasImageUri ? { imageUri } : {}),
+        ...(aliasFor ? { aliasFor } : {}),
+        ...(existing.exerciseId ? { exerciseId: existing.exerciseId } : { exerciseId: generateExerciseId() }),
       };
       if (
         existing.ejercicio === updated.ejercicio &&
         existing.musculo === updated.musculo &&
-        (existing.imageUri || '') === (updated.imageUri || '')
+        (existing.imageUri || '') === (updated.imageUri || '') &&
+        (existing.aliasFor || '') === (updated.aliasFor || '') &&
+        (existing.exerciseId || '') === (updated.exerciseId || '')
       ) {
         return existing;
       }
@@ -137,6 +185,8 @@ export const upsertExerciseInCatalog = async (
       musculo,
       createdAtISO: new Date().toISOString(),
       ...(hasImageUri ? { imageUri } : {}),
+      ...(aliasFor ? { aliasFor } : {}),
+      exerciseId: generateExerciseId(),
     };
     await AsyncStorage.setItem(
       EXERCISE_CATALOG_KEY,
@@ -145,6 +195,58 @@ export const upsertExerciseInCatalog = async (
     return created;
   } catch (error) {
     console.error('Error guardando catálogo de ejercicios:', error);
+    return null;
+  }
+};
+
+export const updateExerciseCatalogItem = async (
+  previousName: string,
+  updates: { ejercicio?: string; musculo?: string }
+): Promise<ExerciseCatalogItem | null> => {
+  const prev = previousName?.trim();
+  if (!prev) return null;
+  const nextName = updates.ejercicio?.trim();
+  const nextMuscle = updates.musculo?.trim();
+  try {
+    const catalog = await getExerciseCatalog();
+    const prevKey = getCatalogKey(prev);
+    const index = catalog.items.findIndex(item => {
+      const ejercicioKey = getCatalogKey(item.ejercicio);
+      const aliasKey = item.aliasFor ? getCatalogKey(item.aliasFor) : '';
+      return ejercicioKey === prevKey || (aliasKey && aliasKey === prevKey);
+    });
+    if (index < 0) return null;
+    const existing = catalog.items[index];
+    const finalName = nextName || existing.ejercicio;
+    const finalMuscle = nextMuscle || existing.musculo;
+    if (!finalName || !finalMuscle) return null;
+
+    const nextKey = getCatalogKey(finalName);
+    const conflictIndex = catalog.items.findIndex((item, i) => {
+      if (i === index) return false;
+      const ejercicioKey = getCatalogKey(item.ejercicio);
+      const aliasKey = item.aliasFor ? getCatalogKey(item.aliasFor) : '';
+      return ejercicioKey === nextKey || (aliasKey && aliasKey === nextKey);
+    });
+    if (conflictIndex >= 0) return null;
+
+    const existingAlias = (existing.aliasFor || '').trim();
+    const nextAliasFor =
+      existingAlias ||
+      (getCatalogKey(prev) !== getCatalogKey(finalName) ? prev : '');
+
+    const updated: ExerciseCatalogItem = {
+      ...existing,
+      ejercicio: finalName,
+      musculo: finalMuscle,
+      ...(nextAliasFor ? { aliasFor: nextAliasFor } : {}),
+    };
+    const items = [...catalog.items];
+    items[index] = updated;
+    await AsyncStorage.setItem(EXERCISE_CATALOG_KEY, JSON.stringify({ version: 1, items }));
+    return updated;
+  } catch (error) {
+    console.error('Error actualizando catÃƒ?logo de ejercicios:', error);
     return null;
   }
 };
@@ -216,7 +318,7 @@ export const deleteBodyWeight = async (id: string): Promise<boolean> => {
   }
 };
 
-// Devuelve el último peso cuyo dateISO sea <= a la fecha indicada
+// Devuelve el ?ltimo peso cuyo dateISO sea <= a la fecha indicada
 export const getBodyWeightAt = async (date: Date): Promise<number | null> => {
   try {
     const list = await getBodyWeights();
@@ -440,7 +542,7 @@ export const saveExerciseHistory = async (exercise: ExerciseHistory) => {
     // Agregar nuevo registro al inicio
     const updatedHistory = [exercise, ...existingHistory];
     
-    // Mantener solo los últimos 5 registros
+    // Mantener solo los ?ltimos 5 registros
     const limitedHistory = updatedHistory.slice(0, 5);
     
     await AsyncStorage.setItem(key, JSON.stringify(limitedHistory));
@@ -491,7 +593,7 @@ export const getExerciseHistoryIndex = async (): Promise<Record<string, Exercise
   }
 };
 
-// Obtener el último registro de un ejercicio
+// Obtener el ?ltimo registro de un ejercicio
 const normalizeLabel = (value: any): string => {
   if (value === undefined || value === null) return '';
   return String(value).trim().replace(/\s+/g, ' ');
@@ -569,6 +671,161 @@ const normalizeExercisesFromRow = (row: any, fallbackFecha: string): ExerciseHis
   }];
 };
 
+const parseSeriesRowsIntoSessions = (
+  rows: any[]
+): Array<{
+  fechaISO: string;
+  tipo: string;
+  duracion?: number;
+  rutina?: string;
+  rutinaId?: string;
+  sessionId?: string;
+  ejercicios: ExerciseHistory[];
+}> => {
+  type MutableExercise = {
+    ejercicio: string;
+    musculo: string;
+    order: number;
+    series: ExerciseHistory['series'];
+    seriesByNumber?: Map<number, ExerciseHistory['series'][0]>;
+  };
+  type MutableSession = {
+    fechaISO: string;
+    tipo: string;
+    duracion?: number;
+    rutina?: string;
+    rutinaId?: string;
+    sessionId?: string;
+    ejerciciosByKey: Map<string, MutableExercise>;
+  };
+
+  const sessionsByKey = new Map<string, MutableSession>();
+
+  for (const row of rows || []) {
+    const fechaISO = normalizeDateToISO(
+      row?.fecha_hora_iso || row?.fecha || row?.date || row?.fechaISO || row?.dateISO
+    );
+    if (!fechaISO) continue;
+
+    const rutina = normalizeLabel(row?.rutina || row?.routine || row?.routineName);
+    const rutinaId = normalizeLabel(row?.rutina_id || row?.routineId);
+    const sessionId = normalizeLabel(row?.session_id || row?.sessionId || row?.sessionID || row?.id);
+    const tipo =
+      normalizeLabel(row?.tipo_sesion || row?.tipo || row?.type || row?.sessionType) ||
+      (rutina ? `Rutina ${rutina}` : 'Sesion importada');
+    const duracion = parseDurationSeconds(
+      row?.duracion_seg || row?.duracion_hhmmss || row?.duracion || row?.duration || row?.durationSeconds
+    );
+    const sessionKey = sessionId
+      ? `id:${sessionId}`
+      : `${fechaISO}|${tipo}|${duracion ?? ''}|${rutina}|${rutinaId}`;
+
+    let session = sessionsByKey.get(sessionKey);
+    if (!session) {
+      session = {
+        fechaISO,
+        tipo,
+        duracion,
+        rutina: rutina || undefined,
+        rutinaId: rutinaId || undefined,
+        sessionId: sessionId || undefined,
+        ejerciciosByKey: new Map<string, MutableExercise>(),
+      };
+      sessionsByKey.set(sessionKey, session);
+    } else if (session.duracion === undefined && duracion !== undefined) {
+      session.duracion = duracion;
+    }
+
+    const orderRaw = normalizeLabel(row?.orden_ejercicio || row?.exercise_order || row?.exerciseOrder);
+    const parsedOrder = Number.parseInt(orderRaw, 10);
+    const order = Number.isFinite(parsedOrder) && parsedOrder > 0
+      ? parsedOrder
+      : session.ejerciciosByKey.size + 1;
+    const musculo = normalizeLabel(row?.musculo || row?.muscle || row?.grupo || row?.group) || 'General';
+    const exerciseNameRaw = normalizeLabel(
+      row?.ejercicio || row?.exercise || row?.exercise_name || row?.exerciseName || row?.name
+    );
+    const ejercicio = exerciseNameRaw || `Ejercicio importado ${order}`;
+    const exerciseKey = orderRaw
+      ? `order:${orderRaw}`
+      : `name:${normalizeExerciseName(ejercicio)}|${normalizeExerciseName(musculo)}`;
+
+    let mutableExercise = session.ejerciciosByKey.get(exerciseKey);
+    if (!mutableExercise) {
+      mutableExercise = { ejercicio, musculo, order, series: [] };
+      session.ejerciciosByKey.set(exerciseKey, mutableExercise);
+    }
+
+    const reps = row?.repeticiones ?? row?.reps ?? '';
+    const kg = row?.peso_kg ?? row?.kg ?? row?.weight_kg ?? '';
+    const rirValue = row?.rir;
+    const rir =
+      rirValue !== undefined && rirValue !== null && String(rirValue).trim() !== ''
+        ? Number(rirValue)
+        : undefined;
+    const seriesNumberRaw = normalizeLabel(row?.numero_serie || row?.series_number || row?.serie || row?.series);
+    const seriesNumber = Number.parseInt(seriesNumberRaw, 10);
+
+    if (String(reps).trim() !== '' || String(kg).trim() !== '' || rir !== undefined) {
+      const seriesEntry = {
+        reps: String(reps ?? ''),
+        kg: String(kg ?? ''),
+        rir: Number.isFinite(rir as number) ? rir : undefined,
+      };
+      if (Number.isFinite(seriesNumber) && seriesNumber > 0) {
+        if (!mutableExercise.seriesByNumber) {
+          mutableExercise.seriesByNumber = new Map<number, ExerciseHistory['series'][0]>();
+        }
+        mutableExercise.seriesByNumber.set(seriesNumber, seriesEntry);
+      } else {
+        mutableExercise.series.push(seriesEntry);
+      }
+    }
+  }
+
+  const parsedSessions: Array<{
+    fechaISO: string;
+    tipo: string;
+    duracion?: number;
+    rutina?: string;
+    rutinaId?: string;
+    sessionId?: string;
+    ejercicios: ExerciseHistory[];
+  }> = [];
+  sessionsByKey.forEach((session) => {
+    const ejercicios = Array.from(session.ejerciciosByKey.values())
+      .sort((a, b) => a.order - b.order)
+      .map((exercise) => {
+        const orderedSeries = exercise.seriesByNumber
+          ? Array.from(exercise.seriesByNumber.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([, series]) => series)
+          : [];
+        const mergedSeries = [...orderedSeries, ...exercise.series];
+        return {
+          ejercicio: exercise.ejercicio,
+          musculo: exercise.musculo,
+          fecha: session.fechaISO,
+          series: mergedSeries.length > 0
+            ? mergedSeries
+            : [{ reps: '', kg: '', rir: undefined }],
+        };
+      });
+    if (ejercicios.length === 0) return;
+    parsedSessions.push({
+      fechaISO: session.fechaISO,
+      tipo: session.tipo,
+      duracion: session.duracion,
+      rutina: session.rutina,
+      rutinaId: session.rutinaId,
+      sessionId: session.sessionId,
+      ejercicios,
+    });
+  });
+
+  return parsedSessions;
+};
+
 const buildImportId = (fechaISO: string, tipo: string, duracion?: number, ejercicios: ExerciseHistory[] = []): string => {
   const exercisesPart = ejercicios.map(ex => {
     const name = normalizeExerciseName(ex.ejercicio);
@@ -579,31 +836,88 @@ const buildImportId = (fechaISO: string, tipo: string, duracion?: number, ejerci
 };
 
 export const importSessionsFromCSV = async (rows: any[]): Promise<{ imported: number; skipped: number }> => {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { imported: 0, skipped: 0 };
+  }
+
   const existing = await getSessions();
   const existingImportIds = new Set<string>();
+  const existingSessionIds = new Set<string>();
+  const existingSourceSessionIds = new Set<string>();
   for (const s of existing as any[]) {
+    if (s?.id) existingSessionIds.add(String(s.id));
     const importId = s?.source?.importId;
     if (importId) existingImportIds.add(String(importId));
+    const sourceSessionId = s?.source?.sessionId;
+    if (sourceSessionId) existingSourceSessionIds.add(String(sourceSessionId));
   }
+
+  const hasSeriesRowsFormat = rows.some((row) =>
+    !!row && (
+      row?.orden_ejercicio !== undefined ||
+      row?.exercise_order !== undefined ||
+      row?.numero_serie !== undefined ||
+      row?.series_number !== undefined ||
+      row?.repeticiones !== undefined ||
+      row?.peso_kg !== undefined ||
+      row?.fecha_hora_iso !== undefined
+    )
+  );
+
+  const parsedRows = hasSeriesRowsFormat
+    ? parseSeriesRowsIntoSessions(rows)
+    : rows.map((row) => {
+        const fechaISO = normalizeDateToISO(row?.fecha || row?.date || row?.fechaISO || row?.dateISO);
+        const tipo = normalizeLabel(row?.tipo || row?.type || row?.actividad || row?.activityType || row?.sessionType);
+        const duracion = parseDurationSeconds(row?.duracion || row?.duration || row?.durationSec || row?.durationSeconds);
+        const sessionId = normalizeLabel(row?.session_id || row?.sessionId || row?.sessionID || row?.id);
+        const ejercicios = fechaISO ? normalizeExercisesFromRow(row, fechaISO) : [];
+        return {
+          fechaISO,
+          tipo,
+          duracion,
+          rutina: normalizeLabel(row?.rutina || row?.routine || row?.routineName) || undefined,
+          rutinaId: normalizeLabel(row?.rutina_id || row?.routineId) || undefined,
+          sessionId: sessionId || undefined,
+          ejercicios,
+        };
+      });
+
   let imported = 0;
   let skipped = 0;
   const updated = [...existing];
-  for (const row of rows || []) {
-    const fechaISO = normalizeDateToISO(row?.fecha || row?.date || row?.fechaISO || row?.dateISO);
-    if (!fechaISO) { skipped++; continue; }
-    const tipo = normalizeLabel(row?.tipo || row?.type || row?.actividad || row?.activityType || row?.sessionType);
-    const duracion = parseDurationSeconds(row?.duracion || row?.duration || row?.durationSec || row?.durationSeconds);
-    const ejercicios = normalizeExercisesFromRow(row, fechaISO);
-    if (ejercicios.length === 0) { skipped++; continue; }
+  for (const row of parsedRows) {
+    const fechaISO = row?.fechaISO || null;
+    if (!fechaISO) {
+      skipped++;
+      continue;
+    }
+    const tipo = normalizeLabel(row?.tipo) || 'Sesion importada';
+    const duracion = row?.duracion;
+    const ejercicios = Array.isArray(row?.ejercicios) ? row.ejercicios : [];
+    if (ejercicios.length === 0) {
+      skipped++;
+      continue;
+    }
+    const sessionId = row?.sessionId ? String(row.sessionId) : '';
+    if (sessionId && (existingSessionIds.has(sessionId) || existingSourceSessionIds.has(sessionId))) {
+      skipped++;
+      continue;
+    }
     const importId = buildImportId(fechaISO, tipo, duracion, ejercicios);
-    if (existingImportIds.has(importId)) { skipped++; continue; }
+    if (existingImportIds.has(importId)) {
+      skipped++;
+      continue;
+    }
     const session: any = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       fecha: fechaISO,
-      tipo: tipo || 'Sesión',
+      tipo,
       duracion,
       ejercicios,
-      source: { type: 'csv', importId },
+      rutina: row?.rutina || undefined,
+      rutinaId: row?.rutinaId || undefined,
+      source: { type: 'csv', importId, ...(sessionId ? { sessionId } : {}) },
     };
     updated.push(session);
     existingImportIds.add(importId);
@@ -620,7 +934,7 @@ export const getLastExerciseRecord = async (exerciseName: string): Promise<Exerc
     const history = await getExerciseHistory(exerciseName);
     return history.length > 0 ? history[0] : null;
   } catch (error) {
-    console.error('Error obteniendo último registro:', error);
+    console.error('Error obteniendo ?ltimo registro:', error);
     return null;
   }
 };

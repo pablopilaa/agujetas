@@ -80,6 +80,23 @@ def enableProguardInReleaseBuilds = (findProperty('android.enableProguardInRelea
  * this variant is about 6MiB larger per architecture than default.
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
+def appVariant = System.getenv("APP_VARIANT") ?: "production"
+def variantApplicationId = "com.pablopilaa.Agujetas"
+def variantAppName = "Agujetas"
+def variantIcon = "@mipmap/ic_launcher_prod"
+def variantRoundIcon = "@mipmap/ic_launcher_prod_round"
+
+if (appVariant == "development") {
+    variantApplicationId = "com.pablopilaa.agujetasdev"
+    variantAppName = "Agujetas Dev"
+    variantIcon = "@mipmap/ic_launcher_dev"
+    variantRoundIcon = "@mipmap/ic_launcher_dev_round"
+} else if (appVariant == "preview") {
+    variantApplicationId = "com.pablopilaa.agujetaspreview"
+    variantAppName = "Agujetas Preview"
+    variantIcon = "@mipmap/ic_launcher_qa"
+    variantRoundIcon = "@mipmap/ic_launcher_qa_round"
+}
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -89,11 +106,16 @@ android {
 
     namespace 'com.pablopilaa.Agujetas'
     defaultConfig {
-        applicationId 'com.pablopilaa.Agujetas'
+        applicationId variantApplicationId
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.2"
+        versionCode 2
+        versionName "1.0.3"
+        resValue "string", "app_name", variantAppName
+        manifestPlaceholders = [
+            appIcon: variantIcon,
+            appRoundIcon: variantRoundIcon
+        ]
     }
     signingConfigs {
         debug {

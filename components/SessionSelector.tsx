@@ -24,9 +24,18 @@ interface Props {
   sessionDuration?: number; // Duración de la sesión en segundos
   onSessionFinish?: () => void; // Callback para resetear timers
   onOpenExercisePickerForType?: (onPick: (e: { ejercicio: string; musculo: string }) => void) => void;
+  onOpenImageManager?: () => void;
+  onOpenAnalytics?: () => void;
 }
 
 type SessionType = 'Push' | 'Pull' | 'Piernas' | 'Sesión mixta' | 'Sesión libre' | 'Cardio';
+type HistoricalSessionSelection = {
+  kind: 'routine' | 'sessionType' | 'customSession';
+  key: string;
+  label?: string;
+  routineId?: string;
+  routineName?: string;
+};
 
 // Ejercicios predefinidos por tipo de sesión
 const sessionExercises: Record<SessionType, Exercise[]> = {
@@ -72,13 +81,41 @@ const getDisplaySessionName = (name: string): string => {
   return name;
 };
 
-const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExercise, getIncompleteFieldsCount, isDarkMode, onToggleDarkMode, sessionDuration, onSessionFinish, onOpenExercisePickerForType }) => {
+const fixSessionLabel = (value: string): string =>
+  value
+    .replace(/Sesión/g, 'Sesi\u00f3n')
+    .replace(/sesión/g, 'sesi\u00f3n');
+
+  const normalizeLabel = (value: string): string =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const buildEmptySeries = (series?: Array<{ reps?: string; kg?: string; rir?: number | undefined }>) => {
+    const count = series && series.length > 0 ? series.length : 1;
+    return Array.from({ length: count }, () => ({ reps: '', kg: '', rir: undefined as number | undefined }));
+  };
+
+  const cloneExercisesWithEmptySeries = (items: any[] = []): Exercise[] =>
+    (items || [])
+      .map((item) => ({
+        ejercicio: String(item?.ejercicio || '').trim(),
+        musculo: String(item?.musculo || '').trim(),
+        series: buildEmptySeries(item?.series),
+      }))
+      .filter((item) => item.ejercicio && item.musculo);
+
+const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExercise, getIncompleteFieldsCount, isDarkMode, onToggleDarkMode, sessionDuration, onSessionFinish, onOpenExercisePickerForType, onOpenImageManager, onOpenAnalytics }) => {
   const insets = useSafeAreaInsets();
   const [selectedSession, setSelectedSession] = useState<SessionType | null>(null);
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [showSideMenu, setShowSideMenu] = useState(false);
   const [showCustomNameModal, setShowCustomNameModal] = useState(false);
   const [customSessionName, setCustomSessionName] = useState('');
+  const [pendingFinalizeAfterCustomSave, setPendingFinalizeAfterCustomSave] = useState(false);
   const [customSessions, setCustomSessions] = useState<CustomSession[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [showRoutineModal, setShowRoutineModal] = useState(false);
@@ -93,6 +130,9 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   const [isEditingHistoricalSession, setIsEditingHistoricalSession] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [sessionPickerViewportHeight, setSessionPickerViewportHeight] = useState(1);
+  const [sessionPickerContentHeight, setSessionPickerContentHeight] = useState(1);
+  const [sessionPickerScrollY, setSessionPickerScrollY] = useState(0);
   // Editor de tipo de sesión (unificado con estética de rutina)
   const [showSessionTypeEditor, setShowSessionTypeEditor] = useState(false);
   const [editingTypeKind, setEditingTypeKind] = useState<'default' | 'custom' | null>(null);
@@ -103,24 +143,35 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   const [sessionOverrides, setSessionOverrides] = useState<Partial<Record<SessionType, ExerciseHistory[]>>>({});
   const [deletedDefaultTypes, setDeletedDefaultTypes] = useState<string[]>([]);
   const theme = getTheme(isDarkMode || false);
+  const isDark = isDarkMode || false;
+  const scrollbarTrackColor = isDark ? 'rgba(255,255,255,0.22)' : 'rgba(79,118,111,0.24)';
+  const scrollbarThumbColor = isDark ? '#9FC4BD' : '#4F766F';
+  const sessionPickerHasScroll = sessionPickerContentHeight > sessionPickerViewportHeight;
+  const sessionPickerMaxScroll = Math.max(1, sessionPickerContentHeight - sessionPickerViewportHeight);
+  const sessionPickerThumbHeight = sessionPickerHasScroll
+    ? Math.max(26, (sessionPickerViewportHeight / sessionPickerContentHeight) * sessionPickerViewportHeight)
+    : sessionPickerViewportHeight;
+  const sessionPickerThumbTop = sessionPickerHasScroll
+    ? (Math.min(sessionPickerScrollY, sessionPickerMaxScroll) / sessionPickerMaxScroll) * (sessionPickerViewportHeight - sessionPickerThumbHeight)
+    : 0;
 
   const getSessionTemplate = (sessionType: SessionType): Exercise[] => {
     const overrides = sessionOverrides[sessionType];
-    const baseExercises = sessionExercises[sessionType];
+    const baseExercises = sessionExercises[sessionType] || [];
     
     if (overrides) {
       // Convertir ExerciseHistory[] a Exercise[]
       return overrides.map(e => ({
         ejercicio: e.ejercicio,
         musculo: e.musculo,
-        series: e.series.map(s => ({ reps: s.reps || '', kg: s.kg || '', rir: s.rir })),
+        series: e.series.map(() => ({ reps: '', kg: '', rir: undefined })),
       }));
     }
     
     return baseExercises.map(e => ({
       ejercicio: e.ejercicio,
       musculo: e.musculo,
-      series: e.series.map(s => ({ ...s })),
+      series: e.series.map(() => ({ reps: '', kg: '', rir: undefined })),
     }));
   };
 
@@ -138,15 +189,15 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
     // Verificar si hay ejercicios en la sesión actual
     if (exercises.length > 0) {
       Alert.alert(
-        'Confirmar cambio de sesión',
-        '¿Estás seguro? Esto sobrescribirá los ejercicios actuales.',
+        'Confirmar cambio de sesi\u00f3n',
+        '\u00bfEst\u00e1s seguro? Esto sobrescribir\u00e1 los ejercicios actuales.',
         [
           {
             text: 'No',
             style: 'cancel',
           },
           {
-            text: 'Sí',
+            text: 'S\u00ed',
             onPress: () => {
               setActiveRoutine(null);
               setSelectedSession(sessionType);
@@ -168,13 +219,79 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   };
 
   // Función para agregar entrenamiento de días anteriores
-  const handleAddHistoricalSession = (selectedDate: Date) => {
+  const handleAddHistoricalSession = (
+    selectedDate: Date,
+    selection?: HistoricalSessionSelection | string
+  ) => {
     // Guardar la fecha seleccionada para usarla al finalizar la sesión
     setSelectedDate(selectedDate);
     
-    // Cerrar el menú lateral y abrir el modal de selección de sesión
+    // Cerrar el menú lateral y abrir primero selector de rutina
     setShowSideMenu(false);
-    setShowSessionModal(true);
+    if (selection) {
+      if (typeof selection === 'string') {
+        const preferred = selection.trim();
+        if (preferred) {
+          const foundRoutine = routines.find((routine) => normalizeLabel(routine.name) === normalizeLabel(preferred));
+          if (foundRoutine) {
+            startRoutine(foundRoutine);
+            return;
+          }
+        }
+      } else {
+        if (selection.kind === 'routine') {
+          const foundRoutine = routines.find((routine) => routine.id === selection.key);
+          if (foundRoutine) {
+            startRoutine(foundRoutine);
+            return;
+          }
+        }
+        const applyRoutineFromSelection = () => {
+          const routineId = selection.routineId;
+          const routineName = (selection.routineName || '').trim();
+          if (routineId) {
+            const found = routines.find((routine) => routine.id === routineId);
+            if (found) {
+              setActiveRoutine(found);
+              return;
+            }
+          }
+          if (routineName) {
+            const foundByName = routines.find((routine) => normalizeLabel(routine.name) === normalizeLabel(routineName));
+            if (foundByName) {
+              setActiveRoutine(foundByName);
+              return;
+            }
+            setActiveRoutine({ id: `temp_${Date.now()}`, name: routineName, sessionRefs: [] });
+            return;
+          }
+          setActiveRoutine(null);
+        };
+
+        if (selection.kind === 'sessionType') {
+          applyRoutineFromSelection();
+          setSelectedSession(selection.key as SessionType);
+          setExercises(getSessionTemplate(selection.key as SessionType));
+          setShowRoutineModal(false);
+          return;
+        }
+        if (selection.kind === 'customSession') {
+          const cs = customSessions.find((c) => c.id === selection.key);
+          if (cs) {
+            applyRoutineFromSelection();
+            // @ts-ignore
+            setExercises(cloneExercisesWithEmptySeries((cs.exercises as any[]) || []));
+            setSelectedSession(cs.name as any);
+            setShowRoutineModal(false);
+            return;
+          }
+        }
+      }
+    }
+    setRoutineMode('list');
+    setEditingRoutine(null);
+    setPendingAssignRef(null);
+    setShowRoutineModal(true);
   };
 
   // Función para editar entrenamiento histórico
@@ -183,7 +300,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
     setEditingSessionId(sessionId);
     // Aquí cargaríamos los datos de la sesión histórica
     // Por ahora solo simulamos
-    Alert.alert('Editar sesión histórica', 'Funcionalidad en desarrollo');
+    Alert.alert('Editar sesi\u00f3n hist\u00f3rica', 'Funcionalidad en desarrollo');
   };
 
   // Cargar sesiones personalizadas al abrir la app
@@ -209,10 +326,33 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
             { type: 'default', key: 'Piernas' },
           ],
         },
-        {
+                {
           name: 'Cardio semanal',
           sessionRefs: [
             { type: 'default', key: 'Cardio' },
+          ],
+        },
+        {
+          name: 'Cardio',
+          sessionRefs: [
+            { type: 'default', key: 'Cardio' },
+          ],
+        },
+        {
+          name: 'Libre',
+          sessionRefs: [],
+        },
+        {
+          name: 'Crossfit',
+          sessionRefs: [],
+        },
+        {
+          name: 'Push-Pull-Piernas-Mixta',
+          sessionRefs: [
+            { type: 'default', key: 'Push' },
+            { type: 'default', key: 'Pull' },
+            { type: 'default', key: 'Piernas' },
+            { type: 'default', key: 'Sesión mixta' },
           ],
         },
       ];
@@ -243,9 +383,15 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
       setCustomSessions([created, ...customSessions]);
       setCustomSessionName('');
       setShowCustomNameModal(false);
-      Alert.alert('Sesión personalizada', 'Guardada correctamente');
+      if (pendingFinalizeAfterCustomSave) {
+        Alert.alert('Sesi\u00f3n personalizada', 'Guardada correctamente.', [
+          { text: 'Cerrar', onPress: finalizeSavedSession },
+        ]);
+      } else {
+        Alert.alert('Sesi\u00f3n personalizada', 'Guardada correctamente');
+      }
     } catch (e) {
-      Alert.alert('Error', 'No se pudo guardar la sesión personalizada.');
+      Alert.alert('Error', 'No se pudo guardar la sesi\u00f3n personalizada.');
     }
   };
 
@@ -313,7 +459,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   };
 
   const startRoutine = (routine: Routine) => {
-    // Jerarquía: Rutina -> Tipo de sesión
+    // Jerarquía: Rutina -> Tipo de sesi\u00f3n
     // Si la rutina tiene exactamente 1 sesión, cargarla directo.
     // Si tiene más de 1, seguimos mostrando selector de sesión.
     setActiveRoutine(routine);
@@ -335,7 +481,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
       const cs = customSessions.find(c => c.id === ref.key);
       if (cs) {
         // @ts-ignore
-        setExercises((cs.exercises as any) || []);
+        setExercises(cloneExercisesWithEmptySeries((cs.exercises as any[]) || []));
         setSelectedSession(cs.name as any);
       }
     }
@@ -352,7 +498,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   const assignRefToRoutine = async (routine: Routine) => {
     if (!pendingAssignRef) return;
     const exists = routine.sessionRefs.some(r => r.type === pendingAssignRef.type && r.key === pendingAssignRef.key);
-    const updated: Routine = exists ? routine : { ...routine, sessionRefs: [...routine.sessionRefs, pendingAssignRef] };
+    const updated: Routine = exists ?routine : { ...routine, sessionRefs: [...routine.sessionRefs, pendingAssignRef] };
     if (!exists) {
       await updateRoutine(updated);
     }
@@ -367,7 +513,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
     if (!editingRoutine) return;
     const exists = editingRoutine.sessionRefs.some(r => r.type === ref.type && r.key === ref.key);
     if (exists) {
-      Alert.alert('Ya agregado', 'Ese tipo de sesión ya está en la rutina.');
+      Alert.alert('Ya agregado', 'Ese tipo de sesi\u00f3n ya est\u00e1 en la rutina.');
       return;
     }
     setEditingRoutine({ ...editingRoutine, sessionRefs: [...editingRoutine.sessionRefs, ref] });
@@ -375,29 +521,29 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
   };
 
   const handleFinishSession = async () => {
-    const incompleteFields = getIncompleteFieldsCount ? getIncompleteFieldsCount() : 0;
+    const incompleteFields = getIncompleteFieldsCount ?getIncompleteFieldsCount() : 0;
     
     // Mensaje de confirmación antes de finalizar
-    let confirmMessage = `¿Estás seguro de que quieres finalizar tu entrenamiento de ${selectedSession || 'Sesión libre'}?`;
+    let confirmMessage = `\u00bfEst\u00e1s seguro de que quieres finalizar tu entrenamiento de ${selectedSession || 'Sesi\u00f3n libre'}?`;
     
     if (incompleteFields > 0) {
       confirmMessage += `\n\nTienes ${incompleteFields} campos sin completar.`;
     }
 
     Alert.alert(
-      'Confirmar finalización',
+      'Confirmar finalizaci\u00f3n',
       confirmMessage,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Finalizar sesión',
+          text: 'Finalizar sesi\u00f3n',
           onPress: () => {
             // Si se inició desde calendario, guardar directamente en esa fecha
             if (selectedDate) {
               const today = new Date(); today.setHours(0,0,0,0);
               const d = new Date(selectedDate); d.setHours(0,0,0,0);
               if (d.getTime() > today.getTime()) {
-                Alert.alert('Fecha inválida', 'No podés guardar sesiones en el futuro.');
+                Alert.alert('Fecha inv\u00e1lida', 'No pod\u00e9s guardar sesiones en el futuro.');
                 return;
               }
               saveSessionWithDate(selectedDate);
@@ -405,13 +551,13 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
             }
             // Caso normal: ofrecer Hoy / Otro día
             Alert.alert(
-              '¿Dónde quieres guardar la sesión?',
+              '\u00bfD\u00f3nde quieres guardar la sesi\u00f3n?',
               'Elige la fecha para guardar tu entrenamiento:',
               [
                 { text: 'Cancelar', style: 'cancel' },
-                { text: '📅 Hoy', onPress: () => saveSessionWithDate(new Date()) },
+                { text: '\ud83d\udcc5 Hoy', onPress: () => saveSessionWithDate(new Date()) },
                 {
-                  text: '📅 Otro día',
+                  text: '\ud83d\udcc5 Otro d\u00eda',
                   onPress: () => {
                     setShowSideMenu(true);
                     setIsEditingHistoricalSession(true);
@@ -432,7 +578,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
       const today = new Date(); today.setHours(0,0,0,0);
       const target = new Date(date); target.setHours(0,0,0,0);
       if (target.getTime() > today.getTime()) {
-        Alert.alert('Fecha inválida', 'No podés guardar sesiones en el futuro.');
+        Alert.alert('Fecha inv\u00e1lida', 'No pod\u00e9s guardar sesiones en el futuro.');
         return;
       }
       // Usar fecha local en formato YYYY-MM-DD para evitar desfases por huso horario/DST
@@ -456,22 +602,103 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
         rutinaId: activeRoutine?.id || undefined,
       } as Omit<import('../utils/storage').SessionRecord, 'id'>;
 
-              await saveSession(sessionData);
-              
-      // Después de guardar, limpiar y cerrar sin ofrecer exportación
-      Alert.alert('Sesión guardada', `Tu sesión ha sido guardada para el ${date.toLocaleDateString('es-ES')}.`, [
-        {
-          text: 'Cerrar',
-          onPress: () => {
-            setExercises([]);
-            setSelectedSession(null);
-            setIsEditingHistoricalSession(false);
-            if (onSessionFinish) onSessionFinish();
-          },
-        },
-      ]);
+      await saveSession(sessionData);
+
+      if (shouldSuggestSavingAsCustomSession(exercises)) {
+        Alert.alert(
+          'Sesi\u00f3n guardada',
+          `Tu sesi\u00f3n ha sido guardada para el ${date.toLocaleDateString('es-ES')}.\n\n\u00bfQuer\u00e9s guardarla tambi\u00e9n como sesi\u00f3n personalizada?`,
+          [
+            { text: 'No', onPress: finalizeSavedSession },
+            {
+              text: 'S\u00ed',
+              onPress: () => {
+                setPendingFinalizeAfterCustomSave(true);
+                setShowCustomNameModal(true);
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Sesi\u00f3n guardada', `Tu sesi\u00f3n ha sido guardada para el ${date.toLocaleDateString('es-ES')}.`, [
+          { text: 'Cerrar', onPress: finalizeSavedSession },
+        ]);
+      }
             } catch (error) {
-      Alert.alert('Error', 'No se pudo guardar la sesión.');
+      Alert.alert('Error', 'No se pudo guardar la sesi\u00f3n.');
+    }
+  };
+
+  const buildExerciseSignature = (items: Array<{ ejercicio: string; musculo: string }>): string => {
+    const countByKey = new Map<string, number>();
+    items.forEach((item) => {
+      const key = `${normalizeLabel(item.ejercicio)}|${normalizeLabel(item.musculo)}`;
+      if (!key || key === '|') return;
+      countByKey.set(key, (countByKey.get(key) || 0) + 1);
+    });
+    return Array.from(countByKey.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, count]) => `${key}#${count}`)
+      .join('||');
+  };
+
+  const shouldSuggestSavingAsCustomSession = (items: Exercise[]): boolean => {
+    if (!items.length) return false;
+    const currentSignature = buildExerciseSignature(items);
+    if (!currentSignature) return false;
+
+    const knownSignatures = new Set<string>();
+    (Object.keys(sessionExercises) as SessionType[]).forEach((sessionType) => {
+      const signature = buildExerciseSignature(getSessionTemplate(sessionType));
+      if (signature) knownSignatures.add(signature);
+    });
+    customSessions.forEach((customSession) => {
+      const customItems = (customSession.exercises as any[]) || [];
+      const signature = buildExerciseSignature(
+        customItems.map((item) => ({
+          ejercicio: String(item?.ejercicio || ''),
+          musculo: String(item?.musculo || ''),
+        }))
+      );
+      if (signature) knownSignatures.add(signature);
+    });
+
+    return !knownSignatures.has(currentSignature);
+  };
+
+  const finalizeSavedSession = () => {
+    setExercises([]);
+    setSelectedSession(null);
+    setIsEditingHistoricalSession(false);
+    setPendingFinalizeAfterCustomSave(false);
+    setCustomSessionName('');
+    if (onSessionFinish) onSessionFinish();
+  };
+
+  const saveSportSessionWithDate = async (date: Date, sport: string, durationSeconds?: number) => {
+    const sportName = sport.trim();
+    if (!sportName) return;
+    try {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const target = new Date(date); target.setHours(0, 0, 0, 0);
+      if (target.getTime() > today.getTime()) {
+        Alert.alert('Fecha invalida', 'No podes guardar sesiones en el futuro.');
+        return;
+      }
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, '0');
+      const dd = String(date.getDate()).padStart(2, '0');
+      const fechaLocal = `${yyyy}-${mm}-${dd}`;
+      const sessionData = {
+        fecha: fechaLocal,
+        tipo: sportName,
+        duracion: durationSeconds || 0,
+        ejercicios: [],
+      } as Omit<import('../utils/storage').SessionRecord, 'id'>;
+      await saveSession(sessionData);
+      Alert.alert('Sesion guardada', `${sportName} guardado para ${date.toLocaleDateString('es-ES')}.`);
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar la actividad.');
     }
   };
 
@@ -484,18 +711,18 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
 
     const date = new Date().toLocaleDateString('es-ES');
     const time = new Date().toLocaleTimeString('es-ES');
-    const durationMinutes = sessionDuration ? Math.floor(sessionDuration / 60) : 0;
-    const durationSeconds = sessionDuration ? (sessionDuration % 60) : 0;
+    const durationMinutes = sessionDuration ?Math.floor(sessionDuration / 60) : 0;
+    const durationSeconds = sessionDuration ?(sessionDuration % 60) : 0;
     
     let csvContent = `INFORME DE ENTRENAMIENTO\n`;
     csvContent += `================================\n`;
     csvContent += `Fecha: ${date}\n`;
     csvContent += `Hora: ${time}\n`;
-    csvContent += `Tipo de sesión: ${selectedSession || 'Sesión libre'}\n`;
+    csvContent += `Tipo de sesi\u00f3n: ${selectedSession || 'Sesi\u00f3n libre'}\n`;
     csvContent += `Duración total: ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}\n`;
     csvContent += `Ejercicios realizados: ${exercises.length}\n`;
     csvContent += `================================\n\n`;
-    csvContent += 'Ejercicio,Músculo,Serie,Repeticiones,Peso (kg),RIR\n';
+    csvContent += 'Ejercicio,M\u00fasculo,Serie,Repeticiones,Peso (kg),RIR\n';
     
     exercises.forEach((exercise, exerciseIndex) => {
       exercise.series.forEach((serie, serieIndex) => {
@@ -517,18 +744,18 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
 
     const date = new Date().toLocaleDateString('es-ES');
     const time = new Date().toLocaleTimeString('es-ES');
-    const durationMinutes = sessionDuration ? Math.floor(sessionDuration / 60) : 0;
-    const durationSeconds = sessionDuration ? (sessionDuration % 60) : 0;
+    const durationMinutes = sessionDuration ?Math.floor(sessionDuration / 60) : 0;
+    const durationSeconds = sessionDuration ?(sessionDuration % 60) : 0;
     
     let xlsxContent = `INFORME DE ENTRENAMIENTO - EXCEL\n`;
     xlsxContent += `================================\n`;
     xlsxContent += `Fecha: ${date}\n`;
     xlsxContent += `Hora: ${time}\n`;
-    xlsxContent += `Tipo de sesión: ${selectedSession || 'Sesión libre'}\n`;
+    xlsxContent += `Tipo de sesi\u00f3n: ${selectedSession || 'Sesi\u00f3n libre'}\n`;
     xlsxContent += `Duración total: ${durationMinutes}:${durationSeconds.toString().padStart(2, '0')}\n`;
     xlsxContent += `Ejercicios realizados: ${exercises.length}\n`;
     xlsxContent += `================================\n\n`;
-    xlsxContent += 'Ejercicio,Músculo,Serie,Repeticiones,Peso (kg),RIR\n';
+    xlsxContent += 'Ejercicio,M\u00fasculo,Serie,Repeticiones,Peso (kg),RIR\n';
     
     exercises.forEach((exercise, exerciseIndex) => {
       exercise.series.forEach((serie, serieIndex) => {
@@ -573,7 +800,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(fileUri, { mimeType: 'application/json', dialogTitle: 'Compartir rutina' });
       } else {
-        Alert.alert('Exportación', 'Archivo de rutina guardado en caché');
+        Alert.alert('Exportaci\u00f3n', 'Archivo de rutina guardado en cach\u00e9');
       }
     } catch (e) {
       Alert.alert('Error', 'No se pudo exportar la rutina');
@@ -637,7 +864,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
               await saveRoutine({ name: routineObj.name, sessionRefs: routineObj.sessionRefs });
               const rs = await getRoutines();
               setRoutines(rs);
-              Alert.alert('Importación', 'Rutina importada correctamente');
+              Alert.alert('Importaci\u00f3n', 'Rutina importada correctamente');
             } catch (err) {
               Alert.alert('Error', 'No se pudo importar la rutina');
             }
@@ -655,48 +882,50 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
       <View style={styles.sessionRow}>
         <TouchableOpacity onPress={() => setShowSideMenu(true)} style={styles.hamburgerTouchable}>
           <View style={styles.hamburgerIcon}>
-            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ? '#FFFFFF' : '#4F766F' }]} />
-            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ? '#FFFFFF' : '#4F766F' }]} />
-            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ? '#FFFFFF' : '#4F766F' }]} />
+            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ?'#FFFFFF' : '#4F766F' }]} />
+            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ?'#FFFFFF' : '#4F766F' }]} />
+            <View style={[styles.hamburgerLine, { backgroundColor: isDarkMode ?'#FFFFFF' : '#4F766F' }]} />
           </View>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.finishButton, { backgroundColor: theme.buttonPrimary, marginRight: 4, flexShrink: 1, minWidth: 0 }]}
+          style={[styles.finishButton, styles.routineButton, { backgroundColor: theme.buttonPrimary }]}
           onPress={() => { setRoutineMode('list'); setEditingRoutine(null); setPendingAssignRef(null); setShowRoutineModal(true); }}
         >
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.8}
+            minimumFontScale={0.5}
+            ellipsizeMode="tail"
             style={[styles.finishButtonText, { color: theme.buttonText }]}
           >
-            {activeRoutine ? `Rutina: ${activeRoutine.name}` : 'Rutina'}
+            {activeRoutine ? activeRoutine.name : 'Rutina'}
           </Text>
           </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.sessionButton, { backgroundColor: theme.buttonPrimary, marginLeft: 4, minWidth: 0 }]} 
+          style={[styles.sessionButton, { backgroundColor: theme.buttonPrimary, marginRight: exercises.length > 0 ? 6 : 0 }]} 
           onPress={() => setShowSessionModal(true)}
         >
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.7}
+            minimumFontScale={0.5}
             ellipsizeMode="tail"
             style={[styles.sessionButtonText, { color: theme.buttonText }]}
           >
-            {selectedSession ? `Sesión: ${getDisplaySessionName(String(selectedSession))}` : 'Tipo de sesión'}
+            {selectedSession ? getDisplaySessionName(String(selectedSession)) : 'Tipo de sesi\u00f3n'}
           </Text>
         </TouchableOpacity>
         
-        {selectedSession && (
+        {exercises.length > 0 && (
           <TouchableOpacity 
-            style={[styles.finishButton, { backgroundColor: theme.buttonSecondary, flexShrink: 1, minWidth: 0 }]}
+            style={[styles.finishButton, { backgroundColor: theme.buttonSecondary }]}
             onPress={handleFinishSession}
           >
             <Text
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.85}
+              minimumFontScale={0.5}
+              ellipsizeMode="tail"
               style={[styles.finishButtonText, { color: theme.buttonText }]}
             >
               Finalizar entreno
@@ -718,8 +947,16 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
         <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback>
           <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingTop: insets.top + 20 }]}>
-            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Seleccionar tipo de sesión</Text>
-            <ScrollView style={styles.sessionList}>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>{'Seleccionar tipo de sesi\u00f3n'}</Text>
+            <View style={styles.listWithScrollbar}>
+              <ScrollView
+                style={styles.sessionList}
+                showsVerticalScrollIndicator={false}
+                scrollEventThrottle={16}
+                onLayout={(e) => setSessionPickerViewportHeight(e.nativeEvent.layout.height)}
+                onContentSizeChange={(_, h) => setSessionPickerContentHeight(Math.max(1, h))}
+                onScroll={(e) => setSessionPickerScrollY(e.nativeEvent.contentOffset.y)}
+              >
               {Object.keys(sessionExercises).filter(st => !deletedDefaultTypes.includes(st)).map((sessionType) => (
                 <TouchableOpacity
                   key={sessionType}
@@ -731,7 +968,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                         openSessionTypeEditor(sessionType as SessionType);
                       }}
                 >
-                  <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{sessionType}</Text>
+                  <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{fixSessionLabel(sessionType)}</Text>
                       <Text style={[styles.sessionOptionSubtext, { color: theme.textSecondary }]}> 
                         {getSessionTemplate(sessionType as SessionType).length} ejercicios
                   </Text>
@@ -745,7 +982,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                     setActiveRoutine(null);
                     setSelectedSession(cs.name as any);
                     // @ts-ignore plantilla a estructura Exercise
-                    setExercises((cs.exercises as any) || []);
+                    setExercises(cloneExercisesWithEmptySeries((cs.exercises as any[]) || []));
                     setShowSessionModal(false);
                   }}
                   onLongPress={() => {
@@ -759,12 +996,27 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                 </TouchableOpacity>
               ))}
             </ScrollView>
+              {sessionPickerHasScroll ? (
+                <View pointerEvents="none" style={[styles.scrollbarTrack, { backgroundColor: scrollbarTrackColor }]}>
+                  <View
+                    style={[
+                      styles.scrollbarThumb,
+                      {
+                        backgroundColor: scrollbarThumbColor,
+                        height: sessionPickerThumbHeight,
+                        transform: [{ translateY: sessionPickerThumbTop }],
+                      },
+                    ]}
+                  />
+                </View>
+              ) : null}
+            </View>
             
             <TouchableOpacity 
               style={[styles.cancelButton, { backgroundColor: theme.buttonPrimary }]}
               onPress={() => setShowCustomNameModal(true)}
             >
-              <Text style={[styles.cancelButtonText, { color: theme.buttonText }]}>+ Agregar sesión personalizada</Text>
+              <Text style={[styles.cancelButtonText, { color: theme.buttonText }]}>{'+ Agregar sesi\u00f3n personalizada'}</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.cancelButton, { backgroundColor: theme.buttonSecondary }]}
@@ -790,7 +1042,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
             <TouchableWithoutFeedback>
               <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingTop: insets.top + 20 }] }>
                 <View style={{ paddingBottom: 8 }}>
-                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Editar tipo de sesión</Text>
+                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>{'Editar tipo de sesi\u00f3n'}</Text>
                   <TextInput
                     placeholder="Nombre del tipo"
                     placeholderTextColor={theme.textSecondary}
@@ -813,11 +1065,11 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                       });
                     }
                   }}>
-                    <Text style={[styles.cancelButtonText, { color: theme.buttonText }]}>+ Añadir ejercicio</Text>
+                    <Text style={[styles.cancelButtonText, { color: theme.buttonText }]}>{'+ A\u00f1adir ejercicio'}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={{ flexGrow: 1, minHeight: 0 }}>
-                  <ScrollView>
+                  <ScrollView showsVerticalScrollIndicator persistentScrollbar>
                     {editingTypeExercises.map((ex, idx) => (
                       <View key={`${ex.ejercicio}-${idx}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}>
                         <View style={{ flex: 1 }}>
@@ -887,8 +1139,8 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.modalButton, { backgroundColor: '#E57373', flex: 1 }]} onPress={async () => {
                     Alert.alert(
-                      'Eliminar tipo de sesión',
-                      `¿Seguro que deseas eliminar "${editingTypeName}"? Esta acción no se puede deshacer.`,
+                      'Eliminar tipo de sesi\u00f3n',
+                      `¿Seguro que deseas eliminar "${editingTypeName}"?Esta acción no se puede deshacer.`,
                       [
                         { text: 'Cancelar', style: 'cancel' },
                         { text: 'Eliminar', style: 'destructive', onPress: async () => {
@@ -922,11 +1174,14 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
         visible={showCustomNameModal}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setShowCustomNameModal(false)}
+        onRequestClose={() => {
+          setShowCustomNameModal(false);
+          if (pendingFinalizeAfterCustomSave) finalizeSavedSession();
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingTop: insets.top + 20 }]}>
-            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Guardar sesión personalizada</Text>
+            <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>{'Guardar sesi\u00f3n personalizada'}</Text>
             
             <TextInput
               style={[styles.customNameInput, { 
@@ -934,7 +1189,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                 borderColor: theme.border, 
                 color: theme.textPrimary 
               }]}
-              placeholder="Nombre de la sesión"
+              placeholder={'Nombre de la sesi\u00f3n'}
               placeholderTextColor={theme.textSecondary}
               value={customSessionName}
               onChangeText={setCustomSessionName}
@@ -951,7 +1206,10 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
               
               <TouchableOpacity 
                 style={[styles.modalButton, { backgroundColor: theme.buttonSecondary }]}
-                onPress={() => setShowCustomNameModal(false)}
+                onPress={() => {
+                  setShowCustomNameModal(false);
+                  if (pendingFinalizeAfterCustomSave) finalizeSavedSession();
+                }}
               >
                 <Text style={[styles.modalButtonText, { color: theme.buttonText }]}>Cancelar</Text>
               </TouchableOpacity>
@@ -975,12 +1233,12 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
               <>
                 <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Rutinas</Text>
                 {/* Lista de rutinas */}
-                <ScrollView style={styles.sessionList}>
+                <ScrollView style={styles.sessionList} showsVerticalScrollIndicator persistentScrollbar>
                   {routines.map((r) => (
                     <TouchableOpacity
                       key={r.id}
                       style={[styles.sessionOption, { borderBottomColor: theme.border }]}
-                      onPress={() => (pendingAssignRef ? assignRefToRoutine(r) : startRoutine(r))}
+                      onPress={() => (pendingAssignRef ?assignRefToRoutine(r) : startRoutine(r))}
                       onLongPress={() => {
                         setEditingRoutine(r);
                         setRoutineName(r.name);
@@ -1011,7 +1269,7 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
             {/* Modo crear/editar */}
             {(routineMode === 'create' || routineMode === 'edit') && (
               <View>
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>{routineMode === 'create' ? 'Crear rutina' : 'Editar rutina'}</Text>
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>{routineMode === 'create' ?'Crear rutina' : 'Editar rutina'}</Text>
                 <TextInput
                   placeholder="Nombre de la rutina"
                   placeholderTextColor={theme.textSecondary}
@@ -1021,17 +1279,17 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
                 />
                 {routineMode === 'edit' && (
                   <TouchableOpacity style={[styles.cancelButton, { backgroundColor: theme.buttonPrimary }]} onPress={() => setShowSessionTypePicker(true)}>
-                    <Text style={[styles.cancelButtonText, { color: theme.buttonText }]}>+ Añadir tipo de sesión</Text>
+                    <Text style={[styles.cancelButtonText, { color: theme.buttonText }]}>{'+ A\u00f1adir tipo de sesi\u00f3n'}</Text>
                   </TouchableOpacity>
                 )}
                 {/* Listado resumido de sesiones incluidas */}
                 {editingRoutine && editingRoutine.sessionRefs.length > 0 && (
                   <View style={{ maxHeight: 160 }}>
-                    <ScrollView>
+                    <ScrollView showsVerticalScrollIndicator persistentScrollbar>
                       {editingRoutine.sessionRefs.map((ref, idx) => (
                         <View key={`${ref.type}-${ref.key}-${idx}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6 }}>
                           <Text style={{ color: theme.textPrimary }}>
-                            {ref.type === 'default' ? ref.key : (customSessions.find(c => c.id === ref.key)?.name || 'Personalizada')}
+                            {ref.type === 'default' ?ref.key : (customSessions.find(c => c.id === ref.key)?.name || 'Personalizada')}
                           </Text>
                           <View style={{ flexDirection: 'row' }}>
                             <TouchableOpacity onPress={() => moveSessionRef(idx, -1)} style={{ marginRight: 8 }}>
@@ -1077,21 +1335,21 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
 
             {/* Modo asignar: tocar rutina para asignar */}
             {routineMode === 'list' && pendingAssignRef && (
-              <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 8 }}>Selecciona una rutina para asignar la sesión</Text>
+              <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 8 }}>{'Selecciona una rutina para asignar la sesi\u00f3n'}</Text>
             )}
 
             {/* Modo iniciar: elegir una sesión de la rutina */}
             {routineMode === 'start' && editingRoutine && (
               <View style={{ marginTop: 12 }}>
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Selecciona el tipo de sesión</Text>
-                {editingRoutine.sessionRefs.length === 0 ? (
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>{'Selecciona el tipo de sesi\u00f3n'}</Text>
+                {editingRoutine.sessionRefs.length === 0 ?(
                   <Text style={{ color: theme.textSecondary, textAlign: 'center' }}>La rutina no tiene sesiones</Text>
                 ) : (
-                  <ScrollView style={{ maxHeight: 180 }}>
+                  <ScrollView style={{ maxHeight: 180 }} showsVerticalScrollIndicator persistentScrollbar>
                     {editingRoutine.sessionRefs.map((ref, idx) => (
                       <TouchableOpacity key={`${ref.type}-${ref.key}-${idx}`} style={[styles.sessionOption, { borderBottomColor: theme.border }]} onPress={() => startRoutineWithSessionRef(ref)}>
                         <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>
-                          {ref.type === 'default' ? ref.key : (customSessions.find(c => c.id === ref.key)?.name || 'Personalizada')}
+                          {ref.type === 'default' ?ref.key : (customSessions.find(c => c.id === ref.key)?.name || 'Personalizada')}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -1109,15 +1367,15 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
             <Modal visible={showSessionTypePicker} transparent animationType="slide" onRequestClose={() => setShowSessionTypePicker(false)}>
               <View style={styles.modalOverlay}>
                 <View style={[styles.modalContent, { backgroundColor: theme.surface, paddingTop: insets.top + 20 }] }>
-                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Añadir tipo de sesión</Text>
+                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>{'A\u00f1adir tipo de sesi\u00f3n'}</Text>
                   <TextInput
-                    placeholder="Buscar tipo de sesión"
+                    placeholder={'Buscar tipo de sesi\u00f3n'}
                     placeholderTextColor={theme.textSecondary}
                     value={typeSearch}
                     onChangeText={setTypeSearch}
                     style={[styles.customNameInput, { backgroundColor: theme.background, borderColor: theme.border, color: theme.textPrimary }]}
                   />
-                  <ScrollView style={{ maxHeight: 220 }}>
+                  <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator persistentScrollbar>
                     {Object.keys(sessionExercises).filter(st => !deletedDefaultTypes.includes(st as string)).map((st, idx) => (
                       <TouchableOpacity key={`${st}-${idx}`} style={[styles.sessionOption, { borderBottomColor: theme.border }]} onPress={() => handleAddSessionTypeToRoutine({ type: 'default', key: st })}>
                         <Text style={[styles.sessionOptionText, { color: theme.textPrimary }]}>{st}</Text>
@@ -1151,9 +1409,12 @@ const SessionSelector: React.FC<Props> = ({ exercises, setExercises, onAddExerci
         onClose={() => setShowSideMenu(false)}
         isDarkMode={isDarkMode || false}
         onToggleDarkMode={onToggleDarkMode || (() => {})}
-        onAddHistoricalSession={(date: Date) => handleAddHistoricalSession(date)}
+        onAddHistoricalSession={(date: Date, selection?: HistoricalSessionSelection | string) => handleAddHistoricalSession(date, selection)}
+        onAddSportSession={(date: Date, sport: string, durationSeconds?: number) => saveSportSessionWithDate(date, sport, durationSeconds)}
         isSavingSession={isEditingHistoricalSession}
         onSaveSessionToDate={(date: Date) => saveSessionWithDate(date)}
+        onOpenAnalytics={onOpenAnalytics}
+        onOpenImageManager={onOpenImageManager}
       />
     </View>
   );
@@ -1166,7 +1427,7 @@ const styles = StyleSheet.create({
   },
   sessionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
   },
   logo: {
@@ -1176,7 +1437,7 @@ const styles = StyleSheet.create({
   },
   hamburgerTouchable: {
     padding: 6,
-    marginRight: 8,
+    marginRight: 6,
   },
   hamburgerIcon: {
     width: 20,
@@ -1188,27 +1449,42 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   sessionButton: {
-    padding: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     borderRadius: 8,
     alignItems: 'center',
     flexGrow: 1,
     flexShrink: 1,
-    marginHorizontal: 8,
+    minWidth: 0,
   },
   sessionButtonText: {
     fontWeight: '600',
-    fontSize: 16,
+    fontSize: 14,
+    lineHeight: 16,
     fontFamily: 'System',
+    includeFontPadding: false,
   },
   finishButton: {
-    padding: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
     borderRadius: 8,
     alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  routineButton: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    marginRight: 6,
   },
   finishButtonText: {
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 15,
     fontFamily: 'System',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   exportButton: {
     padding: 8,
@@ -1247,6 +1523,24 @@ const styles = StyleSheet.create({
   },
   sessionList: {
     maxHeight: 300,
+    paddingRight: 10,
+  },
+  listWithScrollbar: {
+    position: 'relative',
+  },
+  scrollbarTrack: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 0,
+    width: 6,
+    borderRadius: 999,
+    opacity: 0.85,
+    overflow: 'hidden',
+  },
+  scrollbarThumb: {
+    width: '100%',
+    borderRadius: 999,
   },
   sessionOption: {
     padding: 16,
@@ -1306,3 +1600,4 @@ const styles = StyleSheet.create({
 });
 
 export default SessionSelector; 
+

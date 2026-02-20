@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, AppState, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, AppState, Platform, Vibration } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getTheme } from '../utils/theme';
 import { createRestTimerController, createSessionTimerController } from '../utils/timerEngine';
@@ -7,12 +7,14 @@ import { ds } from '../utils/design';
 import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 
+const REST_TIMER_CHANNEL_ID = 'rest-timer-v6';
+const REST_TIMER_SOUND = Platform.OS === 'android' ? 'notification.ogg' : 'notification.mp3';
 
 interface Props {
   minimized: boolean;
   onMinimize: (min: boolean) => void;
   isDarkMode?: boolean;
-  onDurationChange?: (duration: number) => void; // Callback para reportar cambios en la duración
+  onDurationChange?: (duration: number) => void;
 }
 
 // Componente para mostrar tiempo editable
@@ -39,7 +41,7 @@ const TimeDisplay: React.FC<TimeDisplayProps> = ({ time, onTimeChange, isRunning
   };
 
   const formatEditInput = (input: string): string => {
-    // Remover todo excepto números
+
     const numbers = input.replace(/\D/g, '');
     
     if (numbers.length <= 2) {
@@ -58,7 +60,7 @@ const TimeDisplay: React.FC<TimeDisplayProps> = ({ time, onTimeChange, isRunning
 
   const handleEditSave = () => {
     if (isEditing) {
-      // Extraer números del input
+
       const numbers = editValue.replace(/\D/g, '');
       
       if (numbers.length >= 2) {
@@ -67,7 +69,7 @@ const TimeDisplay: React.FC<TimeDisplayProps> = ({ time, onTimeChange, isRunning
         
         const newTime = (mins * 60) + secs;
         
-        if (newTime >= 0 && newTime <= 3600) { // Máximo 1 hora
+        if (newTime >= 0 && newTime <= 3600) {
           onTimeChange(newTime);
         }
       }
@@ -99,7 +101,7 @@ const TimeDisplay: React.FC<TimeDisplayProps> = ({ time, onTimeChange, isRunning
             <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✓</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.editBtn, { backgroundColor: theme.buttonSecondary }]} onPress={handleEditCancel}>
-            <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✗</Text>
+            <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✕</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -123,36 +125,39 @@ const TimerBar = forwardRef((
   const insets = useSafeAreaInsets();
   const theme = getTheme(isDarkMode || false);
 
-  // Estados para el cronómetro incremental
+
   const [incrementalTime, setIncrementalTime] = useState(0);
   const [isIncrementalRunning, setIsIncrementalRunning] = useState(false);
   const [incrementalInput, setIncrementalInput] = useState('00:00'); // Para editar el tiempo
   const [isEditingIncremental, setIsEditingIncremental] = useState(false);
 
   // Estados para el temporizador regresivo
-  const [regressiveTime, setRegressiveTime] = useState(60); // 1 minuto por defecto
+  const [regressiveTime, setRegressiveTime] = useState(120); // 2 minutos por defecto
   const [isRegressiveRunning, setIsRegressiveRunning] = useState(false);
-  const [originalRegressiveTime, setOriginalRegressiveTime] = useState(60);
-  const [regressiveInput, setRegressiveInput] = useState('01:00'); // Para editar el tiempo
+  const [originalRegressiveTime, setOriginalRegressiveTime] = useState(120);
+  const [regressiveInput, setRegressiveInput] = useState('02:00'); // Para editar el tiempo
   const [isEditingRegressive, setIsEditingRegressive] = useState(false);
 
   const scheduledNotificationIdRef = useRef<string | null>(null);
+  const scheduledNotificationFireAtRef = useRef<number | null>(null);
   const isAppActiveRef = useRef<boolean>(true);
   const isRegressiveRunningRef = useRef<boolean>(false);
   const regressiveTimeRef = useRef<number>(regressiveTime);
   const originalRegressiveTimeRef = useRef<number>(originalRegressiveTime);
   const sessionTimerRef = useRef(createSessionTimerController({ initialElapsedSeconds: 0 }));
   const restTimerRef = useRef<ReturnType<typeof createRestTimerController> | null>(null);
+  const backgroundNotificationHandledRef = useRef<boolean>(false);
 
-  // Función para reproducir notificación
+
   const playNotification = async () => {
     try {
       const { sound } = await Audio.Sound.createAsync(
         require('../assets/notification.mp3')
       );
       await sound.playAsync();
+      Vibration.vibrate([0, 300, 200, 300]);
       
-      // Limpiar el sonido después de reproducirlo
+
       sound.setOnPlaybackStatusUpdate((status) => {
         if ('didJustFinish' in status && status.didJustFinish) {
           sound.unloadAsync();
@@ -165,14 +170,24 @@ const TimerBar = forwardRef((
     }
   };
 
-  // Deshabilitado: no programar notificación push en background
+
   if (!restTimerRef.current) {
     restTimerRef.current = createRestTimerController({
       durationSeconds: originalRegressiveTimeRef.current,
       onFinished: () => {
-        if (isAppActiveRef.current) {
+        const hadBackgroundScheduledNotification =
+          !!scheduledNotificationIdRef.current ||
+          scheduledNotificationFireAtRef.current !== null;
+
+        if (isAppActiveRef.current && !backgroundNotificationHandledRef.current && !hadBackgroundScheduledNotification) {
           playNotification();
         }
+        backgroundNotificationHandledRef.current = false;
+        if (scheduledNotificationIdRef.current) {
+          Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
+          scheduledNotificationIdRef.current = null;
+        }
+        scheduledNotificationFireAtRef.current = null;
         setTimeout(() => {
           const duration = originalRegressiveTimeRef.current;
           restTimerRef.current?.setDurationSeconds(duration);
@@ -182,13 +197,49 @@ const TimerBar = forwardRef((
     });
   }
 
-  const scheduleNotification = async (_seconds: number) => { return; };
+  const scheduleNotification = async (seconds: number) => {
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+    try {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync(REST_TIMER_CHANNEL_ID, {
+          name: 'Temporizador de descanso',
+          importance: Notifications.AndroidImportance.MAX,
+          enableVibrate: true,
+          sound: REST_TIMER_SOUND,
+          vibrationPattern: [0, 300, 200, 300],
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        });
+      }
+      if (scheduledNotificationIdRef.current) {
+        await Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current);
+        scheduledNotificationIdRef.current = null;
+      }
+      const id = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Finalizado el descanso',
+          body: 'Finalizado el descanso',
+          priority: Notifications.AndroidNotificationPriority.MAX,
+          sound: REST_TIMER_SOUND as any,
+          channelId: REST_TIMER_CHANNEL_ID,
+        } as any,
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: new Date(Date.now() + Math.max(1, Math.floor(seconds)) * 1000),
+        } as any,
+      });
+      scheduledNotificationIdRef.current = id;
+      scheduledNotificationFireAtRef.current = Date.now() + Math.max(1, Math.floor(seconds)) * 1000;
+      backgroundNotificationHandledRef.current = true;
+    } catch (error) {
+      console.warn('No se pudo programar la notificacion de descanso:', error);
+    }
+  };
 
 
 
 
 
-  // No inicializamos aquí; se hace una sola vez en App.tsx
+
 
   // Listener para el estado de la app - simplificado
   useEffect(() => {
@@ -208,12 +259,21 @@ const TimerBar = forwardRef((
     const handleAppStateChange = (nextAppState: string) => {
       isAppActiveRef.current = nextAppState === 'active';
       if (nextAppState === 'active') {
-        // Cancelar cualquier notificación al volver al foreground
+        const hadScheduledNotification =
+          !!scheduledNotificationIdRef.current || !!scheduledNotificationFireAtRef.current;
+
+        const shouldKeepBackgroundHandled =
+          !!scheduledNotificationFireAtRef.current &&
+          Date.now() + 300 >= scheduledNotificationFireAtRef.current;
+
+
         if (scheduledNotificationIdRef.current) {
           Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
           scheduledNotificationIdRef.current = null;
         }
-        // La app volvió a primer plano, sincronizar timers desde el engine
+        scheduledNotificationFireAtRef.current = null;
+
+
         const sessionState = sessionTimerRef.current.getState();
         setIncrementalTime(sessionState.elapsedSeconds);
         setIsIncrementalRunning(sessionState.running);
@@ -222,8 +282,18 @@ const TimerBar = forwardRef((
           setRegressiveTime(restState.remainingSeconds);
           setIsRegressiveRunning(restState.running);
         }
+
+        if (shouldKeepBackgroundHandled || (!!restState && !restState.running && restState.remainingSeconds === 0 && hadScheduledNotification)) {
+          backgroundNotificationHandledRef.current = true;
+        } else if (restState?.running && restState.remainingSeconds > 0) {
+
+          backgroundNotificationHandledRef.current = false;
+        }
       } else {
-        // Background/inactive: no programar notificación push (deshabilitado)
+        const restState = restTimerRef.current?.getState();
+        if (restState?.running && restState.remainingSeconds > 0) {
+          scheduleNotification(restState.remainingSeconds);
+        }
       }
     };
 
@@ -231,14 +301,14 @@ const TimerBar = forwardRef((
     return () => subscription?.remove();
   }, []); // Sin dependencias para evitar bucles
 
-  // Reportar cambios en la duración del timer incremental
+
   useEffect(() => {
     if (onDurationChange) {
       onDurationChange(incrementalTime);
     }
   }, [incrementalTime, onDurationChange]);
 
-  // Función para formatear tiempo (segundos a MM:SS o HH:MM:SS)
+
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -251,27 +321,27 @@ const TimerBar = forwardRef((
     }
   };
 
-  // Función para convertir MM:SS a segundos
+
   const parseTime = (timeString: string): number => {
     const parts = timeString.split(':');
-    if (parts.length !== 2) return 60;
+    if (parts.length !== 2) return 120;
     const mins = parseInt(parts[0]) || 0;
     const secs = parseInt(parts[1]) || 0;
     return mins * 60 + secs;
   };
 
-  // Función para validar formato de tiempo
+
   const isValidTimeFormat = (timeString: string): boolean => {
     const regex = /^([0-9]|[0-5][0-9]):([0-5][0-9])$/;
     return regex.test(timeString);
   };
 
-  // Función para formatear input de tiempo automáticamente
+
   const formatTimeInput = (input: string): string => {
-    // Remover caracteres no numéricos excepto ":"
+
     let cleaned = input.replace(/[^0-9:]/g, '');
     
-    // Si no tiene ":", agregarlo después de 2 dígitos
+
     if (!cleaned.includes(':')) {
       if (cleaned.length >= 2) {
         cleaned = cleaned.slice(0, 2) + ':' + cleaned.slice(2);
@@ -305,12 +375,10 @@ const TimerBar = forwardRef((
   useEffect(() => {
     if (!restTimerRef.current) return;
     restTimerRef.current.setDurationSeconds(originalRegressiveTime);
-    if (!isRegressiveRunning) {
-      restTimerRef.current.setRemainingSeconds(originalRegressiveTime);
-    }
-  }, [originalRegressiveTime, isRegressiveRunning]);
+    restTimerRef.current.setRemainingSeconds(originalRegressiveTime);
+  }, [originalRegressiveTime]);
 
-  // Controles del cronómetro incremental
+
   const handleIncrementalStart = () => { 
     sessionTimerRef.current.start(); 
   };
@@ -322,7 +390,7 @@ const TimerBar = forwardRef((
     setIncrementalInput('00:00');
   };
 
-  // Función para resetear todos los timers (llamada desde fuera)
+
   const resetAllTimers = () => {
     // Resetear timer incremental
     sessionTimerRef.current.reset();
@@ -337,7 +405,7 @@ const TimerBar = forwardRef((
     console.log('Notificaciones canceladas');
   };
 
-  // Exponer función de reset a través de ref
+
   useImperativeHandle(ref, () => ({
     resetAllTimers
   }));
@@ -359,6 +427,12 @@ const TimerBar = forwardRef((
   const handleRegressiveStart = async () => { 
     if (!isRegressiveRunning) { 
       restTimerRef.current?.start();
+      if (!isAppActiveRef.current) {
+        const restState = restTimerRef.current?.getState();
+        if (restState?.remainingSeconds) {
+          await scheduleNotification(restState.remainingSeconds);
+        }
+      }
     } 
   };
   const handleRegressivePause = async () => { 
@@ -368,6 +442,8 @@ const TimerBar = forwardRef((
         await Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current);
         scheduledNotificationIdRef.current = null;
       }
+      scheduledNotificationFireAtRef.current = null;
+      backgroundNotificationHandledRef.current = false;
     } catch {}
   };
   const handleRegressiveReset = async () => {
@@ -379,6 +455,8 @@ const TimerBar = forwardRef((
         await Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current);
         scheduledNotificationIdRef.current = null;
       }
+      scheduledNotificationFireAtRef.current = null;
+      backgroundNotificationHandledRef.current = false;
     } catch {}
   };
   const handleRegressiveEdit = () => { setIsEditingRegressive(true); };
@@ -388,6 +466,14 @@ const TimerBar = forwardRef((
       setOriginalRegressiveTime(newTime);
       restTimerRef.current?.setDurationSeconds(newTime);
       restTimerRef.current?.setRemainingSeconds(newTime);
+      if (isRegressiveRunning && !isAppActiveRef.current) {
+        void scheduleNotification(newTime);
+      } else if (scheduledNotificationIdRef.current) {
+        Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
+        scheduledNotificationIdRef.current = null;
+        scheduledNotificationFireAtRef.current = null;
+        backgroundNotificationHandledRef.current = false;
+      }
       setIsEditingRegressive(false);
     }
   };
@@ -398,17 +484,23 @@ const TimerBar = forwardRef((
 
   const handleAdd15Seconds = () => {
     if (isRegressiveRunning) {
-      // Si está corriendo, solo ajustar temporalmente el tiempo restante
-      const newRemainingTime = regressiveTime + 15;
+      const restState = restTimerRef.current?.getState();
+      if (!restState) return;
+      const newRemainingTime = restState.remainingSeconds + 15;
+      if (newRemainingTime > restState.durationSeconds) {
+        restTimerRef.current?.setDurationSeconds(newRemainingTime);
+      }
       restTimerRef.current?.setRemainingSeconds(newRemainingTime);
-      // Nunca programar notificación desde aquí. Si está en background,
-      // AppState listener se encarga de programar con el tiempo actual.
-      if (scheduledNotificationIdRef.current) {
+      if (!isAppActiveRef.current) {
+        void scheduleNotification(newRemainingTime);
+      } else if (scheduledNotificationIdRef.current) {
         Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
         scheduledNotificationIdRef.current = null;
+        scheduledNotificationFireAtRef.current = null;
+        backgroundNotificationHandledRef.current = false;
       }
     } else {
-      // Si está quieto, modificar la configuración permanente
+
       const newTime = originalRegressiveTime + 15;
       setOriginalRegressiveTime(newTime);
       restTimerRef.current?.setDurationSeconds(newTime);
@@ -419,17 +511,22 @@ const TimerBar = forwardRef((
 
   const handleSubtract15Seconds = () => {
     if (isRegressiveRunning) {
-      // Si está corriendo, solo ajustar temporalmente el tiempo restante
-      if (regressiveTime > 15) {
-        const newRemainingTime = regressiveTime - 15;
+      const restState = restTimerRef.current?.getState();
+      if (!restState) return;
+      if (restState.remainingSeconds > 15) {
+        const newRemainingTime = restState.remainingSeconds - 15;
         restTimerRef.current?.setRemainingSeconds(newRemainingTime);
-        if (scheduledNotificationIdRef.current) {
+        if (!isAppActiveRef.current) {
+          void scheduleNotification(newRemainingTime);
+        } else if (scheduledNotificationIdRef.current) {
           Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
           scheduledNotificationIdRef.current = null;
+          scheduledNotificationFireAtRef.current = null;
+          backgroundNotificationHandledRef.current = false;
         }
       }
     } else {
-      // Si está quieto, modificar la configuración permanente
+
       if (originalRegressiveTime > 15) {
         const newTime = originalRegressiveTime - 15;
         setOriginalRegressiveTime(newTime);
@@ -495,7 +592,7 @@ const TimerBar = forwardRef((
                   <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✓</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.editBtn, { backgroundColor: theme.buttonSecondary }]} onPress={handleIncrementalCancel}>
-                  <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✗</Text>
+                  <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✕</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -556,7 +653,7 @@ const TimerBar = forwardRef((
                   <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✓</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.editBtn, { backgroundColor: theme.buttonSecondary }]} onPress={handleRegressiveCancel}>
-                  <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✗</Text>
+                  <Text style={[styles.editBtnText, { color: theme.buttonText }]}>✕</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -567,6 +664,14 @@ const TimerBar = forwardRef((
                 setOriginalRegressiveTime(newTime);
                 restTimerRef.current?.setDurationSeconds(newTime);
                 restTimerRef.current?.setRemainingSeconds(newTime);
+                if (isRegressiveRunning && !isAppActiveRef.current) {
+                  void scheduleNotification(newTime);
+                } else if (scheduledNotificationIdRef.current) {
+                  Notifications.cancelScheduledNotificationAsync(scheduledNotificationIdRef.current).catch(() => {});
+                  scheduledNotificationIdRef.current = null;
+                  scheduledNotificationFireAtRef.current = null;
+                  backgroundNotificationHandledRef.current = false;
+                }
                 setRegressiveInput(formatTime(newTime));
               }}
               isRunning={isRegressiveRunning}
@@ -619,7 +724,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     paddingVertical: 3, // Unificar con estado minimizado
     paddingHorizontal: 0,
-    marginTop: 0, // Sin margen superior para estar más pegado a la línea
+    marginTop: 0,
   },
   header: {
     flexDirection: 'row',
@@ -651,29 +756,29 @@ const styles = StyleSheet.create({
   timerBox: {
     flex: 1,
     marginHorizontal: 4,
-    padding: 12, // Aumentar padding de 6 a 12 para más espacio
+    padding: 12,
     borderRadius: 8,
-    minHeight: 150, // Reducir altura mínima de 160px a 150px
+    minHeight: 150,
   },
   timerLabel: {
     fontSize: 16,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 8, // Aumentar margen inferior de 6 a 8 para más separación
+    marginBottom: 8,
     fontFamily: 'System',
   },
   timerValue: {
     fontSize: 30,
     fontWeight: '600',
     textAlign: 'center',
-    marginBottom: 12, // Aumentar margen inferior de 10 a 12 para más separación
+    marginBottom: 12,
     fontFamily: 'System',
   },
   editContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10, // Aumentar margen inferior de 6 a 10 para más separación
+    marginBottom: 10,
   },
   timeInput: {
     borderWidth: 1,
@@ -769,7 +874,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 4,
     marginRight: 4, // Igualar con ExerciseList
-    // tamaño natural, sin ancho fijo
+
   },
   expandButtonText: {
     fontWeight: '600',
