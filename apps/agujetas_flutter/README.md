@@ -55,6 +55,12 @@ flutter test
 flutter run -d chrome
 ```
 
+Preview estatica despues de `flutter build web`:
+
+```powershell
+node scripts/preview-server.mjs build/web 53627
+```
+
 Android:
 
 ```powershell
