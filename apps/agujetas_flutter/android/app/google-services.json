@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "727741646431",
+    "project_id": "agujetas",
+    "storage_bucket": "agujetas.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:727741646431:android:8d2a957f152624014ebdea",
+        "android_client_info": {
+          "package_name": "com.pablopilaa.Agujetas"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "727741646431-mhm923t7d9ha8jtr55u4j3efalkrdrff.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD9rAo-VM5guwfoPdr02f06B8zHiZuoOBc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "727741646431-mhm923t7d9ha8jtr55u4j3efalkrdrff.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "727741646431-v9itfb35do5s0mfdv57pie4t7flffv8h.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.pablopilaa.agujetas"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

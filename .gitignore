@@ -21,6 +21,7 @@ ios/Pods/
 # Editor
 .vscode/
 .idea/
+.codex/
 
 # Local artifacts
 *.apk

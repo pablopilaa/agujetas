@@ -1,0 +1,214 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function linkId(trainerId, clientId) {
+      return trainerId + '_' + clientId;
+    }
+
+    function linkedTrainer(trainerId, clientId) {
+      return signedIn()
+        && trainerId == request.auth.uid
+        && exists(/databases/$(database)/documents/trainerClientLinks/$(linkId(trainerId, clientId)))
+        && get(/databases/$(database)/documents/trainerClientLinks/$(linkId(trainerId, clientId))).data.status == 'active';
+    }
+
+    function ownerId(data) {
+      return data.keys().hasAny(['ownerId']) ? data.ownerId : null;
+    }
+
+    function clientId(data) {
+      return data.keys().hasAny(['clientId']) ? data.clientId : null;
+    }
+
+    function assignedClientId(data) {
+      return data.keys().hasAny(['assignedClientId']) ? data.assignedClientId : null;
+    }
+
+    function ownsRecord(data) {
+      return signedIn()
+        && (ownerId(data) == request.auth.uid
+          || clientId(data) == request.auth.uid
+          || assignedClientId(data) == request.auth.uid);
+    }
+
+    function trainerCanAccessRecord(data) {
+      return signedIn()
+        && ((ownerId(data) != null && linkedTrainer(request.auth.uid, ownerId(data)))
+          || (clientId(data) != null && linkedTrainer(request.auth.uid, clientId(data)))
+          || (assignedClientId(data) != null && linkedTrainer(request.auth.uid, assignedClientId(data))));
+    }
+
+    function canAccessRecord(data) {
+      return ownsRecord(data) || trainerCanAccessRecord(data);
+    }
+
+    function validOptionalAssignment(data) {
+      return !data.keys().hasAny(['assignedClientId'])
+        || assignedClientId(data) == null
+        || assignedClientId(data) == request.auth.uid
+        || linkedTrainer(request.auth.uid, assignedClientId(data));
+    }
+
+    function allowedUserCollection(collectionName) {
+      return collectionName in [
+        'sessions',
+        'routines',
+        'routineTemplates',
+        'bodyWeights',
+        'customExercises',
+        'exerciseHistory',
+        'activeDrafts',
+        'exports',
+        'consents',
+        'devices',
+        'preferences'
+      ];
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'photoURL',
+          'createdAt',
+          'updatedAt',
+          'preferredTheme',
+          'units',
+          'locale',
+          'plan',
+          'onboardingCompleted',
+          'roles',
+          'activeRole'
+        ]);
+
+      allow read, update, delete: if isOwner(userId);
+
+      match /{collectionName}/{docId} {
+        allow read, write: if isOwner(userId) && allowedUserCollection(collectionName);
+      }
+
+      match /{collectionName}/{docId}/{nestedPath=**} {
+        allow read, write: if isOwner(userId) && allowedUserCollection(collectionName);
+      }
+    }
+
+    match /trainerProfiles/{trainerId} {
+      allow read: if signedIn();
+      allow create, update, delete: if isOwner(trainerId)
+        && request.resource.data.uid == trainerId;
+    }
+
+    match /trainerInvites/{code} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.trainerId == request.auth.uid
+        && request.resource.data.active == true;
+      allow update, delete: if signedIn()
+        && resource.data.trainerId == request.auth.uid
+        && request.resource.data.trainerId == resource.data.trainerId;
+    }
+
+    match /trainerClientLinks/{linkId} {
+      allow read: if signedIn()
+        && (resource.data.trainerId == request.auth.uid
+          || resource.data.clientId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.clientId == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.keys().hasAll(['trainerId', 'clientId', 'inviteCode'])
+        && exists(/databases/$(database)/documents/trainerInvites/$(request.resource.data.inviteCode))
+        && get(/databases/$(database)/documents/trainerInvites/$(request.resource.data.inviteCode)).data.active == true
+        && get(/databases/$(database)/documents/trainerInvites/$(request.resource.data.inviteCode)).data.trainerId == request.resource.data.trainerId;
+      allow update, delete: if signedIn()
+        && (resource.data.trainerId == request.auth.uid
+          || resource.data.clientId == request.auth.uid)
+        && request.resource.data.trainerId == resource.data.trainerId
+        && request.resource.data.clientId == resource.data.clientId;
+    }
+
+    match /sessions/{sessionId} {
+      allow read, update, delete: if canAccessRecord(resource.data);
+      allow create: if signedIn()
+        && (ownerId(request.resource.data) == request.auth.uid
+          || clientId(request.resource.data) == request.auth.uid
+          || trainerCanAccessRecord(request.resource.data));
+    }
+
+    match /routineTemplates/{routineId} {
+      allow read: if canAccessRecord(resource.data);
+      allow create: if signedIn()
+        && ownerId(request.resource.data) == request.auth.uid
+        && validOptionalAssignment(request.resource.data);
+      allow update, delete: if signedIn()
+        && canAccessRecord(resource.data)
+        && validOptionalAssignment(request.resource.data);
+    }
+
+    match /assignedRoutines/{docId} {
+      allow read, update, delete: if canAccessRecord(resource.data);
+      allow create: if signedIn()
+        && (ownsRecord(request.resource.data)
+          || trainerCanAccessRecord(request.resource.data));
+    }
+
+    match /tasks/{docId} {
+      allow read, update, delete: if canAccessRecord(resource.data);
+      allow create: if signedIn()
+        && (ownsRecord(request.resource.data)
+          || trainerCanAccessRecord(request.resource.data));
+    }
+
+    match /schedules/{docId} {
+      allow read, update, delete: if canAccessRecord(resource.data);
+      allow create: if signedIn()
+        && (ownsRecord(request.resource.data)
+          || trainerCanAccessRecord(request.resource.data));
+    }
+
+    match /goals/{docId} {
+      allow read, update, delete: if canAccessRecord(resource.data);
+      allow create: if signedIn()
+        && (ownsRecord(request.resource.data)
+          || trainerCanAccessRecord(request.resource.data));
+    }
+
+    match /publicExerciseCatalog/{exerciseId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /exerciseMediaIndex/{mediaId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /appConfig/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /admin/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
