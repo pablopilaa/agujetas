@@ -8,6 +8,10 @@ void main() {
     await tester.pump();
 
     expect(find.text('Inicio'), findsWidgets);
+    await tester.scrollUntilVisible(
+      find.text('Entrenamiento autogestionado'),
+      300,
+    );
     expect(find.text('Entrenamiento autogestionado'), findsOneWidget);
 
     await tester.tap(find.text('Entrenador').first);

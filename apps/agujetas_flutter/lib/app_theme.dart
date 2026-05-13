@@ -7,9 +7,12 @@ class AgujetasTheme {
   static const lightText = Color(0xFF17211D);
   static const lightTextSecondary = Color(0xFF5F6F68);
   static const lightDivider = Color(0xFFDCE5DF);
-  static const teal = Color(0xFF357C6D);
+  static const teal = Color(0xFF156355);
+  static const tealContainer = Color(0xFF357C6D);
+  static const tealStrong = Color(0xFF2A6357);
   static const tealDark = Color(0xFF72B7A6);
   static const amber = Color(0xFFB8752E);
+  static const amberContainer = Color(0xFFFFE1BE);
   static const danger = Color(0xFFC94C4C);
 
   static const darkBg = Color(0xFF0B0F0E);
@@ -29,6 +32,10 @@ class AgujetasTheme {
       text: lightText,
       textSecondary: lightTextSecondary,
       divider: lightDivider,
+      primaryStrong: tealStrong,
+      primaryContainer: tealContainer,
+      amber: amber,
+      amberContainer: amberContainer,
     );
   }
 
@@ -42,6 +49,10 @@ class AgujetasTheme {
       text: darkText,
       textSecondary: darkTextSecondary,
       divider: darkDivider,
+      primaryStrong: tealDark,
+      primaryContainer: const Color(0xFF1F5D51),
+      amber: const Color(0xFFFFB86C),
+      amberContainer: const Color(0xFF3C2A18),
     );
   }
 
@@ -54,6 +65,10 @@ class AgujetasTheme {
     required Color text,
     required Color textSecondary,
     required Color divider,
+    required Color primaryStrong,
+    required Color primaryContainer,
+    required Color amber,
+    required Color amberContainer,
   }) {
     final scheme = ColorScheme.fromSeed(
       seedColor: primary,
@@ -94,6 +109,7 @@ class AgujetasTheme {
       cardTheme: CardThemeData(
         elevation: 0,
         color: surface,
+        margin: const EdgeInsets.only(bottom: 12),
         shape: RoundedRectangleBorder(
           side: BorderSide(color: divider),
           borderRadius: BorderRadius.circular(8),
@@ -102,6 +118,8 @@ class AgujetasTheme {
       dividerColor: divider,
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          backgroundColor: primaryContainer,
+          foregroundColor: Colors.white,
           minimumSize: const Size(44, 44),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -138,6 +156,10 @@ class AgujetasTheme {
           text: text,
           textSecondary: textSecondary,
           divider: divider,
+          primaryStrong: primaryStrong,
+          primaryContainer: primaryContainer,
+          amber: amber,
+          amberContainer: amberContainer,
         ),
       ],
     );
@@ -152,6 +174,10 @@ class AgujetasColors extends ThemeExtension<AgujetasColors> {
     required this.text,
     required this.textSecondary,
     required this.divider,
+    required this.primaryStrong,
+    required this.primaryContainer,
+    required this.amber,
+    required this.amberContainer,
   });
 
   final Color background;
@@ -160,6 +186,10 @@ class AgujetasColors extends ThemeExtension<AgujetasColors> {
   final Color text;
   final Color textSecondary;
   final Color divider;
+  final Color primaryStrong;
+  final Color primaryContainer;
+  final Color amber;
+  final Color amberContainer;
 
   @override
   ThemeExtension<AgujetasColors> copyWith({
@@ -169,6 +199,10 @@ class AgujetasColors extends ThemeExtension<AgujetasColors> {
     Color? text,
     Color? textSecondary,
     Color? divider,
+    Color? primaryStrong,
+    Color? primaryContainer,
+    Color? amber,
+    Color? amberContainer,
   }) {
     return AgujetasColors(
       background: background ?? this.background,
@@ -177,6 +211,10 @@ class AgujetasColors extends ThemeExtension<AgujetasColors> {
       text: text ?? this.text,
       textSecondary: textSecondary ?? this.textSecondary,
       divider: divider ?? this.divider,
+      primaryStrong: primaryStrong ?? this.primaryStrong,
+      primaryContainer: primaryContainer ?? this.primaryContainer,
+      amber: amber ?? this.amber,
+      amberContainer: amberContainer ?? this.amberContainer,
     );
   }
 
@@ -193,6 +231,14 @@ class AgujetasColors extends ThemeExtension<AgujetasColors> {
       text: Color.lerp(text, other.text, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       divider: Color.lerp(divider, other.divider, t)!,
+      primaryStrong: Color.lerp(primaryStrong, other.primaryStrong, t)!,
+      primaryContainer: Color.lerp(
+        primaryContainer,
+        other.primaryContainer,
+        t,
+      )!,
+      amber: Color.lerp(amber, other.amber, t)!,
+      amberContainer: Color.lerp(amberContainer, other.amberContainer, t)!,
     );
   }
 }

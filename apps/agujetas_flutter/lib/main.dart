@@ -78,6 +78,14 @@ class AuthGate extends StatelessWidget {
   }
 }
 
+extension AppUserUiX on AppUser {
+  String get firstName {
+    final trimmed = displayName.trim();
+    if (trimmed.isEmpty) return 'Atleta';
+    return trimmed.split(RegExp(r'\s+')).first;
+  }
+}
+
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
@@ -107,71 +115,104 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _loading = false;
   String? _error;
 
+  static const _heroImage =
+      'https://lh3.googleusercontent.com/aida-public/AB6AXuDPYJaE2jY_n7IJ28b4ElAWQ7WgQwT5T7rd3tipiVr2aIfMeZH0CyppXnqqB-dffQUnxSuP1wu38M1CmGJ3VRgovNSqHmmSnfja_nhjBav-B1xdM-33IRC705z_l02B-g8jZjRCzdNqJV2KIJoOpQG-Yo5vwXrCJ7hxMgf7AlgXEtHhTh2Hq7CSHrN8oUf5_GAJ4nCnowCdQqkSit1h5ZqGqTfMRnh6eWPyk2NeafVA8q_ggswg30i5xnZ28Kz_txM4y2zQPdpuOzA';
+
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final dark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Spacer(),
-              Center(child: BrandMark(size: 112, dark: dark)),
-              const SizedBox(height: 24),
-              Text(
-                'Agujetas',
-                style: Theme.of(context).textTheme.headlineMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Entrenamiento, rutinas y seguimiento para atletas y entrenadores.',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
-                textAlign: TextAlign.center,
-              ),
-              const Spacer(),
-              if (_error != null) ...[
-                Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-                const SizedBox(height: 12),
-              ],
-              FilledButton.icon(
-                onPressed: _loading ? null : _signIn,
-                icon: _loading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.account_circle_outlined),
-                label: const Text('Continuar con Google'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          AgujetasApp(repository: DemoAgujetasRepository()),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 430),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(child: BrandMark(size: 96, dark: dark)),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Agujetas',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: colors.primaryStrong,
                     ),
-                  );
-                },
-                child: const Text('Ver demo sin guardar'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 18),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      _heroImage,
+                      height: 256,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        height: 256,
+                        color: colors.raised,
+                        child: Icon(
+                          Icons.fitness_center,
+                          size: 72,
+                          color: colors.primaryStrong,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Entrena con precision.',
+                    style: Theme.of(context).textTheme.titleLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Registra tu progreso con elegancia y manten el foco en lo que importa.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const Spacer(),
+                  if (_error != null) ...[
+                    InfoBanner(text: _error!),
+                    const SizedBox(height: 8),
+                  ],
+                  FilledButton.icon(
+                    onPressed: _loading ? null : _signIn,
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const GoogleGlyph(),
+                    label: const Text('Continuar con Google'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              AgujetasApp(repository: DemoAgujetasRepository()),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.visibility_outlined),
+                    label: const Text('Ver demo sin guardar'),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Al continuar, aceptas la sincronizacion segura de tus entrenamientos via Firebase Auth y Firestore. No usamos Storage en el plan gratuito.',
+                    style: Theme.of(context).textTheme.labelMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 18),
+                  const _LoginFeatureRow(),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                'Tus rutinas y progreso se guardan en Firebase. No usamos Storage mientras el proyecto siga sin plan pago.',
-                style: Theme.of(context).textTheme.labelMedium,
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -192,6 +233,59 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+}
+
+class _LoginFeatureRow extends StatelessWidget {
+  const _LoginFeatureRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    const items = [
+      (Icons.sync, 'Sincronizar'),
+      (Icons.insights, 'Progreso'),
+      (Icons.library_books_outlined, 'Catalogo'),
+    ];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: items
+          .map(
+            (item) => Column(
+              children: [
+                Icon(item.$1, color: colors.textSecondary, size: 20),
+                const SizedBox(height: 4),
+                Text(item.$2, style: Theme.of(context).textTheme.labelMedium),
+              ],
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class GoogleGlyph extends StatelessWidget {
+  const GoogleGlyph({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        'G',
+        style: TextStyle(
+          color: context.appColors.primaryStrong,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
 }
 
@@ -257,36 +351,18 @@ class _HomeShellState extends State<HomeShell> {
       ),
     ];
     return Scaffold(
-      body: SafeArea(child: pages[_tab]),
-      bottomNavigationBar: NavigationBar(
+      drawer: StitchSideMenu(
         selectedIndex: _tab,
-        onDestinationSelected: (index) => setState(() => _tab = index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Inicio',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.fitness_center_outlined),
-            selectedIcon: Icon(Icons.fitness_center),
-            label: 'Entrenar',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.show_chart),
-            label: 'Progreso',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.view_list_outlined),
-            selectedIcon: Icon(Icons.view_list),
-            label: 'Biblioteca',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Perfil',
-          ),
-        ],
+        user: widget.user,
+        onSelect: (index) {
+          Navigator.of(context).pop();
+          setState(() => _tab = index);
+        },
+      ),
+      body: SafeArea(child: pages[_tab]),
+      bottomNavigationBar: StitchBottomNav(
+        selectedIndex: _tab,
+        onSelected: (index) => setState(() => _tab = index),
       ),
     );
   }
@@ -322,10 +398,17 @@ class _HomeDashboardState extends State<HomeDashboard> {
   Widget build(BuildContext context) {
     final isTrainerMode = widget.user.activeRole == AppRole.trainer;
     return AppScaffold(
-      title: isTrainerMode ? 'Panel entrenador' : 'Inicio',
+      title: isTrainerMode
+          ? 'Panel entrenador'
+          : 'Hola, ${widget.user.firstName}',
       user: widget.user,
       children: [
         if (widget.notice != null) InfoBanner(text: widget.notice!),
+        if (!isTrainerMode) ...[
+          const WeeklySummaryCard(),
+          const SessionModeSelector(),
+          const RecommendedWorkoutCard(),
+        ],
         RoleSwitcher(user: widget.user, repository: widget.repository),
         if (isTrainerMode)
           _TrainerPanel(
@@ -490,6 +573,207 @@ class _AthletePanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class WeeklySummaryCard extends StatelessWidget {
+  const WeeklySummaryCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+    return DashboardCard(
+      icon: Icons.calendar_month_outlined,
+      title: 'Resumen semanal',
+      subtitle: '3 sesiones previstas, 2 completadas y una recomendada hoy.',
+      action: _SoftChip(
+        label: 'Plan Pro',
+        color: colors.amber,
+        background: colors.amberContainer.withValues(alpha: 0.45),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (var i = 0; i < days.length; i++)
+            _DayPill(label: days[i], selected: i < 2, highlighted: i == 2),
+        ],
+      ),
+    );
+  }
+}
+
+class _DayPill extends StatelessWidget {
+  const _DayPill({
+    required this.label,
+    required this.selected,
+    required this.highlighted,
+  });
+
+  final String label;
+  final bool selected;
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final background = selected
+        ? colors.primaryContainer
+        : highlighted
+        ? colors.amberContainer
+        : colors.raised;
+    final foreground = selected
+        ? Colors.white
+        : highlighted
+        ? colors.amber
+        : colors.textSecondary;
+    return Container(
+      width: 38,
+      height: 38,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+      child: Text(
+        label,
+        style: TextStyle(color: foreground, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
+class SessionModeSelector extends StatelessWidget {
+  const SessionModeSelector({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    const modes = ['Fuerza', 'Hipertrofia', 'Tecnica', 'Libre'];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: colors.raised,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < modes.length; i++)
+            Expanded(
+              child: Container(
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: i == 0 ? colors.surface : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: i == 0 ? Border.all(color: colors.divider) : null,
+                ),
+                child: Text(
+                  modes[i],
+                  style: TextStyle(
+                    color: i == 0 ? colors.text : colors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class RecommendedWorkoutCard extends StatelessWidget {
+  const RecommendedWorkoutCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return DashboardCard(
+      icon: Icons.fitness_center,
+      title: 'Empuje A',
+      subtitle: 'Pecho, hombro y triceps',
+      action: _SoftChip(
+        label: 'Recomendado hoy',
+        color: colors.primaryStrong,
+        background: colors.raised,
+      ),
+      child: Column(
+        children: [
+          Divider(color: colors.divider),
+          Row(
+            children: [
+              Expanded(
+                child: _InlineMeta(
+                  icon: Icons.view_list_outlined,
+                  label: '6 ejercicios',
+                ),
+              ),
+              Expanded(
+                child: _InlineMeta(icon: Icons.schedule, label: '~55 min'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Iniciar entrenamiento'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineMeta extends StatelessWidget {
+  const _InlineMeta({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: context.appColors.textSecondary),
+        const SizedBox(width: 6),
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+      ],
+    );
+  }
+}
+
+class _SoftChip extends StatelessWidget {
+  const _SoftChip({
+    required this.label,
+    required this.color,
+    required this.background,
+  });
+
+  final String label;
+  final Color color;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }
@@ -790,6 +1074,49 @@ class SetTypeChip extends StatelessWidget {
   }
 }
 
+class SectionHeader extends StatelessWidget {
+  const SectionHeader({super.key, required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(color: colors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressBar extends StatelessWidget {
+  const _ProgressBar({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: LinearProgressIndicator(
+        minHeight: 10,
+        value: value.clamp(0, 1),
+        backgroundColor: colors.raised,
+        color: colors.primaryContainer,
+      ),
+    );
+  }
+}
+
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key, required this.exercises});
 
@@ -813,16 +1140,33 @@ class ProgressScreen extends StatelessWidget {
     return AppScaffold(
       title: 'Progreso',
       children: [
+        const SectionHeader(
+          title: 'Rendimiento',
+          subtitle: 'Volumen, consistencia y calidad de series.',
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: MetricCard(label: 'Semana', value: '3/5'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: MetricCard(label: 'Mejor racha', value: '12 d'),
+            ),
+          ],
+        ),
         DashboardCard(
           icon: Icons.monitor_weight_outlined,
           title: 'Volumen efectivo',
           subtitle: '${volume.round()} kg-reps sin contar calentamientos',
+          child: _ProgressBar(value: workingSets.isEmpty ? 0 : 0.68),
         ),
         DashboardCard(
           icon: Icons.timeline_outlined,
           title: 'Dropsets registrados',
           subtitle:
               '${workingSets.where((set) => set.setType == SetType.dropset).length} series con reduccion de peso',
+          child: const _ProgressBar(value: 0.42),
         ),
         const DashboardCard(
           icon: Icons.calendar_month_outlined,
@@ -854,6 +1198,17 @@ class LibraryScreen extends StatelessWidget {
     return AppScaffold(
       title: 'Biblioteca',
       children: [
+        TextField(
+          decoration: InputDecoration(
+            prefixIcon: const Icon(Icons.search),
+            hintText: 'Buscar ejercicio, musculo o rutina',
+            suffixIcon: IconButton(
+              tooltip: 'Filtros',
+              onPressed: () {},
+              icon: const Icon(Icons.tune),
+            ),
+          ),
+        ),
         DashboardCard(
           icon: Icons.bookmarks_outlined,
           title: 'Rutina base',
@@ -893,17 +1248,19 @@ class LibraryScreen extends StatelessWidget {
           },
           itemBuilder: (context, index) {
             final exercise = exercises[index];
-            return ListTile(
+            return Card(
               key: ValueKey('library-${exercise.id}'),
-              leading: ReorderableDelayedDragStartListener(
-                index: index,
-                child: const GripDots(),
+              child: ListTile(
+                leading: ReorderableDelayedDragStartListener(
+                  index: index,
+                  child: const GripDots(),
+                ),
+                title: Text(exercise.name),
+                subtitle: Text(
+                  '${exercise.muscleGroup} - ${exercise.isUnilateral ? 'unilateral' : 'bilateral'}',
+                ),
+                trailing: const Icon(Icons.add_circle_outline),
               ),
-              title: Text(exercise.name),
-              subtitle: Text(
-                '${exercise.muscleGroup} - ${exercise.isUnilateral ? 'unilateral' : 'bilateral'}',
-              ),
-              trailing: const Icon(Icons.add_circle_outline),
             );
           },
         ),
@@ -933,7 +1290,35 @@ class ProfileScreen extends StatelessWidget {
       title: 'Perfil',
       user: user,
       children: [
-        Center(child: BrandMark(size: 84, dark: dark)),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: context.appColors.surface,
+            border: Border.all(color: context.appColors.divider),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              BrandMark(size: 72, dark: dark),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Agujetas',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    Text(
+                      'Cuenta comercial lista para Android e iOS',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
         DashboardCard(
           icon: Icons.account_circle_outlined,
           title: user.displayName,
@@ -1061,7 +1446,16 @@ class DashboardCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon),
+                Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.raised,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: colors.primaryStrong, size: 21),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -1119,31 +1513,273 @@ class AppScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return CustomScrollView(
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-          sliver: SliverToBoxAdapter(
-            child: Row(
-              children: [
-                BrandMark(size: 36, dark: dark),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleLarge,
+    final colors = context.appColors;
+    return Column(
+      children: [
+        Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border(bottom: BorderSide(color: colors.divider)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 19,
+                backgroundColor: colors.raised,
+                backgroundImage: user?.photoUrl == null
+                    ? null
+                    : NetworkImage(user!.photoUrl!),
+                child: user?.photoUrl == null
+                    ? BrandMark(size: 28, dark: dark)
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              BrandMark(size: 28, dark: dark),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontSize: 16,
+                    color: colors.primaryStrong,
                   ),
                 ),
-                ?trailing,
-              ],
-            ),
+              ),
+              ?trailing,
+              Builder(
+                builder: (context) => IconButton(
+                  tooltip: 'Menu',
+                  onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
+                  icon: const Icon(Icons.menu),
+                ),
+              ),
+            ],
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-          sliver: SliverList.list(children: children),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+            children: children,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class StitchBottomNav extends StatelessWidget {
+  const StitchBottomNav({
+    super.key,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  static const _items = [
+    (Icons.home_outlined, Icons.home, 'Inicio'),
+    (Icons.fitness_center_outlined, Icons.fitness_center, 'Entrenar'),
+    (Icons.insights_outlined, Icons.insights, 'Progreso'),
+    (Icons.library_books_outlined, Icons.library_books, 'Biblioteca'),
+    (Icons.person_outline, Icons.person, 'Perfil'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: 80,
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(top: BorderSide(color: colors.divider)),
+        ),
+        child: Row(
+          children: [
+            for (var i = 0; i < _items.length; i++)
+              Expanded(
+                child: _BottomNavItem(
+                  icon: selectedIndex == i ? _items[i].$2 : _items[i].$1,
+                  label: _items[i].$3,
+                  selected: selectedIndex == i,
+                  onTap: () => onSelected(i),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomNavItem extends StatelessWidget {
+  const _BottomNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 42,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected
+                  ? colors.amberContainer.withValues(alpha: 0.55)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: 21,
+              color: selected ? colors.primaryStrong : colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: selected ? colors.primaryStrong : colors.textSecondary,
+              fontSize: 11,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class StitchSideMenu extends StatelessWidget {
+  const StitchSideMenu({
+    super.key,
+    required this.selectedIndex,
+    required this.user,
+    required this.onSelect,
+  });
+
+  final int selectedIndex;
+  final AppUser user;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final colors = context.appColors;
+    const items = [
+      (Icons.home_outlined, 'Inicio'),
+      (Icons.fitness_center_outlined, 'Entrenar'),
+      (Icons.insights_outlined, 'Progreso'),
+      (Icons.library_books_outlined, 'Biblioteca'),
+      (Icons.person_outline, 'Perfil'),
+    ];
+    return Drawer(
+      backgroundColor: colors.background,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  BrandMark(size: 52, dark: dark),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Agujetas',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(color: colors.primaryStrong),
+                        ),
+                        Text(
+                          user.activeRole.label,
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              for (var i = 0; i < items.length; i++)
+                _DrawerItem(
+                  icon: items[i].$1,
+                  label: items[i].$2,
+                  selected: selectedIndex == i,
+                  onTap: () => onSelect(i),
+                ),
+              const Spacer(),
+              Text(
+                'Calendario, progreso y biblioteca viven como secciones principales; configuracion queda solo para cuenta y preferencias.',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  const _DrawerItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        selected: selected,
+        selectedTileColor: colors.raised,
+        leading: Icon(icon, color: selected ? colors.primaryStrong : null),
+        title: Text(
+          label,
+          style: TextStyle(
+            color: selected ? colors.primaryStrong : colors.text,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+        onTap: onTap,
+      ),
     );
   }
 }
