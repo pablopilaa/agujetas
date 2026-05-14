@@ -190,6 +190,8 @@ class WorkoutExercise {
     required this.muscleGroup,
     required this.isUnilateral,
     required this.sets,
+    this.imageUri,
+    this.isCustom = false,
   });
 
   final String id;
@@ -197,6 +199,8 @@ class WorkoutExercise {
   final String muscleGroup;
   final bool isUnilateral;
   final List<WorkoutSet> sets;
+  final String? imageUri;
+  final bool isCustom;
 
   Map<String, Object?> toJson() => {
     'exerciseId': id,
@@ -204,28 +208,133 @@ class WorkoutExercise {
     'muscleGroup': muscleGroup,
     'isUnilateral': isUnilateral,
     'sets': sets.map((set) => set.toJson()).toList(),
+    'imageUri': imageUri,
+    'isCustom': isCustom,
   };
 
   factory WorkoutExercise.fromJson(Map<String, Object?> json) {
+    final sets = (json['sets'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((raw) => WorkoutSet.fromJson(raw.cast<String, Object?>()))
+        .toList();
     return WorkoutExercise(
       id: json['exerciseId']?.toString() ?? json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       muscleGroup: json['muscleGroup']?.toString() ?? 'General',
       isUnilateral: json['isUnilateral'] == true,
-      sets: (json['sets'] as List<dynamic>? ?? const [])
-          .whereType<Map>()
-          .map((raw) => WorkoutSet.fromJson(raw.cast<String, Object?>()))
-          .toList(),
+      sets: sets.isEmpty ? defaultWorkoutSets() : sets,
+      imageUri: json['imageUri']?.toString(),
+      isCustom: json['isCustom'] == true,
     );
   }
 
-  WorkoutExercise copyWith({bool? isUnilateral, List<WorkoutSet>? sets}) {
+  WorkoutExercise copyWith({
+    String? name,
+    String? muscleGroup,
+    bool? isUnilateral,
+    List<WorkoutSet>? sets,
+    String? imageUri,
+    bool? isCustom,
+  }) {
     return WorkoutExercise(
       id: id,
-      name: name,
-      muscleGroup: muscleGroup,
+      name: name ?? this.name,
+      muscleGroup: muscleGroup ?? this.muscleGroup,
       isUnilateral: isUnilateral ?? this.isUnilateral,
       sets: sets ?? this.sets,
+      imageUri: imageUri ?? this.imageUri,
+      isCustom: isCustom ?? this.isCustom,
+    );
+  }
+}
+
+class ExerciseCatalogEntry {
+  const ExerciseCatalogEntry({
+    required this.id,
+    required this.name,
+    required this.muscleGroup,
+    this.imageUri,
+    this.usageCount = 0,
+    this.lastUsedDate,
+    this.isCustom = false,
+  });
+
+  final String id;
+  final String name;
+  final String muscleGroup;
+  final String? imageUri;
+  final int usageCount;
+  final DateTime? lastUsedDate;
+  final bool isCustom;
+
+  WorkoutExercise toWorkoutExercise() => WorkoutExercise(
+    id: id,
+    name: name,
+    muscleGroup: muscleGroup,
+    isUnilateral: false,
+    sets: defaultWorkoutSets(),
+    imageUri: imageUri,
+    isCustom: isCustom,
+  );
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'muscleGroup': muscleGroup,
+    'imageUri': imageUri,
+    'usageCount': usageCount,
+    'lastUsedDate': lastUsedDate?.toUtc().toIso8601String(),
+    'isCustom': isCustom,
+  };
+
+  factory ExerciseCatalogEntry.fromJson(Map<String, Object?> json) {
+    final rawName = json['name'] ?? json['ejercicio'];
+    final rawMuscle = json['muscleGroup'] ?? json['musculo'];
+    final name = rawName?.toString().trim() ?? '';
+    return ExerciseCatalogEntry(
+      id: json['id']?.toString() ?? json['key']?.toString() ?? name,
+      name: name,
+      muscleGroup: rawMuscle?.toString().trim() ?? 'General',
+      imageUri: json['imageUri']?.toString(),
+      usageCount: _readInt(json['usageCount']),
+      lastUsedDate: DateTime.tryParse(json['lastUsedDate']?.toString() ?? ''),
+      isCustom: json['isCustom'] == true || json['inCustomSession'] == true,
+    );
+  }
+}
+
+class BodyWeightEntry {
+  const BodyWeightEntry({
+    required this.id,
+    required this.userId,
+    required this.weightKg,
+    required this.recordedAt,
+    this.note,
+  });
+
+  final String id;
+  final String userId;
+  final double weightKg;
+  final DateTime recordedAt;
+  final String? note;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'userId': userId,
+    'weightKg': weightKg,
+    'recordedAt': recordedAt.toUtc().toIso8601String(),
+    'note': note,
+  };
+
+  factory BodyWeightEntry.fromJson(Map<String, Object?> json) {
+    return BodyWeightEntry(
+      id: json['id']?.toString() ?? '',
+      userId: json['userId']?.toString() ?? '',
+      weightKg: _readDouble(json['weightKg']),
+      recordedAt:
+          DateTime.tryParse(json['recordedAt']?.toString() ?? '') ??
+          DateTime.now().toUtc(),
+      note: json['note']?.toString(),
     );
   }
 }
@@ -326,6 +435,24 @@ class TrainerClientLink {
   }
 }
 
+List<WorkoutSet> defaultWorkoutSets() => const [
+  WorkoutSet(
+    order: 1,
+    setType: SetType.normal,
+    segments: [WeightSegment(weightKg: 0, reps: 0)],
+  ),
+  WorkoutSet(
+    order: 2,
+    setType: SetType.normal,
+    segments: [WeightSegment(weightKg: 0, reps: 0)],
+  ),
+  WorkoutSet(
+    order: 3,
+    setType: SetType.normal,
+    segments: [WeightSegment(weightKg: 0, reps: 0)],
+  ),
+];
+
 List<WorkoutExercise> seedWorkout() => [
   WorkoutExercise(
     id: 'bench_press',
@@ -376,6 +503,12 @@ List<WorkoutExercise> seedWorkout() => [
           WeightSegment(weightKg: 16, reps: 6),
         ],
         rir: 1,
+      ),
+      WorkoutSet(
+        order: 3,
+        setType: SetType.normal,
+        segments: [WeightSegment(weightKg: 20, reps: 10)],
+        rir: 2,
       ),
     ],
   ),

@@ -32,11 +32,12 @@ void main() {
       await tester.tap(find.text('Entrenar'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Press banca'), findsOneWidget);
+      expect(find.text('Press banca'), findsWidgets);
       expect(find.text('Bi'), findsWidgets);
       expect(find.text('Uni'), findsWidgets);
       expect(find.text('Cal'), findsWidgets);
       expect(find.text('Drop'), findsWidgets);
+      expect(find.text('RIR'), findsWidgets);
 
       final addSecondWeight = find.text('Agregar peso 2').first;
       await tester.ensureVisible(addSecondWeight);

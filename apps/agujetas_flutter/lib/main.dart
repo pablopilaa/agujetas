@@ -1,16 +1,25 @@
+import 'dart:convert';
+
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import 'app_theme.dart';
 import 'firebase_options.dart';
 import 'models.dart';
+import 'notification_service.dart';
 import 'repositories.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (!kIsWeb) {
+    await NotificationService.initialize();
+  }
   runApp(AgujetasApp(repository: FirebaseAgujetasRepository()));
 }
 
@@ -329,6 +338,8 @@ class _HomeShellState extends State<HomeShell> {
         notice: _notice,
         onInviteCreated: (code) => setState(() => _lastInviteCode = code),
         onNotice: (notice) => setState(() => _notice = notice),
+        onStartWorkout: () => setState(() => _tab = 1),
+        onOpenCalendar: () => _openCalendar(context),
       ),
       TrainScreen(
         user: widget.user,
@@ -336,7 +347,12 @@ class _HomeShellState extends State<HomeShell> {
         exercises: _workout,
         onExercisesChanged: (items) => setState(() => _workout = items),
       ),
-      ProgressScreen(exercises: _workout),
+      ProgressScreen(
+        user: widget.user,
+        repository: widget.repository,
+        exercises: _workout,
+        onOpenCalendar: () => _openCalendar(context),
+      ),
       LibraryScreen(
         user: widget.user,
         repository: widget.repository,
@@ -366,6 +382,14 @@ class _HomeShellState extends State<HomeShell> {
       ),
     );
   }
+
+  void _openCalendar(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => const SessionCalendarSheet(),
+    );
+  }
 }
 
 class HomeDashboard extends StatefulWidget {
@@ -377,6 +401,8 @@ class HomeDashboard extends StatefulWidget {
     required this.notice,
     required this.onInviteCreated,
     required this.onNotice,
+    required this.onStartWorkout,
+    required this.onOpenCalendar,
   });
 
   final AppUser user;
@@ -385,6 +411,8 @@ class HomeDashboard extends StatefulWidget {
   final String? notice;
   final ValueChanged<String> onInviteCreated;
   final ValueChanged<String> onNotice;
+  final VoidCallback onStartWorkout;
+  final VoidCallback onOpenCalendar;
 
   @override
   State<HomeDashboard> createState() => _HomeDashboardState();
@@ -407,7 +435,17 @@ class _HomeDashboardState extends State<HomeDashboard> {
         if (!isTrainerMode) ...[
           const WeeklySummaryCard(),
           const SessionModeSelector(),
-          const RecommendedWorkoutCard(),
+          RecommendedWorkoutCard(onStart: widget.onStartWorkout),
+          DashboardCard(
+            icon: Icons.calendar_month_outlined,
+            title: 'Calendario de sesiones',
+            subtitle: 'Ver sesiones, schedules, tareas y metas de la semana.',
+            onTap: widget.onOpenCalendar,
+            action: Icon(
+              Icons.chevron_right,
+              color: context.appColors.primaryStrong,
+            ),
+          ),
         ],
         RoleSwitcher(user: widget.user, repository: widget.repository),
         if (isTrainerMode)
@@ -684,7 +722,9 @@ class SessionModeSelector extends StatelessWidget {
 }
 
 class RecommendedWorkoutCard extends StatelessWidget {
-  const RecommendedWorkoutCard({super.key});
+  const RecommendedWorkoutCard({super.key, required this.onStart});
+
+  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
@@ -718,7 +758,7 @@ class RecommendedWorkoutCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () {},
+              onPressed: onStart,
               icon: const Icon(Icons.play_arrow),
               label: const Text('Iniciar entrenamiento'),
             ),
@@ -800,6 +840,9 @@ class TrainScreen extends StatelessWidget {
       trailing: FilledButton.icon(
         onPressed: () async {
           await repository.saveSession(user: user, exercises: exercises);
+          if (!kIsWeb) {
+            await NotificationService.showSessionSaved();
+          }
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Sesion guardada en Firebase')),
@@ -811,6 +854,23 @@ class TrainScreen extends StatelessWidget {
       ),
       children: [
         const CompactTimers(),
+        CurrentSetLogger(
+          exercise: exercises.isEmpty ? null : exercises.first,
+          onRestTimer: () async {
+            if (!kIsWeb) {
+              await NotificationService.scheduleRestFinished(
+                const Duration(seconds: 90),
+              );
+            }
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Alerta de descanso programada en 01:30'),
+                ),
+              );
+            }
+          },
+        ),
         ReorderableListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -914,6 +974,131 @@ class ExerciseCard extends StatelessWidget {
   }
 }
 
+class CurrentSetLogger extends StatelessWidget {
+  const CurrentSetLogger({
+    super.key,
+    required this.exercise,
+    required this.onRestTimer,
+  });
+
+  final WorkoutExercise? exercise;
+  final VoidCallback onRestTimer;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final firstSet = exercise == null || exercise!.sets.isEmpty
+        ? null
+        : exercise!.sets.first;
+    final firstSegment = firstSet == null || firstSet.segments.isEmpty
+        ? null
+        : firstSet.segments.first;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.divider),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  exercise?.name ?? 'Set actual',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              _SoftChip(
+                label: 'Set ${firstSet?.order ?? 1}',
+                color: colors.primaryStrong,
+                background: colors.raised,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _LoggerMetric(
+                  label: 'kg',
+                  value: firstSegment?.weightKg.toStringAsFixed(0) ?? '-',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _LoggerMetric(
+                  label: 'Reps',
+                  value: firstSegment?.reps.toString() ?? '-',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _LoggerMetric(
+                  label: 'RIR',
+                  value: '${firstSet?.rir ?? '-'}',
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 58,
+                width: 58,
+                child: FilledButton(
+                  onPressed: onRestTimer,
+                  style: FilledButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Icon(Icons.timer_outlined),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoggerMetric extends StatelessWidget {
+  const _LoggerMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Column(
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 4),
+        Container(
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: colors.raised,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(value, style: Theme.of(context).textTheme.titleMedium),
+        ),
+      ],
+    );
+  }
+}
+
 class SetEditor extends StatelessWidget {
   const SetEditor({super.key, required this.set, required this.onChanged});
 
@@ -970,6 +1155,18 @@ class SetEditor extends StatelessWidget {
                       },
               ),
             ),
+          const SizedBox(height: 8),
+          TextFormField(
+            key: ValueKey('rir-${set.order}-${set.rir ?? ''}'),
+            initialValue: set.rir?.toString() ?? '',
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'RIR',
+              prefixIcon: Icon(Icons.speed_outlined),
+            ),
+            onChanged: (value) =>
+                onChanged(set.copyWith(rir: int.tryParse(value))),
+          ),
           if (set.segments.length < 2)
             Align(
               alignment: Alignment.centerLeft,
@@ -1117,10 +1314,184 @@ class _ProgressBar extends StatelessWidget {
   }
 }
 
-class ProgressScreen extends StatelessWidget {
-  const ProgressScreen({super.key, required this.exercises});
+class BodyWeightCard extends StatelessWidget {
+  const BodyWeightCard({
+    super.key,
+    required this.user,
+    required this.repository,
+  });
 
+  final AppUser user;
+  final AgujetasRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<BodyWeightEntry>>(
+      stream: repository.watchBodyWeights(user.uid),
+      builder: (context, snapshot) {
+        final entries = snapshot.data ?? const <BodyWeightEntry>[];
+        final latest = entries.isEmpty ? null : entries.first;
+        return DashboardCard(
+          icon: Icons.monitor_weight_outlined,
+          title: 'Peso corporal',
+          subtitle: latest == null
+              ? 'Sin registros todavia. Activá alertas y cargá tu primer peso.'
+              : '${latest.weightKg.toStringAsFixed(1)} kg registrados recientemente',
+          action: FilledButton(
+            onPressed: () => _openWeightSheet(context),
+            child: const Text('Registrar'),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (entries.length >= 2)
+                _ProgressBar(
+                  value: (entries.first.weightKg / entries[1].weightKg).clamp(
+                    0.75,
+                    1.25,
+                  ),
+                ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  if (!kIsWeb) {
+                    await NotificationService.scheduleBodyWeightReminder(
+                      hour: 9,
+                      minute: 0,
+                    );
+                  }
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Alerta diaria de peso programada 09:00'),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: const Text('Alertarme cada mañana'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openWeightSheet(BuildContext context) async {
+    final controller = TextEditingController();
+    final weight = await showModalBottomSheet<double>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) {
+        final bottom = MediaQuery.of(context).viewInsets.bottom;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Registrar peso',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Peso corporal kg',
+                  prefixIcon: Icon(Icons.monitor_weight_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pop(double.tryParse(controller.text.replaceAll(',', '.'))),
+                child: const Text('Guardar peso'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (weight == null || weight <= 0) return;
+    await repository.saveBodyWeight(
+      user: user,
+      entry: BodyWeightEntry(
+        id: const Uuid().v4(),
+        userId: user.uid,
+        weightKg: weight,
+        recordedAt: DateTime.now(),
+      ),
+    );
+  }
+}
+
+class SessionCalendarSheet extends StatelessWidget {
+  const SessionCalendarSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    const days = [
+      ('L', 'Push', true),
+      ('M', 'Libre', false),
+      ('X', 'Pull', true),
+      ('J', 'Piernas', false),
+      ('V', 'Empuje A', false),
+      ('S', 'Tecnica', false),
+      ('D', 'Descanso', false),
+    ];
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      children: [
+        Text(
+          'Calendario de sesiones',
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
+        const SizedBox(height: 12),
+        for (final day in days)
+          Card(
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: day.$3
+                    ? colors.primaryContainer
+                    : colors.raised,
+                child: Text(
+                  day.$1,
+                  style: TextStyle(
+                    color: day.$3 ? Colors.white : colors.textSecondary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              title: Text(day.$2),
+              subtitle: Text(day.$3 ? 'Completada' : 'Planificada'),
+              trailing: Icon(day.$3 ? Icons.check_circle : Icons.chevron_right),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class ProgressScreen extends StatelessWidget {
+  const ProgressScreen({
+    super.key,
+    required this.user,
+    required this.repository,
+    required this.exercises,
+    required this.onOpenCalendar,
+  });
+
+  final AppUser user;
+  final AgujetasRepository repository;
   final List<WorkoutExercise> exercises;
+  final VoidCallback onOpenCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -1168,18 +1539,24 @@ class ProgressScreen extends StatelessWidget {
               '${workingSets.where((set) => set.setType == SetType.dropset).length} series con reduccion de peso',
           child: const _ProgressBar(value: 0.42),
         ),
-        const DashboardCard(
+        BodyWeightCard(user: user, repository: repository),
+        DashboardCard(
           icon: Icons.calendar_month_outlined,
           title: 'Calendario',
           subtitle:
               'Schedules y metas asignadas viven aca, no en configuracion.',
+          onTap: onOpenCalendar,
+          action: Icon(
+            Icons.chevron_right,
+            color: context.appColors.primaryStrong,
+          ),
         ),
       ],
     );
   }
 }
 
-class LibraryScreen extends StatelessWidget {
+class LibraryScreen extends StatefulWidget {
   const LibraryScreen({
     super.key,
     required this.user,
@@ -1194,11 +1571,21 @@ class LibraryScreen extends StatelessWidget {
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
 
   @override
+  State<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends State<LibraryScreen> {
+  late final Future<List<ExerciseCatalogEntry>> _catalogFuture =
+      _loadCatalogSnapshot();
+  String _query = '';
+
+  @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Biblioteca',
       children: [
         TextField(
+          onChanged: (value) => setState(() => _query = value.trim()),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search),
             hintText: 'Buscar ejercicio, musculo o rutina',
@@ -1210,20 +1597,30 @@ class LibraryScreen extends StatelessWidget {
           ),
         ),
         DashboardCard(
+          icon: Icons.add_circle_outline,
+          title: 'Ejercicio personalizado',
+          subtitle:
+              'Crealo con 3 series predeterminadas y asociale imagen local o del repositorio.',
+          action: FilledButton(
+            onPressed: _openCustomExerciseSheet,
+            child: const Text('Crear'),
+          ),
+        ),
+        DashboardCard(
           icon: Icons.bookmarks_outlined,
           title: 'Rutina base',
           subtitle:
-              '${exercises.length} ejercicios listos para editar y asignar',
+              '${widget.exercises.length} ejercicios listos para editar y asignar',
           action: FilledButton(
             onPressed: () async {
               final routine = RoutineTemplate(
                 id: const Uuid().v4(),
-                ownerId: user.uid,
+                ownerId: widget.user.uid,
                 title: 'Rutina base Agujetas',
-                exercises: exercises,
+                exercises: widget.exercises,
               );
-              await repository.saveRoutineTemplate(
-                owner: user,
+              await widget.repository.saveRoutineTemplate(
+                owner: widget.user,
                 routine: routine,
               );
               if (context.mounted) {
@@ -1235,19 +1632,62 @@ class LibraryScreen extends StatelessWidget {
             child: const Text('Guardar'),
           ),
         ),
+        StreamBuilder<List<ExerciseCatalogEntry>>(
+          stream: widget.repository.watchCustomExercises(widget.user.uid),
+          builder: (context, snapshot) {
+            final items = snapshot.data ?? const <ExerciseCatalogEntry>[];
+            if (items.isEmpty) return const SizedBox.shrink();
+            return DashboardCard(
+              icon: Icons.auto_awesome_motion_outlined,
+              title: 'Tus ejercicios',
+              subtitle: '${items.length} ejercicios personalizados',
+              child: Column(
+                children: [
+                  for (final item in items.take(5))
+                    _CatalogTile(
+                      item: item,
+                      onAdd: () => _addExercise(item.toWorkoutExercise()),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+        FutureBuilder<List<ExerciseCatalogEntry>>(
+          future: _catalogFuture,
+          builder: (context, snapshot) {
+            final catalog = snapshot.data ?? const <ExerciseCatalogEntry>[];
+            final filtered = _filterCatalog(catalog).take(8).toList();
+            return DashboardCard(
+              icon: Icons.dataset_outlined,
+              title: 'Catalogo importado',
+              subtitle:
+                  '${catalog.length} ejercicios desde tus JSON y el catalogo Lyfta.',
+              child: Column(
+                children: [
+                  for (final item in filtered)
+                    _CatalogTile(
+                      item: item,
+                      onAdd: () => _addExercise(item.toWorkoutExercise()),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
         ReorderableListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: exercises.length,
+          itemCount: widget.exercises.length,
           onReorder: (oldIndex, newIndex) {
-            final next = [...exercises];
+            final next = [...widget.exercises];
             final target = newIndex > oldIndex ? newIndex - 1 : newIndex;
             final item = next.removeAt(oldIndex);
             next.insert(target, item);
-            onExercisesChanged(next);
+            widget.onExercisesChanged(next);
           },
           itemBuilder: (context, index) {
-            final exercise = exercises[index];
+            final exercise = widget.exercises[index];
             return Card(
               key: ValueKey('library-${exercise.id}'),
               child: ListTile(
@@ -1259,12 +1699,276 @@ class LibraryScreen extends StatelessWidget {
                 subtitle: Text(
                   '${exercise.muscleGroup} - ${exercise.isUnilateral ? 'unilateral' : 'bilateral'}',
                 ),
-                trailing: const Icon(Icons.add_circle_outline),
+                trailing: ExerciseImageBadge(imageUri: exercise.imageUri),
               ),
             );
           },
         ),
       ],
+    );
+  }
+
+  List<ExerciseCatalogEntry> _filterCatalog(
+    List<ExerciseCatalogEntry> catalog,
+  ) {
+    if (_query.isEmpty) {
+      return catalog.where((item) => item.usageCount > 0).toList();
+    }
+    final normalized = _query.toLowerCase();
+    return catalog
+        .where(
+          (item) =>
+              item.name.toLowerCase().contains(normalized) ||
+              item.muscleGroup.toLowerCase().contains(normalized),
+        )
+        .toList();
+  }
+
+  void _addExercise(WorkoutExercise exercise) {
+    widget.onExercisesChanged([...widget.exercises, exercise]);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${exercise.name} agregado a la rutina')),
+    );
+  }
+
+  Future<void> _openCustomExerciseSheet() async {
+    final exercise = await showModalBottomSheet<ExerciseCatalogEntry>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => CustomExerciseSheet(catalogFuture: _catalogFuture),
+    );
+    if (exercise == null) return;
+    await widget.repository.saveCustomExercise(
+      owner: widget.user,
+      exercise: exercise,
+    );
+    _addExercise(exercise.toWorkoutExercise());
+  }
+
+  static Future<List<ExerciseCatalogEntry>> _loadCatalogSnapshot() async {
+    final raw = await rootBundle.loadString(
+      'assets/user_data/catalogo_ejercicios_2026-05-13.json',
+    );
+    final decoded = jsonDecode(raw) as Map<String, Object?>;
+    final rows = decoded['rows'] as List<dynamic>? ?? const [];
+    return rows
+        .whereType<Map>()
+        .map(
+          (item) => ExerciseCatalogEntry.fromJson(item.cast<String, Object?>()),
+        )
+        .where((item) => item.name.isNotEmpty)
+        .toList()
+      ..sort((a, b) {
+        final usage = b.usageCount.compareTo(a.usageCount);
+        if (usage != 0) return usage;
+        return a.name.compareTo(b.name);
+      });
+  }
+}
+
+class _CatalogTile extends StatelessWidget {
+  const _CatalogTile({required this.item, required this.onAdd});
+
+  final ExerciseCatalogEntry item;
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: ExerciseImageBadge(imageUri: item.imageUri),
+      title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        '${item.muscleGroup}${item.usageCount > 0 ? ' - usado ${item.usageCount}x' : ''}',
+      ),
+      trailing: IconButton(
+        tooltip: 'Agregar',
+        onPressed: onAdd,
+        icon: const Icon(Icons.add_circle_outline),
+      ),
+    );
+  }
+}
+
+class ExerciseImageBadge extends StatelessWidget {
+  const ExerciseImageBadge({super.key, required this.imageUri});
+
+  final String? imageUri;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final hasImage = imageUri != null && imageUri!.isNotEmpty;
+    return Container(
+      width: 44,
+      height: 44,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: hasImage ? colors.primaryContainer : colors.raised,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        hasImage
+            ? (imageUri!.startsWith('app-image://')
+                  ? Icons.image_search_outlined
+                  : Icons.photo_library_outlined)
+            : Icons.fitness_center,
+        color: hasImage ? Colors.white : colors.textSecondary,
+      ),
+    );
+  }
+}
+
+class CustomExerciseSheet extends StatefulWidget {
+  const CustomExerciseSheet({super.key, required this.catalogFuture});
+
+  final Future<List<ExerciseCatalogEntry>> catalogFuture;
+
+  @override
+  State<CustomExerciseSheet> createState() => _CustomExerciseSheetState();
+}
+
+class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
+  final _nameController = TextEditingController();
+  final _muscleController = TextEditingController(text: 'General');
+  String? _imageUri;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Nuevo ejercicio',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(labelText: 'Nombre'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _muscleController,
+            decoration: const InputDecoration(labelText: 'Musculo'),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              ExerciseImageBadge(imageUri: _imageUri),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _imageUri ?? 'Sin imagen asociada',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickGalleryImage,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Galeria'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickRepositoryImage,
+                  icon: const Icon(Icons.image_search_outlined),
+                  label: const Text('Repo'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.check),
+            label: const Text('Crear con 3 series'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickGalleryImage() async {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    setState(() => _imageUri = picked.path);
+  }
+
+  Future<void> _pickRepositoryImage() async {
+    final imageUri = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) =>
+          RepositoryImagePicker(catalogFuture: widget.catalogFuture),
+    );
+    if (imageUri == null) return;
+    setState(() => _imageUri = imageUri);
+  }
+
+  void _save() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) return;
+    Navigator.of(context).pop(
+      ExerciseCatalogEntry(
+        id: 'custom_${const Uuid().v4()}',
+        name: name,
+        muscleGroup: _muscleController.text.trim().isEmpty
+            ? 'General'
+            : _muscleController.text.trim(),
+        imageUri: _imageUri,
+        isCustom: true,
+      ),
+    );
+  }
+}
+
+class RepositoryImagePicker extends StatelessWidget {
+  const RepositoryImagePicker({super.key, required this.catalogFuture});
+
+  final Future<List<ExerciseCatalogEntry>> catalogFuture;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<ExerciseCatalogEntry>>(
+      future: catalogFuture,
+      builder: (context, snapshot) {
+        final items = (snapshot.data ?? const <ExerciseCatalogEntry>[])
+            .where((item) => item.imageUri?.startsWith('app-image://') == true)
+            .take(30)
+            .toList();
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          children: [
+            Text(
+              'Imagen del repositorio',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 12),
+            for (final item in items)
+              ListTile(
+                leading: ExerciseImageBadge(imageUri: item.imageUri),
+                title: Text(item.name),
+                subtitle: Text(item.imageUri ?? ''),
+                onTap: () => Navigator.of(context).pop(item.imageUri),
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1426,6 +2130,7 @@ class DashboardCard extends StatelessWidget {
     required this.subtitle,
     this.action,
     this.child,
+    this.onTap,
   });
 
   final IconData icon;
@@ -1433,11 +2138,12 @@ class DashboardCard extends StatelessWidget {
   final String subtitle;
   final Widget? action;
   final Widget? child;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Card(
+    final card = Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -1472,6 +2178,12 @@ class DashboardCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+    if (onTap == null) return card;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: card,
     );
   }
 }

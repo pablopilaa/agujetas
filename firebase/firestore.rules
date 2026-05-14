@@ -160,6 +160,19 @@ service cloud.firestore {
         && validOptionalAssignment(request.resource.data);
     }
 
+    match /customExercises/{exerciseId} {
+      allow read, update, delete: if canAccessRecord(resource.data);
+      allow create: if signedIn()
+        && ownerId(request.resource.data) == request.auth.uid;
+    }
+
+    match /bodyWeights/{entryId} {
+      allow read, update, delete: if signedIn()
+        && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.userId == request.auth.uid;
+    }
+
     match /assignedRoutines/{docId} {
       allow read, update, delete: if canAccessRecord(resource.data);
       allow create: if signedIn()

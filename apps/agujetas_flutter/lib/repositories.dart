@@ -32,6 +32,16 @@ abstract class AgujetasRepository {
     required AppUser owner,
     required RoutineTemplate routine,
   });
+  Future<void> saveCustomExercise({
+    required AppUser owner,
+    required ExerciseCatalogEntry exercise,
+  });
+  Stream<List<ExerciseCatalogEntry>> watchCustomExercises(String ownerId);
+  Future<void> saveBodyWeight({
+    required AppUser user,
+    required BodyWeightEntry entry,
+  });
+  Stream<List<BodyWeightEntry>> watchBodyWeights(String userId);
 }
 
 class FirebaseAgujetasRepository implements AgujetasRepository {
@@ -197,6 +207,63 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
         .set(routine.toJson(), SetOptions(merge: true));
   }
 
+  @override
+  Future<void> saveCustomExercise({
+    required AppUser owner,
+    required ExerciseCatalogEntry exercise,
+  }) async {
+    await _firestore.collection('customExercises').doc(exercise.id).set({
+      ...exercise.toJson(),
+      'ownerId': owner.uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
+  Stream<List<ExerciseCatalogEntry>> watchCustomExercises(String ownerId) {
+    return _firestore
+        .collection('customExercises')
+        .where('ownerId', isEqualTo: ownerId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => ExerciseCatalogEntry.fromJson({
+                  ...doc.data(),
+                  'id': doc.id,
+                }),
+              )
+              .toList(),
+        );
+  }
+
+  @override
+  Future<void> saveBodyWeight({
+    required AppUser user,
+    required BodyWeightEntry entry,
+  }) async {
+    await _firestore.collection('bodyWeights').doc(entry.id).set({
+      ...entry.toJson(),
+      'userId': user.uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
+  Stream<List<BodyWeightEntry>> watchBodyWeights(String userId) {
+    return _firestore
+        .collection('bodyWeights')
+        .where('userId', isEqualTo: userId)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => BodyWeightEntry.fromJson(doc.data()))
+                  .toList()
+                ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt)),
+        );
+  }
+
   Future<AppUser> _upsertUser(fb.User firebaseUser) async {
     final userRef = _firestore.collection('users').doc(firebaseUser.uid);
     final snapshot = await userRef.get();
@@ -228,6 +295,11 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
 class DemoAgujetasRepository implements AgujetasRepository {
   final _controller = StreamController<AppUser?>.broadcast();
   final _clients = StreamController<List<TrainerClientLink>>.broadcast();
+  final _customExercises =
+      StreamController<List<ExerciseCatalogEntry>>.broadcast();
+  final _bodyWeights = StreamController<List<BodyWeightEntry>>.broadcast();
+  final List<ExerciseCatalogEntry> _customExerciseItems = [];
+  final List<BodyWeightEntry> _bodyWeightItems = [];
 
   AppUser? _user = const AppUser(
     uid: 'demo-user',
@@ -278,6 +350,49 @@ class DemoAgujetasRepository implements AgujetasRepository {
     required AppUser owner,
     required RoutineTemplate routine,
   }) async {}
+
+  @override
+  Future<void> saveCustomExercise({
+    required AppUser owner,
+    required ExerciseCatalogEntry exercise,
+  }) async {
+    _customExerciseItems.removeWhere((item) => item.id == exercise.id);
+    _customExerciseItems.insert(0, exercise);
+    _customExercises.add(List.unmodifiable(_customExerciseItems));
+  }
+
+  @override
+  Stream<List<ExerciseCatalogEntry>> watchCustomExercises(String ownerId) {
+    scheduleMicrotask(() => _customExercises.add(_customExerciseItems));
+    return _customExercises.stream;
+  }
+
+  @override
+  Future<void> saveBodyWeight({
+    required AppUser user,
+    required BodyWeightEntry entry,
+  }) async {
+    _bodyWeightItems.removeWhere((item) => item.id == entry.id);
+    _bodyWeightItems.insert(0, entry);
+    _bodyWeights.add(List.unmodifiable(_bodyWeightItems));
+  }
+
+  @override
+  Stream<List<BodyWeightEntry>> watchBodyWeights(String userId) {
+    scheduleMicrotask(
+      () => _bodyWeights.add([
+        ..._bodyWeightItems,
+        BodyWeightEntry(
+          id: 'demo-weight',
+          userId: userId,
+          weightKg: 82.4,
+          recordedAt: DateTime.now().subtract(const Duration(days: 2)),
+          note: 'Referencia demo',
+        ),
+      ]),
+    );
+    return _bodyWeights.stream;
+  }
 
   @override
   Future<void> saveSession({

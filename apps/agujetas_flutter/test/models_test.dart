@@ -50,4 +50,18 @@ void main() {
     expect(set.segments.single.weightKg, 42.5);
     expect(set.segments.single.reps, 12);
   });
+
+  test('new exercises start with three editable sets', () {
+    final exercise = const ExerciseCatalogEntry(
+      id: 'custom-1',
+      name: 'Press propio',
+      muscleGroup: 'Pectoral',
+      imageUri: 'app-image://00011101',
+      isCustom: true,
+    ).toWorkoutExercise();
+
+    expect(exercise.sets, hasLength(3));
+    expect(exercise.imageUri, 'app-image://00011101');
+    expect(exercise.isCustom, isTrue);
+  });
 }
