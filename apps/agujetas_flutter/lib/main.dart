@@ -170,13 +170,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'Entrena con precision.',
+                    'Entrena con precisión.',
                     style: Theme.of(context).textTheme.titleLarge,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Registra tu progreso con elegancia y manten el foco en lo que importa.',
+                    'Registra tu progreso con elegancia y mantén el foco en lo que importa.',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: colors.textSecondary,
                     ),
@@ -213,7 +213,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Al continuar, aceptas la sincronizacion segura de tus entrenamientos via Firebase Auth y Firestore. No usamos Storage en el plan gratuito.',
+                    'Al continuar, aceptas la sincronización segura de tus entrenamientos vía Firebase Auth y Firestore. No usamos Storage en el plan gratuito.',
                     style: Theme.of(context).textTheme.labelMedium,
                     textAlign: TextAlign.center,
                   ),
@@ -236,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await widget.repository.signInWithGoogle();
     } catch (error) {
-      setState(() => _error = 'No se pudo iniciar sesion: $error');
+      setState(() => _error = 'No se pudo iniciar sesión: $error');
     } finally {
       if (mounted) {
         setState(() => _loading = false);
@@ -254,7 +254,7 @@ class _LoginFeatureRow extends StatelessWidget {
     const items = [
       (Icons.sync, 'Sincronizar'),
       (Icons.insights, 'Progreso'),
-      (Icons.library_books_outlined, 'Catalogo'),
+      (Icons.library_books_outlined, 'Catálogo'),
     ];
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -471,7 +471,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
     try {
       final invite = await widget.repository.createTrainerInvite(widget.user);
       widget.onInviteCreated(invite.code);
-      widget.onNotice('Codigo de invitacion creado: ${invite.code}');
+      widget.onNotice('Código de invitación creado: ${invite.code}');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -491,7 +491,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
       );
       _inviteController.clear();
     } catch (error) {
-      widget.onNotice('No se pudo aceptar el codigo: $error');
+      widget.onNotice('No se pudo aceptar el código: $error');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -521,11 +521,11 @@ class _TrainerPanel extends StatelessWidget {
           icon: Icons.group_add_outlined,
           title: 'Sumar entrenados',
           subtitle: inviteCode == null
-              ? 'Genera un codigo para vincular usuarios.'
-              : 'Codigo activo: $inviteCode',
+              ? 'Genera un código para vincular usuarios.'
+              : 'Código activo: $inviteCode',
           action: FilledButton(
             onPressed: busy ? null : onCreateInvite,
-            child: Text(inviteCode == null ? 'Crear codigo' : 'Crear otro'),
+            child: Text(inviteCode == null ? 'Crear código' : 'Crear otro'),
           ),
         ),
         StreamBuilder<List<TrainerClientLink>>(
@@ -536,7 +536,7 @@ class _TrainerPanel extends StatelessWidget {
               icon: Icons.assignment_ind_outlined,
               title: 'Entrenados activos',
               subtitle: clients.isEmpty
-                  ? 'Aun no hay vinculaciones.'
+                  ? 'Aún no hay vinculaciones.'
                   : '${clients.length} usuarios vinculados',
               child: Column(
                 children: clients
@@ -560,7 +560,7 @@ class _TrainerPanel extends StatelessWidget {
           icon: Icons.flag_outlined,
           title: 'Metas y tareas',
           subtitle:
-              'Asigna volumen semanal, habitos, sesiones y objetivos medibles.',
+              'Asigna volumen semanal, hábitos, sesiones y objetivos medibles.',
         ),
       ],
     );
@@ -592,14 +592,14 @@ class _AthletePanel extends StatelessWidget {
           icon: Icons.link_outlined,
           title: 'Vincular entrenador',
           subtitle:
-              'Ingresa un codigo si un entrenador te comparte rutina o schedule.',
+              'Ingresa un código si un entrenador te comparte rutina o schedule.',
           child: Row(
             children: [
               Expanded(
                 child: TextField(
                   controller: controller,
                   textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: 'Codigo'),
+                  decoration: const InputDecoration(labelText: 'Código'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -685,7 +685,7 @@ class SessionModeSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    const modes = ['Fuerza', 'Hipertrofia', 'Tecnica', 'Libre'];
+    const modes = ['Fuerza', 'Hipertrofia', 'Técnica', 'Libre'];
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(4),
@@ -732,7 +732,7 @@ class RecommendedWorkoutCard extends StatelessWidget {
     return DashboardCard(
       icon: Icons.fitness_center,
       title: 'Empuje A',
-      subtitle: 'Pecho, hombro y triceps',
+      subtitle: 'Pecho, hombro y tríceps',
       action: _SoftChip(
         label: 'Recomendado hoy',
         color: colors.primaryStrong,
@@ -845,7 +845,7 @@ class TrainScreen extends StatelessWidget {
           }
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sesion guardada en Firebase')),
+              const SnackBar(content: Text('Sesión guardada en Firebase')),
             );
           }
         },
@@ -1362,7 +1362,7 @@ class BodyWeightCard extends StatelessWidget {
           icon: Icons.monitor_weight_outlined,
           title: 'Peso corporal',
           subtitle: latest == null
-              ? 'Sin registros todavia. Activá alertas y cargá tu primer peso.'
+              ? 'Sin registros todavía. Activa alertas y carga tu primer peso.'
               : '${latest.weightKg.toStringAsFixed(1)} kg registrados recientemente',
           action: FilledButton(
             onPressed: () => _openWeightSheet(context),
@@ -1470,7 +1470,7 @@ class SessionCalendarSheet extends StatelessWidget {
       ('X', 'Pull', true),
       ('J', 'Piernas', false),
       ('V', 'Empuje A', false),
-      ('S', 'Tecnica', false),
+      ('S', 'Técnica', false),
       ('D', 'Descanso', false),
     ];
     return ListView(
@@ -1563,7 +1563,7 @@ class ProgressScreen extends StatelessWidget {
           icon: Icons.timeline_outlined,
           title: 'Dropsets registrados',
           subtitle:
-              '${workingSets.where((set) => set.setType == SetType.dropset).length} series con reduccion de peso',
+              '${workingSets.where((set) => set.setType == SetType.dropset).length} series con reducción de peso',
           child: const _ProgressBar(value: 0.42),
         ),
         BodyWeightCard(user: user, repository: repository),
@@ -1571,7 +1571,7 @@ class ProgressScreen extends StatelessWidget {
           icon: Icons.calendar_month_outlined,
           title: 'Calendario',
           subtitle:
-              'Schedules y metas asignadas viven aca, no en configuracion.',
+              'Schedules y metas asignadas viven acá, no en configuración.',
           onTap: onOpenCalendar,
           action: Icon(
             Icons.chevron_right,
@@ -1615,7 +1615,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           onChanged: (value) => setState(() => _query = value.trim()),
           decoration: InputDecoration(
             prefixIcon: const Icon(Icons.search),
-            hintText: 'Buscar ejercicio, musculo o rutina',
+            hintText: 'Buscar ejercicio, músculo o rutina',
             suffixIcon: IconButton(
               tooltip: 'Filtros',
               onPressed: () {},
@@ -1627,7 +1627,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           icon: Icons.add_circle_outline,
           title: 'Ejercicio personalizado',
           subtitle:
-              'Crealo con 3 series predeterminadas y asociale imagen local o del repositorio.',
+              'Crea un ejercicio con 3 series predeterminadas y asócialo a una imagen local o del repositorio.',
           action: FilledButton(
             onPressed: _openCustomExerciseSheet,
             child: const Text('Crear'),
@@ -1687,9 +1687,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
             final filtered = _filterCatalog(catalog).take(8).toList();
             return DashboardCard(
               icon: Icons.dataset_outlined,
-              title: 'Catalogo importado',
+              title: 'Catálogo importado',
               subtitle:
-                  '${catalog.length} ejercicios desde tus JSON y el catalogo Lyfta.',
+                  '${catalog.length} ejercicios desde tus JSON y el catálogo Lyfta.',
               child: Column(
                 children: [
                   for (final item in filtered)
@@ -1911,7 +1911,7 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
           const SizedBox(height: 10),
           TextField(
             controller: _muscleController,
-            decoration: const InputDecoration(labelText: 'Musculo'),
+            decoration: const InputDecoration(labelText: 'Músculo'),
           ),
           const SizedBox(height: 12),
           Row(
@@ -1935,7 +1935,7 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
                 child: OutlinedButton.icon(
                   onPressed: _pickGalleryImage,
                   icon: const Icon(Icons.photo_library_outlined),
-                  label: const Text('Galeria'),
+                  label: const Text('Galería'),
                 ),
               ),
               const SizedBox(width: 8),
@@ -2102,7 +2102,7 @@ class ProfileScreen extends StatelessWidget {
         FilledButton.tonalIcon(
           onPressed: repository.signOut,
           icon: const Icon(Icons.logout),
-          label: const Text('Cerrar sesion'),
+          label: const Text('Cerrar sesión'),
         ),
       ],
     );
@@ -2505,7 +2505,7 @@ class StitchSideMenu extends StatelessWidget {
                 ),
               const Spacer(),
               Text(
-                'Calendario, progreso y biblioteca viven como secciones principales; configuracion queda solo para cuenta y preferencias.',
+                'Calendario, progreso y biblioteca viven como secciones principales; configuración queda solo para cuenta y preferencias.',
                 style: Theme.of(context).textTheme.labelMedium,
               ),
             ],

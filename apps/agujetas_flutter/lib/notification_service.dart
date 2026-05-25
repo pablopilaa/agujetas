@@ -45,7 +45,7 @@ class NotificationService {
     await initialize();
     await _plugin.show(
       id: 101,
-      title: 'Sesion guardada',
+      title: 'Sesión guardada',
       body: 'Tu entrenamiento quedo sincronizado en Agujetas.',
       notificationDetails: _details(
         channelId: 'session_status',

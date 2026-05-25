@@ -145,11 +145,11 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
         .get();
     final inviteData = inviteSnap.data();
     if (inviteData == null) {
-      throw StateError('No existe una invitacion con ese codigo.');
+      throw StateError('No existe una invitación con ese código.');
     }
     final invite = TrainerInvite.fromJson(inviteData.cast<String, Object?>());
     if (!invite.active) {
-      throw StateError('La invitacion ya no esta activa.');
+      throw StateError('La invitación ya no está activa.');
     }
     final linkId = '${invite.trainerId}_${client.uid}';
     final link = TrainerClientLink(
