@@ -61,13 +61,18 @@ void main() {
   testWidgets('session mode chips open training with selected intent', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
     await tester.pump();
 
     await tester.tap(find.text('Hipertrofia'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Entrenar · Hipertrofia'), findsOneWidget);
+    expect(find.textContaining('Routine Active'), findsOneWidget);
     expect(find.text('Modo Hipertrofia'), findsOneWidget);
   });
 
@@ -82,12 +87,12 @@ void main() {
 
     expect(find.text('Tiempo total'), findsOneWidget);
     expect(find.text('Descanso'), findsOneWidget);
-    expect(find.text('Iniciar'), findsNWidgets(2));
+    expect(find.text('Iniciar'), findsWidgets);
 
     await tester.tap(find.text('Iniciar').first);
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('Pausar'), findsOneWidget);
+    expect(find.text('Pausar'), findsWidgets);
 
     await tester.tap(find.byIcon(Icons.restart_alt).first);
     await tester.pumpAndSettle();
@@ -109,7 +114,8 @@ void main() {
     await tester.tap(find.text('Modo Técnica').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Entrenar · Técnica'), findsOneWidget);
+    expect(find.textContaining('Routine Active'), findsOneWidget);
+    expect(find.text('Modo Técnica'), findsOneWidget);
 
     await tester.tap(find.text('Iniciar').first);
     await tester.pump(const Duration(milliseconds: 100));

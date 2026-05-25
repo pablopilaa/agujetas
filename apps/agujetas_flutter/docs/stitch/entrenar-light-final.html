@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>Workout - Agujetas Light</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-background": "#191c1b",
+                    "surface-raised": "#EEF3EF",
+                    "surface-bright": "#f7faf7",
+                    "surface": "#FFFFFF",
+                    "on-tertiary-fixed": "#380d04",
+                    "outline": "#6f7976",
+                    "on-tertiary-fixed-variant": "#6f3729",
+                    "error": "#ba1a1a",
+                    "on-secondary-fixed": "#2d1600",
+                    "background": "#F7F8F5",
+                    "error-container": "#ffdad6",
+                    "outline-variant": "#bec9c4",
+                    "on-surface": "#191c1b",
+                    "on-error": "#ffffff",
+                    "surface-tint": "#1f695b",
+                    "primary-strong": "#2A6357",
+                    "surface-variant": "#e0e3e1",
+                    "surface-container-highest": "#e0e3e1",
+                    "inverse-surface": "#2d3130",
+                    "tertiary-fixed": "#ffdad2",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#156355",
+                    "secondary-fixed-dim": "#ffb874",
+                    "text-primary": "#17211D",
+                    "tertiary-fixed-dim": "#ffb4a3",
+                    "danger": "#C94C4C",
+                    "surface-container-high": "#e6e9e6",
+                    "on-secondary-container": "#764200",
+                    "primary-container": "#357c6d",
+                    "secondary-fixed": "#ffdcbf",
+                    "primary-fixed-dim": "#8dd4c2",
+                    "tertiary": "#844739",
+                    "text-secondary": "#5F6F68",
+                    "inverse-primary": "#8dd4c2",
+                    "tertiary-container": "#a15f4f",
+                    "surface-dim": "#d8dbd8",
+                    "secondary-container": "#feb064",
+                    "on-primary-fixed-variant": "#005144",
+                    "on-surface-variant": "#3f4946",
+                    "primary-fixed": "#a9f0de",
+                    "inverse-on-surface": "#eff1ef",
+                    "on-tertiary": "#ffffff",
+                    "divider": "#DCE5DF",
+                    "surface-container": "#eceeec",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed-variant": "#6a3b00",
+                    "on-primary": "#ffffff",
+                    "on-primary-fixed": "#00201a",
+                    "surface-container-low": "#f2f4f2",
+                    "secondary": "#8b5007",
+                    "on-secondary": "#ffffff",
+                    "on-primary-container": "#d3fff2",
+                    "on-tertiary-container": "#fff3f1",
+                    "amber-custom": "#B8752E"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-md": "16px",
+                    "margin-mobile": "16px",
+                    "base-unit": "4px",
+                    "touch-target-min": "44px",
+                    "stack-lg": "24px",
+                    "gutter": "12px",
+                    "stack-sm": "8px",
+                    "safe-top": "env(safe-area-inset-top)",
+                    "safe-bottom": "env(safe-area-inset-bottom)"
+            },
+            "fontFamily": {
+                    "section-header": [
+                            "Inter"
+                    ],
+                    "metadata": [
+                            "Inter"
+                    ],
+                    "page-heading": [
+                            "Inter"
+                    ],
+                    "display": [
+                            "Inter"
+                    ],
+                    "body": [
+                            "Inter"
+                    ]
+            },
+            "fontSize": {
+                    "section-header": [
+                            "16px",
+                            {
+                                    "lineHeight": "24px",
+                                    "letterSpacing": "0",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "metadata": [
+                            "12px",
+                            {
+                                    "lineHeight": "16px",
+                                    "letterSpacing": "0",
+                                    "fontWeight": "500"
+                            }
+                    ],
+                    "page-heading": [
+                            "22px",
+                            {
+                                    "lineHeight": "28px",
+                                    "letterSpacing": "0",
+                                    "fontWeight": "600"
+                            }
+                    ],
+                    "display": [
+                            "28px",
+                            {
+                                    "lineHeight": "34px",
+                                    "letterSpacing": "0",
+                                    "fontWeight": "700"
+                            }
+                    ],
+                    "body": [
+                            "15px",
+                            {
+                                    "lineHeight": "22px",
+                                    "letterSpacing": "0",
+                                    "fontWeight": "400"
+                            }
+                    ]
+            }
+    },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Hide scrollbar for clean UI */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-text-primary font-body antialiased selection:bg-primary-container selection:text-white pt-safe-top pb-[calc(140px+env(safe-area-inset-bottom))] flex flex-col min-h-screen">
+<!-- TopAppBar JSON Translated -->
+<header class="bg-surface dark:bg-on-background fixed w-full top-0 z-50 pt-safe-top">
+<div class="flex justify-between items-center w-full px-margin-mobile py-base-unit h-touch-target-min">
+<div class="flex items-center gap-2"><img alt="Agujetas Logo" class="w-8 h-8 rounded-full object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ug8WeaNSUH4-VydQMJkPC1WGNLK4AB7bTfRcG3WH_iEWTpYY-izrJUIrzO1zd-Ue5XcnsHKmbw-CyQNmkYg7JNJhGyVmF306B5Eypka6d0NKiLoQZPSetgDLjBdrAqu2XuifQgE4lN1E2ijhSjA_FmMMwtRiMmNcnEzG5GIg4KysprK7AEgTC20n9iicPp5cxifMqKrGz4Knuc3B-Ikmqzgd796tmuzsOg4DCqu2ETqBWE1pZUFERUA8ww"/>
+<span aria-hidden="true" class="material-symbols-outlined text-primary dark:text-primary-fixed">timer</span>
+<div>
+<h1 class="font-page-heading text-page-heading text-primary dark:text-primary-fixed">Routine Active</h1>
+<p class="font-metadata text-metadata text-text-secondary">Empuje A • 00:42:15</p>
+</div>
+</div>
+<button class="flex items-center justify-center h-touch-target-min w-touch-target-min hover:bg-surface-raised dark:hover:bg-surface-variant transition-colors duration-200 rounded-full text-primary-container">
+<span aria-hidden="true" class="material-symbols-outlined">sync</span>
+</button>
+</div>
+<!-- Thin Timer Strip -->
+<div class="bg-surface-raised border-b border-divider px-margin-mobile py-2 flex justify-between items-center font-metadata text-metadata">
+<span class="text-text-primary font-medium">Total: 42m</span>
+<div class="flex items-center gap-1 text-[B8752E]">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+<span class="font-medium">Descanso: 01:30</span>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 mt-[100px] px-margin-mobile flex flex-col gap-stack-md pb-stack-lg">
+<!-- Sticky Current Set Logger (Bento Style Card) -->
+<section class="bg-surface border border-divider rounded-lg p-4 shadow-sm sticky top-[100px] z-40">
+<div class="flex justify-between items-center mb-3">
+<h2 class="font-section-header text-section-header text-text-primary">Press de Banca</h2>
+<span class="font-metadata text-metadata text-text-secondary bg-surface-raised px-2 py-1 rounded-full">Set 3</span>
+</div>
+<div class="grid grid-cols-4 gap-2 mb-4">
+<div class="flex flex-col">
+<label class="font-metadata text-metadata text-text-secondary mb-1 text-center">kg</label>
+<input class="h-touch-target-min bg-surface-raised border-none rounded-lg text-center font-body text-body font-medium focus:ring-2 focus:ring-primary-container" type="number" value="80"/>
+</div>
+<div class="flex flex-col">
+<label class="font-metadata text-metadata text-text-secondary mb-1 text-center">Reps</label>
+<input class="h-touch-target-min bg-surface-raised border-none rounded-lg text-center font-body text-body font-medium focus:ring-2 focus:ring-primary-container" type="number" value="8"/>
+</div>
+<div class="flex flex-col">
+<label class="font-metadata text-metadata text-text-secondary mb-1 text-center">RIR</label>
+<input class="h-touch-target-min bg-surface-raised border-none rounded-lg text-center font-body text-body font-medium focus:ring-2 focus:ring-primary-container" type="number" value="1"/>
+</div>
+<div class="flex flex-col justify-end items-center">
+<button class="h-touch-target-min w-full bg-primary-container text-white rounded-lg flex items-center justify-center hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined font-bold">check</span>
+</button>
+</div>
+</div>
+<button class="w-full py-2 flex items-center justify-center gap-1 text-primary-container font-metadata text-metadata font-medium hover:bg-surface-raised rounded transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                + Serie
+            </button>
+</section>
+<!-- Exercise List -->
+<div class="flex flex-col gap-3">
+<!-- Exercise 1 (Expanded) -->
+<article class="bg-surface border border-divider rounded-lg overflow-hidden">
+<div class="p-3 bg-surface-raised flex justify-between items-center">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface flex items-center justify-center text-primary-container font-metadata font-bold border border-divider">1</div>
+<h3 class="font-body text-body font-semibold">Press de Banca</h3>
+</div>
+<span class="material-symbols-outlined text-text-secondary">expand_less</span>
+</div>
+<div class="p-0">
+<!-- Set Header -->
+<div class="grid grid-cols-5 gap-2 px-4 py-2 bg-surface border-b border-divider font-metadata text-metadata text-text-secondary text-center">
+<div class="text-left">Set</div>
+<div>Anterior</div>
+<div>kg</div>
+<div>Reps</div>
+<div></div>
+</div>
+<!-- Set Rows -->
+<div class="flex flex-col">
+<!-- Completed Set 1 -->
+<div class="grid grid-cols-5 gap-2 px-4 py-3 items-center border-b border-divider bg-surface-bright">
+<div class="font-metadata text-metadata font-medium text-left">1</div>
+<div class="font-metadata text-metadata text-text-secondary text-center">80 x 8</div>
+<div class="font-body text-body text-center font-medium">80</div>
+<div class="font-body text-body text-center font-medium">8</div>
+<div class="flex justify-center">
+<div class="w-6 h-6 rounded-full bg-primary-container text-white flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+</div>
+</div>
+<!-- Completed Set 2 -->
+<div class="grid grid-cols-5 gap-2 px-4 py-3 items-center border-b border-divider bg-surface-bright">
+<div class="font-metadata text-metadata font-medium text-left">2</div>
+<div class="font-metadata text-metadata text-text-secondary text-center">80 x 8</div>
+<div class="font-body text-body text-center font-medium">80</div>
+<div class="font-body text-body text-center font-medium">7</div>
+<div class="flex justify-center">
+<div class="w-6 h-6 rounded-full bg-primary-container text-white flex items-center justify-center">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+</div>
+</div>
+<!-- Active Set 3 (Mirroring sticky logger) -->
+<div class="grid grid-cols-5 gap-2 px-4 py-3 items-center bg-surface relative">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-primary-container"></div>
+<div class="font-metadata text-metadata font-medium text-left pl-2">3</div>
+<div class="font-metadata text-metadata text-text-secondary text-center">80 x -</div>
+<div class="font-body text-body text-center text-text-secondary">--</div>
+<div class="font-body text-body text-center text-text-secondary">--</div>
+<div class="flex justify-center">
+<div class="w-6 h-6 rounded border-2 border-outline-variant flex items-center justify-center"></div>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- Exercise 2 (Collapsed) -->
+<article class="bg-surface border border-divider rounded-lg p-3 flex justify-between items-center opacity-80">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-raised flex items-center justify-center text-text-secondary font-metadata font-bold">2</div>
+<div>
+<h3 class="font-body text-body font-medium">Aperturas</h3>
+<p class="font-metadata text-metadata text-text-secondary">3 x 10-12 reps</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-secondary">expand_more</span>
+</article>
+<!-- Exercise 3 (Collapsed) -->
+<article class="bg-surface border border-divider rounded-lg p-3 flex justify-between items-center opacity-80">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-raised flex items-center justify-center text-text-secondary font-metadata font-bold">3</div>
+<div>
+<h3 class="font-body text-body font-medium">Press Militar</h3>
+<p class="font-metadata text-metadata text-text-secondary">3 x 8-10 reps</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-secondary">expand_more</span>
+</article>
+</div>
+</main>
+<!-- Bottom Action Bar (Contextual actions for workout) -->
+<div class="fixed bottom-[calc(60px+env(safe-area-inset-bottom))] left-0 w-full bg-surface border-t border-divider p-3 flex gap-2 z-40 shadow-[0_-4px_12px_rgba(0,0,0,0.03)]">
+<button class="flex-1 h-touch-target-min bg-primary-container text-white font-body text-body font-medium rounded-lg hover:opacity-90 flex items-center justify-center transition-opacity">
+            Finalizar
+        </button>
+<button class="px-4 h-touch-target-min border border-outline-variant text-text-primary font-body text-body font-medium rounded-lg hover:bg-surface-raised flex items-center justify-center transition-colors">
+            Pausar
+        </button>
+<button class="px-4 h-touch-target-min text-primary-container font-body text-body font-medium rounded-lg hover:bg-surface-raised flex items-center justify-center transition-colors">
+            Agregar
+        </button>
+</div>
+<!-- BottomNavBar JSON Translated -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-base-unit pb-safe bg-surface dark:bg-on-background border-t border-divider dark:border-outline-variant h-[60px]">
+<button class="flex flex-col items-center justify-center text-text-secondary dark:text-outline-variant hover:opacity-80 scale-95 active:scale-90 transition-transform h-touch-target-min min-w-[44px]">
+<span class="material-symbols-outlined text-[24px]">home</span>
+<span class="font-metadata text-[10px] mt-0.5">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container dark:bg-primary-container dark:text-on-primary-container rounded-full px-4 py-1 hover:opacity-80 scale-95 active:scale-90 transition-transform h-touch-target-min min-w-[44px]">
+<span class="material-symbols-outlined text-[24px] fill">fitness_center</span>
+<span class="font-metadata text-[10px] mt-0.5 font-medium">Entrenar</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary dark:text-outline-variant hover:opacity-80 scale-95 active:scale-90 transition-transform h-touch-target-min min-w-[44px]">
+<span class="material-symbols-outlined text-[24px]">history</span>
+<span class="font-metadata text-[10px] mt-0.5">Log</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary dark:text-outline-variant hover:opacity-80 scale-95 active:scale-90 transition-transform h-touch-target-min min-w-[44px]">
+<span class="material-symbols-outlined text-[24px]">insights</span>
+<span class="font-metadata text-[10px] mt-0.5">Stats</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary dark:text-outline-variant hover:opacity-80 scale-95 active:scale-90 transition-transform h-touch-target-min min-w-[44px]">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<span class="font-metadata text-[10px] mt-0.5">Profile</span>
+</button>
+</nav>
+</body></html>

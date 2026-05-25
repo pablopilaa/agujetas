@@ -466,8 +466,18 @@ class _HomeDashboardState extends State<HomeDashboard> {
     return AppScaffold(
       title: isTrainerMode
           ? 'Panel entrenador'
-          : 'Hola, ${widget.user.firstName}',
+          : 'Hola,\n${widget.user.firstName}',
       user: widget.user,
+      bottomAction: isTrainerMode
+          ? null
+          : SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: widget.onStartWorkout,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Iniciar entrenamiento'),
+              ),
+            ),
       menuActions: [
         AppMenuAction(
           icon: Icons.home_outlined,
@@ -490,6 +500,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
             selectedMode: widget.selectedSessionMode,
             onSelected: widget.onSessionModeSelected,
           ),
+          const _CompactSectionTitle('Próximo Entrenamiento'),
           RecommendedWorkoutCard(onStart: widget.onStartWorkout),
           DashboardCard(
             icon: Icons.calendar_month_outlined,
@@ -674,7 +685,7 @@ class WeeklySummaryCard extends StatelessWidget {
     const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
     return DashboardCard(
       icon: Icons.calendar_month_outlined,
-      title: 'Resumen semanal',
+      title: 'Resumen Semanal',
       subtitle:
           'Atajo rápido: 2 entrenos completados, 1 planificado y acceso al mes completo.',
       action: _SoftChip(
@@ -796,6 +807,23 @@ class SessionModeSelector extends StatelessWidget {
   }
 }
 
+class _CompactSectionTitle extends StatelessWidget {
+  const _CompactSectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 2, 2, 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15),
+      ),
+    );
+  }
+}
+
 class RecommendedWorkoutCard extends StatelessWidget {
   const RecommendedWorkoutCard({super.key, required this.onStart});
 
@@ -813,6 +841,7 @@ class RecommendedWorkoutCard extends StatelessWidget {
         color: colors.primaryStrong,
         background: colors.raised,
       ),
+      onTap: onStart,
       child: Column(
         children: [
           Divider(color: colors.divider),
@@ -828,15 +857,6 @@ class RecommendedWorkoutCard extends StatelessWidget {
                 child: _InlineMeta(icon: Icons.schedule, label: '~55 min'),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onStart,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Iniciar entrenamiento'),
-            ),
           ),
         ],
       ),
@@ -953,7 +973,8 @@ class _TrainScreenState extends State<TrainScreen> {
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Entrenar · ${widget.sessionMode}',
+      title:
+          'Routine Active\nEmpuje A • ${_formatSessionDuration(_totalElapsed)}',
       user: widget.user,
       menuActions: [
         AppMenuAction(
@@ -968,23 +989,33 @@ class _TrainScreenState extends State<TrainScreen> {
           onSelected: widget.onOpenLibrary,
         ),
       ],
-      trailing: FilledButton.icon(
-        onPressed: () async {
-          await widget.repository.saveSession(
-            user: widget.user,
-            exercises: widget.exercises,
-          );
-          if (!kIsWeb) {
-            await NotificationService.showSessionSaved();
-          }
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sesión guardada en Firebase')),
-            );
-          }
-        },
-        icon: const Icon(Icons.check),
-        label: const Text('Guardar'),
+      trailing: IconButton.filledTonal(
+        tooltip: 'Guardar sesión',
+        onPressed: _saveSession,
+        icon: const Icon(Icons.cloud_done_outlined),
+      ),
+      bottomAction: Row(
+        children: [
+          Expanded(
+            child: FilledButton(
+              onPressed: _saveSession,
+              child: const Text('Finalizar'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _toggleTotalTimer,
+              child: Text(_totalRunning ? 'Pausar' : 'Iniciar'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed: widget.onOpenLibrary,
+            icon: const Icon(Icons.add),
+            label: const Text('Agregar'),
+          ),
+        ],
       ),
       children: [
         _SessionIntentCard(
@@ -1173,6 +1204,30 @@ class _TrainScreenState extends State<TrainScreen> {
       if (confirmed != true) return;
     }
     widget.onSessionModeChanged(mode);
+  }
+
+  Future<void> _saveSession() async {
+    await widget.repository.saveSession(
+      user: widget.user,
+      exercises: widget.exercises,
+    );
+    if (!kIsWeb) {
+      await NotificationService.showSessionSaved();
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sesión guardada en Firebase')),
+      );
+    }
+  }
+
+  String _formatSessionDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (duration.inHours > 0) {
+      return '${duration.inHours}:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
   }
 }
 
@@ -3119,28 +3174,38 @@ class CompactTimers extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: TimerCard(
-            label: 'Tiempo total',
-            value: _formatDuration(totalElapsed),
-            running: totalRunning,
-            onToggle: onToggleTotal,
-            onReset: onResetTotal,
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: colors.raised,
+        border: Border.all(color: colors.divider),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TimerCard(
+              label: 'Tiempo total',
+              value: _formatDuration(totalElapsed),
+              running: totalRunning,
+              onToggle: onToggleTotal,
+              onReset: onResetTotal,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: TimerCard(
-            label: 'Descanso',
-            value: _formatDuration(restRemaining),
-            running: restRunning,
-            onToggle: onToggleRest,
-            onReset: onResetRest,
+          Container(width: 1, height: 42, color: colors.divider),
+          Expanded(
+            child: TimerCard(
+              label: 'Descanso',
+              value: _formatDuration(restRemaining),
+              running: restRunning,
+              onToggle: onToggleRest,
+              onReset: onResetRest,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -3173,43 +3238,47 @@ class TimerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 6),
-            Text(value, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 10),
-            Row(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Row(
+        children: [
+          Icon(
+            label == 'Descanso'
+                ? Icons.hourglass_bottom_outlined
+                : Icons.timer_outlined,
+            size: 16,
+            color: colors.textSecondary,
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: FilledButton.tonalIcon(
-                    onPressed: onToggle,
-                    icon: Icon(running ? Icons.pause : Icons.play_arrow),
-                    label: Text(running ? 'Pausar' : 'Iniciar'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      minimumSize: const Size(0, 38),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                IconButton.filledTonal(
-                  tooltip: 'Resetear $label',
-                  onPressed: onReset,
-                  icon: const Icon(Icons.restart_alt),
-                  style: IconButton.styleFrom(
-                    backgroundColor: colors.raised,
-                    minimumSize: const Size(38, 38),
-                  ),
-                ),
+                Text(label, style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 2),
+                Text(value, style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
-          ],
-        ),
+          ),
+          TextButton.icon(
+            onPressed: onToggle,
+            icon: Icon(running ? Icons.pause : Icons.play_arrow),
+            label: Text(running ? 'Pausar' : 'Iniciar'),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Resetear $label',
+            onPressed: onReset,
+            icon: const Icon(Icons.restart_alt),
+            iconSize: 18,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }
@@ -3346,12 +3415,14 @@ class AppScaffold extends StatelessWidget {
     required this.children,
     this.user,
     this.trailing,
+    this.bottomAction,
     this.menuActions = const [],
   });
 
   final String title;
   final AppUser? user;
   final Widget? trailing;
+  final Widget? bottomAction;
   final List<AppMenuAction> menuActions;
   final List<Widget> children;
 
@@ -3362,7 +3433,7 @@ class AppScaffold extends StatelessWidget {
     return Column(
       children: [
         Container(
-          height: 64,
+          height: 72,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
             color: colors.surface,
@@ -3390,11 +3461,12 @@ class AppScaffold extends StatelessWidget {
                     Flexible(
                       child: Text(
                         title,
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(
-                              fontSize: 16,
+                              fontSize: title.contains('\n') ? 18 : 16,
+                              height: title.contains('\n') ? 1.05 : 1.2,
                               color: colors.primaryStrong,
                             ),
                       ),
@@ -3443,6 +3515,15 @@ class AppScaffold extends StatelessWidget {
             children: children,
           ),
         ),
+        if (bottomAction != null)
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border(top: BorderSide(color: colors.divider)),
+            ),
+            child: bottomAction,
+          ),
       ],
     );
   }
@@ -3472,8 +3553,8 @@ class StitchBottomNav extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Container(
-        height: 80,
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+        height: 64,
+        padding: const EdgeInsets.fromLTRB(8, 5, 8, 6),
         decoration: BoxDecoration(
           color: colors.surface,
           border: Border(top: BorderSide(color: colors.divider)),
@@ -3519,7 +3600,7 @@ class _BottomNavItem extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 42,
+            width: 36,
             height: 28,
             alignment: Alignment.center,
             decoration: BoxDecoration(

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Entrenar - Agujetas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "warning": "#E6B65C",
+                        "on-background": "#e0e3e1",
+                        "on-tertiary-fixed": "#380c06",
+                        "danger": "#E06666",
+                        "surface-container-lowest": "#0b0f0e",
+                        "surface-container": "#1d201f",
+                        "inverse-primary": "#20695b",
+                        "text-secondary": "#AAB7B2",
+                        "surface-dim": "#101413",
+                        "outline": "#89938f",
+                        "tertiary-fixed-dim": "#ffb4a7",
+                        "primary-container": "#72b7a6",
+                        "on-tertiary-container": "#652e25",
+                        "on-secondary-container": "#e8ad6c",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#8ed4c2",
+                        "surface-container-low": "#191c1b",
+                        "surface-variant": "#323634",
+                        "on-surface": "#e0e3e1",
+                        "error-container": "#93000a",
+                        "on-secondary": "#482900",
+                        "surface-container-highest": "#323634",
+                        "secondary-fixed-dim": "#f7bb79",
+                        "surface-bright": "#363a38",
+                        "primary-strong": "#3F8F7D",
+                        "on-secondary-fixed": "#2b1700",
+                        "inverse-on-surface": "#2d3130",
+                        "outline-variant": "#3f4946",
+                        "on-primary": "#00382e",
+                        "surface-raised": "#1D2522",
+                        "tertiary-container": "#e49688",
+                        "accent": "#9A7AE0",
+                        "tertiary-fixed": "#ffdad4",
+                        "on-primary-fixed": "#00201a",
+                        "surface-tint": "#8ed4c2",
+                        "primary": "#8ed4c2",
+                        "on-secondary-fixed-variant": "#663e04",
+                        "on-tertiary": "#542018",
+                        "secondary-container": "#694006",
+                        "surface-container-high": "#272b29",
+                        "on-tertiary-fixed-variant": "#70362c",
+                        "surface": "#141A18",
+                        "success": "#68C27C",
+                        "on-error-container": "#ffdad6",
+                        "inverse-surface": "#e0e3e1",
+                        "on-primary-container": "#00483c",
+                        "secondary-fixed": "#ffddbb",
+                        "on-error": "#690005",
+                        "secondary": "#f7bb79",
+                        "primary-fixed": "#aaf0de",
+                        "on-surface-variant": "#bec9c4",
+                        "divider": "#2A3330",
+                        "on-primary-fixed-variant": "#005144",
+                        "tertiary": "#ffb4a7",
+                        "text-primary": "#F4F7F5",
+                        "background": "#0B0F0E"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "x-large": "32px",
+                        "touch-target-min": "44px",
+                        "medium": "16px",
+                        "large": "24px",
+                        "x-small": "4px",
+                        "small": "8px",
+                        "edge-margin": "16px",
+                        "base": "4px"
+                    },
+                    fontFamily: {
+                        "title-display": ["Inter"],
+                        "button-label": ["Inter"],
+                        "section-header": ["Inter"],
+                        "metadata": ["Inter"],
+                        "page-heading": ["Inter"],
+                        "body": ["Inter"]
+                    },
+                    fontSize: {
+                        "title-display": ["28px", { lineHeight: "34px", letterSpacing: "0px", fontWeight: "700" }],
+                        "button-label": ["15px", { lineHeight: "20px", letterSpacing: "0px", fontWeight: "600" }],
+                        "section-header": ["16px", { lineHeight: "24px", letterSpacing: "0px", fontWeight: "600" }],
+                        "metadata": ["12px", { lineHeight: "16px", letterSpacing: "0px", fontWeight: "500" }],
+                        "page-heading": ["22px", { lineHeight: "28px", letterSpacing: "0px", fontWeight: "600" }],
+                        "body": ["15px", { lineHeight: "22px", letterSpacing: "0px", fontWeight: "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-text-primary h-screen flex flex-col overflow-hidden">
+<!-- TopAppBar -->
+<header class="bg-background dark:bg-background flex items-center justify-between px-edge-margin h-touch-target-min w-full max-w-7xl mx-auto flex-shrink-0 z-20">
+<div class="flex items-center gap-small"><img alt="Agujetas Logo" class="w-8 h-8 rounded-full object-cover shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiA5OBt2z7y1idfSrE4qgIKUdyIFb29b6k1yjds9p5O7wmi_bjvtZl4gxQUakc8GxpT31q9d_A2V48ML2VgrmYJlCkDZWUXtjBSLsII31kWJoUfbZjsnkEaKk9BJIcYt3e1oxGbKyDzOnEF7QqJ9BYf6prtwYZvaPJlLysG8C3BC1TZdY4pg06jgSDzYs7qKz-oG0wxvEK30TOkUqXqvMsR55rGLMrNaCJt9NC5ZZD_Zlj7oGX4nO2XRw_vQmDf0eg5eoyHZq7a60"/>
+<h1 class="font-title-display text-title-display font-bold text-primary">Empuje A</h1>
+<span class="font-metadata text-metadata text-text-secondary ml-small">00:42:15</span>
+</div>
+<div class="flex items-center gap-x-small text-success">
+<span class="material-symbols-outlined text-[16px]">cloud_done</span>
+</div>
+</header>
+<!-- Timer Strip -->
+<div class="bg-surface flex items-center justify-between px-edge-margin py-small border-b border-divider flex-shrink-0 z-20">
+<div class="flex items-center gap-medium">
+<div class="flex items-center gap-x-small font-metadata text-metadata text-text-secondary">
+<span class="material-symbols-outlined text-[16px]">timer</span>
+                Total: 42m
+            </div>
+<div class="flex items-center gap-x-small font-metadata text-metadata text-warning font-semibold">
+<span class="material-symbols-outlined text-[16px]">hourglass_bottom</span>
+                Rest: 01:30
+            </div>
+</div>
+<div class="flex items-center gap-small text-text-secondary">
+<button class="h-8 w-8 flex items-center justify-center rounded-full hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-[18px]">play_arrow</span></button>
+<button class="h-8 w-8 flex items-center justify-center rounded-full hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-[18px]">restart_alt</span></button>
+</div>
+</div>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto no-scrollbar relative flex flex-col pb-safe mb-16">
+<!-- Sticky Set Logger -->
+<div class="sticky top-0 z-10 bg-surface-raised border-b border-divider p-edge-margin shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+<div class="flex justify-between items-center mb-small">
+<h2 class="font-section-header text-section-header text-primary">Press de Banca</h2>
+<span class="px-2 py-1 bg-surface rounded-full font-metadata text-metadata text-text-secondary border border-divider">Set 3</span>
+</div>
+<div class="flex items-end gap-small"><div class="flex flex-col items-center mb-1">
+<label class="block font-metadata text-metadata text-text-secondary mb-x-small">Tipo</label>
+<span class="px-2 py-1.5 rounded-lg bg-surface-variant text-text-secondary font-metadata text-[10px] border border-divider uppercase tracking-wider">Normal</span>
+</div>
+<div class="flex-1">
+<label class="block font-metadata text-metadata text-text-secondary mb-x-small">KG</label>
+<input class="w-full bg-surface border border-outline-variant rounded-lg px-medium h-touch-target-min font-body text-body text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-center" type="number" value="80"/>
+</div>
+<div class="flex-1">
+<label class="block font-metadata text-metadata text-text-secondary mb-x-small">Reps</label>
+<input class="w-full bg-surface border border-outline-variant rounded-lg px-medium h-touch-target-min font-body text-body text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-center" type="number" value="8"/>
+</div>
+<div class="w-16">
+<label class="block font-metadata text-metadata text-text-secondary mb-x-small text-center">RIR</label>
+<input class="w-full bg-surface border border-outline-variant rounded-lg px-small h-touch-target-min font-body text-body text-text-primary focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-center" type="number" value="1"/>
+</div>
+<button class="h-touch-target-min w-touch-target-min bg-primary-strong text-text-primary rounded-lg flex items-center justify-center hover:bg-opacity-90 active:scale-95 transition-all shadow-[0_2px_8px_rgba(114,183,166,0.3)]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check</span>
+</button>
+</div>
+<div class="mt-small flex justify-end">
+<button class="flex items-center gap-x-small font-button-label text-button-label text-primary hover:text-primary-fixed transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span> + Set
+                </button>
+</div>
+</div>
+<!-- Exercise List -->
+<div class="flex flex-col p-edge-margin gap-small">
+<!-- Expanded Exercise -->
+<div class="bg-surface rounded-lg border border-divider overflow-hidden">
+<div class="p-medium border-b border-divider bg-surface-variant flex justify-between items-center"><span class="material-symbols-outlined text-text-secondary cursor-grab active:cursor-grabbing mr-small">drag_indicator</span>
+<div class="flex items-center gap-small">
+<span class="w-8 h-8 bg-surface-raised rounded-full flex items-center justify-center font-metadata text-metadata text-text-secondary">1</span>
+<h3 class="font-section-header text-section-header text-text-primary">Press de Banca</h3>
+</div>
+<span class="material-symbols-outlined text-text-secondary">expand_less</span>
+</div><div class="px-small pt-small">
+<div class="flex bg-surface-container-low rounded-lg p-1 w-full max-w-xs mx-auto">
+<button class="flex-1 py-1.5 text-metadata font-medium rounded-md bg-surface-variant text-text-primary shadow-sm">Bilateral</button>
+<button class="flex-1 py-1.5 text-metadata font-medium rounded-md text-text-secondary hover:text-text-primary transition-colors">Unilateral</button>
+</div>
+</div>
+<div class="p-small">
+<!-- Logged Set -->
+<div class="flex items-center justify-between p-small rounded bg-surface hover:bg-surface-raised transition-colors group cursor-pointer mb-base"><div class="w-8 text-center font-metadata text-metadata text-text-secondary">1</div>
+<div class="flex-1 flex items-center justify-between px-small">
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-warning/20 text-warning border border-warning/30">Calentamiento</span>
+<div class="flex gap-medium font-body text-body">
+<span class="text-text-primary">80 <span class="text-text-secondary text-[12px]">kg</span></span>
+<span class="text-text-primary">8 <span class="text-text-secondary text-[12px]">reps</span></span>
+</div>
+</div>
+<div class="w-12 text-center font-metadata text-metadata text-text-secondary">RIR 1</div>
+<div class="w-8 flex justify-center text-success">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div></div>
+<!-- Logged Set -->
+<div class="flex items-center justify-between p-small rounded bg-surface hover:bg-surface-raised transition-colors group cursor-pointer"><div class="w-8 text-center font-metadata text-metadata text-text-secondary">2</div>
+<div class="flex-1 flex items-center justify-between px-small">
+<span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-danger/20 text-danger border border-danger/30">Dropset</span>
+<div class="flex gap-medium font-body text-body">
+<span class="text-text-primary">80 <span class="text-text-secondary text-[12px]">kg</span></span>
+<span class="text-text-primary">7 <span class="text-text-secondary text-[12px]">reps</span></span>
+</div>
+</div>
+<div class="w-12 text-center font-metadata text-metadata text-text-secondary">RIR 0</div>
+<div class="w-8 flex justify-center text-success">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div></div>
+</div>
+</div>
+<!-- Collapsed Exercise -->
+<div class="bg-surface rounded-lg border border-divider p-medium flex justify-between items-center opacity-70"><span class="material-symbols-outlined text-text-secondary cursor-grab mr-small">drag_indicator</span>
+<div class="flex items-center gap-small">
+<span class="w-8 h-8 border border-outline rounded-full flex items-center justify-center font-metadata text-metadata text-text-secondary">2</span>
+<div>
+<h3 class="font-section-header text-section-header text-text-primary">Aperturas</h3>
+<p class="font-metadata text-metadata text-text-secondary">Next up • 3 sets</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-secondary">expand_more</span>
+</div>
+<!-- Collapsed Exercise -->
+<div class="bg-surface rounded-lg border border-divider p-medium flex justify-between items-center opacity-50"><span class="material-symbols-outlined text-text-secondary cursor-grab mr-small">drag_indicator</span>
+<div class="flex items-center gap-small">
+<span class="w-8 h-8 border border-outline rounded-full flex items-center justify-center font-metadata text-metadata text-text-secondary">3</span>
+<div>
+<h3 class="font-section-header text-section-header text-text-primary">Press Militar</h3>
+<p class="font-metadata text-metadata text-text-secondary">3 sets</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-text-secondary">expand_more</span>
+</div>
+<!-- Bottom Action Bar (Inline with content before Nav) -->
+<div class="mt-large flex items-center gap-small w-full">
+<button class="flex-1 h-touch-target-min bg-primary-strong text-text-primary font-button-label text-button-label rounded-lg flex items-center justify-center hover:bg-opacity-90 active:scale-95 transition-transform shadow-md">
+                    Finalizar
+                </button>
+<button class="flex-1 h-touch-target-min border border-outline-variant text-text-primary font-button-label text-button-label rounded-lg flex items-center justify-center hover:bg-surface-raised active:scale-95 transition-transform">
+                    Pausar
+                </button>
+<button class="h-touch-target-min px-medium text-primary font-button-label text-button-label rounded-lg flex items-center justify-center hover:bg-surface-raised active:scale-95 transition-transform">
+<span class="material-symbols-outlined mr-x-small">add</span>
+                    Agregar
+                </button>
+</div>
+<!-- Spacer for bottom nav -->
+<div class="h-8"></div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 pb-safe bg-surface border-t border-divider bg-surface flat no shadows">
+<a class="flex flex-col items-center justify-center text-text-secondary hover:text-primary-strong transition-colors active:scale-90 transition-transform duration-200 w-full h-full" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-metadata text-metadata mt-1">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary font-semibold hover:text-primary-strong transition-colors active:scale-90 transition-transform duration-200 w-full h-full" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">exercise</span>
+<span class="font-metadata text-metadata mt-1">Entrenar</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary hover:text-primary-strong transition-colors active:scale-90 transition-transform duration-200 w-full h-full" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-metadata text-metadata mt-1">Progreso</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary hover:text-primary-strong transition-colors active:scale-90 transition-transform duration-200 w-full h-full" href="#">
+<span class="material-symbols-outlined">book</span>
+<span class="font-metadata text-metadata mt-1">Biblioteca</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary hover:text-primary-strong transition-colors active:scale-90 transition-transform duration-200 w-full h-full" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-metadata text-metadata mt-1">Perfil</span>
+</a>
+</nav>
+</body></html>
