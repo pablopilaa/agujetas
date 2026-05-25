@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -321,6 +322,8 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   late List<WorkoutExercise> _workout;
   String _sessionMode = 'Fuerza';
+  bool _workoutDirty = false;
+  int _sessionResetToken = 0;
   String? _lastInviteCode;
   String? _notice;
 
@@ -349,8 +352,15 @@ class _HomeShellState extends State<HomeShell> {
         user: widget.user,
         repository: widget.repository,
         sessionMode: _sessionMode,
+        sessionResetToken: _sessionResetToken,
         exercises: _workout,
-        onExercisesChanged: (items) => setState(() => _workout = items),
+        hasEditedWorkout: _workoutDirty,
+        onExercisesChanged: (items) => setState(() {
+          _workout = items;
+          _workoutDirty = true;
+        }),
+        onSessionActivity: () {},
+        onSessionModeChanged: _changeTrainingMode,
         onOpenLibrary: () => setState(() => _tab = 3),
       ),
       ProgressScreen(
@@ -363,7 +373,10 @@ class _HomeShellState extends State<HomeShell> {
         user: widget.user,
         repository: widget.repository,
         exercises: _workout,
-        onExercisesChanged: (items) => setState(() => _workout = items),
+        onExercisesChanged: (items) => setState(() {
+          _workout = items;
+          _workoutDirty = true;
+        }),
       ),
       ProfileScreen(
         user: widget.user,
@@ -385,7 +398,7 @@ class _HomeShellState extends State<HomeShell> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (_) => const SessionCalendarSheet(),
+      builder: (_) => const MonthlySessionCalendarSheet(),
     );
   }
 
@@ -396,6 +409,16 @@ class _HomeShellState extends State<HomeShell> {
   void _startWorkout(String mode) {
     setState(() {
       _sessionMode = mode;
+      _tab = 1;
+    });
+  }
+
+  void _changeTrainingMode(String mode) {
+    setState(() {
+      _sessionMode = mode;
+      _workout = seedWorkout();
+      _workoutDirty = false;
+      _sessionResetToken++;
       _tab = 1;
     });
   }
@@ -462,7 +485,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
         if (widget.notice != null) InfoBanner(text: widget.notice!),
         RoleSwitcher(user: widget.user, repository: widget.repository),
         if (!isTrainerMode) ...[
-          const WeeklySummaryCard(),
+          WeeklySummaryCard(onOpenCalendar: widget.onOpenCalendar),
           SessionModeSelector(
             selectedMode: widget.selectedSessionMode,
             onSelected: widget.onSessionModeSelected,
@@ -641,7 +664,9 @@ class _AthletePanel extends StatelessWidget {
 }
 
 class WeeklySummaryCard extends StatelessWidget {
-  const WeeklySummaryCard({super.key});
+  const WeeklySummaryCard({super.key, required this.onOpenCalendar});
+
+  final VoidCallback onOpenCalendar;
 
   @override
   Widget build(BuildContext context) {
@@ -650,12 +675,14 @@ class WeeklySummaryCard extends StatelessWidget {
     return DashboardCard(
       icon: Icons.calendar_month_outlined,
       title: 'Resumen semanal',
-      subtitle: '3 sesiones previstas, 2 completadas y una recomendada hoy.',
+      subtitle:
+          'Atajo rápido: 2 entrenos completados, 1 planificado y acceso al mes completo.',
       action: _SoftChip(
-        label: 'Plan Pro',
+        label: 'Ver mes',
         color: colors.amber,
         background: colors.amberContainer.withValues(alpha: 0.45),
       ),
+      onTap: onOpenCalendar,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -866,29 +893,68 @@ class _SoftChip extends StatelessWidget {
   }
 }
 
-class TrainScreen extends StatelessWidget {
+class TrainScreen extends StatefulWidget {
   const TrainScreen({
     super.key,
     required this.user,
     required this.repository,
     required this.sessionMode,
+    required this.sessionResetToken,
     required this.exercises,
+    required this.hasEditedWorkout,
     required this.onExercisesChanged,
+    required this.onSessionActivity,
+    required this.onSessionModeChanged,
     required this.onOpenLibrary,
   });
 
   final AppUser user;
   final AgujetasRepository repository;
   final String sessionMode;
+  final int sessionResetToken;
   final List<WorkoutExercise> exercises;
+  final bool hasEditedWorkout;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
+  final VoidCallback onSessionActivity;
+  final ValueChanged<String> onSessionModeChanged;
   final VoidCallback onOpenLibrary;
+
+  @override
+  State<TrainScreen> createState() => _TrainScreenState();
+}
+
+class _TrainScreenState extends State<TrainScreen> {
+  Timer? _ticker;
+  Duration _totalElapsed = Duration.zero;
+  Duration _restRemaining = const Duration(minutes: 2);
+  bool _totalRunning = false;
+  bool _restRunning = false;
+
+  bool get _hasTimerActivity =>
+      _totalElapsed > Duration.zero ||
+      _restRemaining != const Duration(minutes: 2) ||
+      _totalRunning ||
+      _restRunning;
+
+  @override
+  void didUpdateWidget(covariant TrainScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sessionResetToken != widget.sessionResetToken) {
+      _resetTimers();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Entrenar · $sessionMode',
-      user: user,
+      title: 'Entrenar · ${widget.sessionMode}',
+      user: widget.user,
       menuActions: [
         AppMenuAction(
           icon: Icons.play_circle_outline,
@@ -899,12 +965,15 @@ class TrainScreen extends StatelessWidget {
         AppMenuAction(
           icon: Icons.bookmarks_outlined,
           label: 'Biblioteca de rutinas',
-          onSelected: onOpenLibrary,
+          onSelected: widget.onOpenLibrary,
         ),
       ],
       trailing: FilledButton.icon(
         onPressed: () async {
-          await repository.saveSession(user: user, exercises: exercises);
+          await widget.repository.saveSession(
+            user: widget.user,
+            exercises: widget.exercises,
+          );
           if (!kIsWeb) {
             await NotificationService.showSessionSaved();
           }
@@ -918,11 +987,24 @@ class TrainScreen extends StatelessWidget {
         label: const Text('Guardar'),
       ),
       children: [
-        _SessionIntentCard(mode: sessionMode),
-        const CompactTimers(),
+        _SessionIntentCard(
+          mode: widget.sessionMode,
+          onModeChanged: _requestModeChange,
+        ),
+        CompactTimers(
+          totalElapsed: _totalElapsed,
+          restRemaining: _restRemaining,
+          totalRunning: _totalRunning,
+          restRunning: _restRunning,
+          onToggleTotal: _toggleTotalTimer,
+          onResetTotal: _resetTotalTimer,
+          onToggleRest: _toggleRestTimer,
+          onResetRest: _resetRestTimer,
+        ),
         CurrentSetLogger(
-          exercise: exercises.isEmpty ? null : exercises.first,
+          exercise: widget.exercises.isEmpty ? null : widget.exercises.first,
           onRestTimer: () async {
+            _startRestTimer(const Duration(seconds: 90));
             if (!kIsWeb) {
               await NotificationService.scheduleRestFinished(
                 const Duration(seconds: 90),
@@ -944,41 +1026,41 @@ class TrainScreen extends StatelessWidget {
           proxyDecorator: stitchReorderProxy,
           onReorderStart: (_) => HapticFeedback.mediumImpact(),
           onReorderEnd: (_) => HapticFeedback.selectionClick(),
-          itemCount: exercises.length,
+          itemCount: widget.exercises.length,
           onReorder: (oldIndex, newIndex) {
-            final next = [...exercises];
+            final next = [...widget.exercises];
             final target = newIndex > oldIndex ? newIndex - 1 : newIndex;
             final item = next.removeAt(oldIndex);
             next.insert(target, item);
-            onExercisesChanged(next);
+            widget.onExercisesChanged(next);
           },
           itemBuilder: (context, index) {
-            final exercise = exercises[index];
+            final exercise = widget.exercises[index];
             return ExerciseCard(
               key: ValueKey(exercise.id),
               index: index,
               exercise: exercise,
               onChanged: (updated) {
-                final next = [...exercises];
+                final next = [...widget.exercises];
                 next[index] = updated;
-                onExercisesChanged(next);
+                widget.onExercisesChanged(next);
               },
               onMoveUp: index == 0
                   ? null
                   : () {
-                      final next = [...exercises];
+                      final next = [...widget.exercises];
                       final item = next.removeAt(index);
                       next.insert(index - 1, item);
-                      onExercisesChanged(next);
+                      widget.onExercisesChanged(next);
                       HapticFeedback.selectionClick();
                     },
-              onMoveDown: index == exercises.length - 1
+              onMoveDown: index == widget.exercises.length - 1
                   ? null
                   : () {
-                      final next = [...exercises];
+                      final next = [...widget.exercises];
                       final item = next.removeAt(index);
                       next.insert(index + 1, item);
-                      onExercisesChanged(next);
+                      widget.onExercisesChanged(next);
                       HapticFeedback.selectionClick();
                     },
             );
@@ -987,16 +1069,123 @@ class TrainScreen extends StatelessWidget {
       ],
     );
   }
+
+  void _ensureTicker() {
+    _ticker ??= Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_totalRunning) {
+          _totalElapsed += const Duration(seconds: 1);
+        }
+        if (_restRunning) {
+          final next = _restRemaining - const Duration(seconds: 1);
+          _restRemaining = next <= Duration.zero ? Duration.zero : next;
+          if (_restRemaining == Duration.zero) {
+            _restRunning = false;
+          }
+        }
+      });
+    });
+  }
+
+  void _markSessionActivity() {
+    widget.onSessionActivity();
+  }
+
+  void _toggleTotalTimer() {
+    setState(() {
+      _totalRunning = !_totalRunning;
+      if (_totalRunning) {
+        _ensureTicker();
+        _markSessionActivity();
+      }
+    });
+  }
+
+  void _resetTotalTimer() {
+    setState(() {
+      _totalRunning = false;
+      _totalElapsed = Duration.zero;
+    });
+  }
+
+  void _toggleRestTimer() {
+    if (_restRemaining == Duration.zero) {
+      _restRemaining = const Duration(minutes: 2);
+    }
+    setState(() {
+      _restRunning = !_restRunning;
+      if (_restRunning) {
+        _ensureTicker();
+        _markSessionActivity();
+      }
+    });
+  }
+
+  void _startRestTimer(Duration duration) {
+    setState(() {
+      _restRemaining = duration;
+      _restRunning = true;
+      _ensureTicker();
+      _markSessionActivity();
+    });
+  }
+
+  void _resetRestTimer() {
+    setState(() {
+      _restRunning = false;
+      _restRemaining = const Duration(minutes: 2);
+    });
+  }
+
+  void _resetTimers() {
+    setState(() {
+      _totalRunning = false;
+      _restRunning = false;
+      _totalElapsed = Duration.zero;
+      _restRemaining = const Duration(minutes: 2);
+    });
+  }
+
+  Future<void> _requestModeChange(String mode) async {
+    if (mode == widget.sessionMode) return;
+    final shouldConfirm = _hasTimerActivity || widget.hasEditedWorkout;
+    if (shouldConfirm) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Cambiar modo de sesión'),
+          content: const Text(
+            'Cambiar el modo reiniciará los relojes y los valores cargados en los ejercicios.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Cambiar y reiniciar'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    widget.onSessionModeChanged(mode);
+  }
 }
 
 class _SessionIntentCard extends StatelessWidget {
-  const _SessionIntentCard({required this.mode});
+  const _SessionIntentCard({required this.mode, required this.onModeChanged});
 
   final String mode;
+  final ValueChanged<String> onModeChanged;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    const modes = ['Fuerza', 'Hipertrofia', 'Técnica', 'Libre'];
     final icon = switch (mode) {
       'Hipertrofia' => Icons.trending_up,
       'Técnica' => Icons.tune,
@@ -1025,9 +1214,23 @@ class _SessionIntentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Modo $mode',
-                  style: Theme.of(context).textTheme.titleMedium,
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: mode,
+                    isDense: true,
+                    icon: const Icon(Icons.keyboard_arrow_down),
+                    items: [
+                      for (final item in modes)
+                        DropdownMenuItem(
+                          value: item,
+                          child: Text('Modo $item'),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) onModeChanged(value);
+                    },
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(copy, style: Theme.of(context).textTheme.labelMedium),
@@ -1705,6 +1908,249 @@ class SessionCalendarSheet extends StatelessWidget {
       ],
     );
   }
+}
+
+class MonthlySessionCalendarSheet extends StatelessWidget {
+  const MonthlySessionCalendarSheet({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month);
+    final firstGridDay = monthStart.subtract(
+      Duration(days: monthStart.weekday - 1),
+    );
+    final sessions = _demoCalendarSessions(now);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Calendario mensual',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            _SoftChip(
+              label: '${_monthName(now.month)} ${now.year}',
+              color: colors.primaryStrong,
+              background: colors.raised,
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Tocá un día con marca para revisar lo que hiciste o lo planificado.',
+          style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            for (final day in ['L', 'M', 'X', 'J', 'V', 'S', 'D'])
+              Expanded(
+                child: Center(
+                  child: Text(
+                    day,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 42,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+          ),
+          itemBuilder: (context, index) {
+            final day = firstGridDay.add(Duration(days: index));
+            final session = sessions[_dateKey(day)];
+            final inMonth = day.month == now.month;
+            final isToday = _isSameDay(day, now);
+            return InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: session == null
+                  ? null
+                  : () => _openSessionDetail(context, day, session),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: session == null
+                      ? colors.raised.withValues(alpha: inMonth ? 1 : 0.35)
+                      : session.completed
+                      ? colors.primaryContainer
+                      : colors.amberContainer.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isToday ? colors.primaryStrong : colors.divider,
+                    width: isToday ? 2 : 1,
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 7,
+                      top: 6,
+                      child: Text(
+                        '${day.day}',
+                        style: TextStyle(
+                          color: session?.completed == true
+                              ? Colors.white
+                              : inMonth
+                              ? colors.text
+                              : colors.textSecondary.withValues(alpha: 0.45),
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (session != null)
+                      Positioned(
+                        right: 5,
+                        bottom: 5,
+                        child: Icon(
+                          session.completed
+                              ? Icons.check_circle
+                              : Icons.schedule,
+                          size: 14,
+                          color: session.completed
+                              ? Colors.white
+                              : colors.amber,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Entrenos recientes',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        for (final entry in sessions.entries.where(
+          (entry) => entry.value.completed,
+        ))
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.fitness_center),
+              title: Text(entry.value.title),
+              subtitle: Text(entry.value.exercises.join(', ')),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => _openSessionDetail(
+                context,
+                _dateFromKey(entry.key),
+                entry.value,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  static Map<String, _CalendarSession> _demoCalendarSessions(DateTime now) {
+    final base = DateTime(now.year, now.month);
+    return {
+      _dateKey(base.add(const Duration(days: 1))): const _CalendarSession(
+        title: 'Empuje A',
+        completed: true,
+        exercises: ['Press banca', 'Press militar', 'Tríceps cuerda'],
+      ),
+      _dateKey(base.add(const Duration(days: 4))): const _CalendarSession(
+        title: 'Pull',
+        completed: true,
+        exercises: ['Dominadas', 'Remo mancuerna', 'Curl martillo'],
+      ),
+      _dateKey(DateTime(now.year, now.month, now.day)): const _CalendarSession(
+        title: 'Empuje A',
+        completed: false,
+        exercises: ['Pecho', 'hombros', 'tríceps'],
+      ),
+      _dateKey(base.add(const Duration(days: 18))): const _CalendarSession(
+        title: 'Piernas',
+        completed: false,
+        exercises: ['Sentadilla', 'Prensa', 'Curl femoral'],
+      ),
+    };
+  }
+
+  static void _openSessionDetail(
+    BuildContext context,
+    DateTime date,
+    _CalendarSession session,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(session.title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              '${date.day}/${date.month}/${date.year} · ${session.completed ? 'Completada' : 'Planificada'}',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 12),
+            for (final exercise in session.exercises)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.fitness_center),
+                title: Text(exercise),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String _dateKey(DateTime value) =>
+      '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  static DateTime _dateFromKey(String value) {
+    final parts = value.split('-').map(int.parse).toList();
+    return DateTime(parts[0], parts[1], parts[2]);
+  }
+
+  static bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  static String _monthName(int month) => const [
+    'Enero',
+    'Febrero',
+    'Marzo',
+    'Abril',
+    'Mayo',
+    'Junio',
+    'Julio',
+    'Agosto',
+    'Septiembre',
+    'Octubre',
+    'Noviembre',
+    'Diciembre',
+  ][month - 1];
+}
+
+class _CalendarSession {
+  const _CalendarSession({
+    required this.title,
+    required this.completed,
+    required this.exercises,
+  });
+
+  final String title;
+  final bool completed;
+  final List<String> exercises;
 }
 
 class ProgressScreen extends StatelessWidget {
@@ -2650,20 +3096,121 @@ class _AccountModeButton extends StatelessWidget {
 }
 
 class CompactTimers extends StatelessWidget {
-  const CompactTimers({super.key});
+  const CompactTimers({
+    super.key,
+    required this.totalElapsed,
+    required this.restRemaining,
+    required this.totalRunning,
+    required this.restRunning,
+    required this.onToggleTotal,
+    required this.onResetTotal,
+    required this.onToggleRest,
+    required this.onResetRest,
+  });
+
+  final Duration totalElapsed;
+  final Duration restRemaining;
+  final bool totalRunning;
+  final bool restRunning;
+  final VoidCallback onToggleTotal;
+  final VoidCallback onResetTotal;
+  final VoidCallback onToggleRest;
+  final VoidCallback onResetRest;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
+      children: [
         Expanded(
-          child: MetricCard(label: 'Tiempo total', value: '00:00'),
+          child: TimerCard(
+            label: 'Tiempo total',
+            value: _formatDuration(totalElapsed),
+            running: totalRunning,
+            onToggle: onToggleTotal,
+            onReset: onResetTotal,
+          ),
         ),
-        SizedBox(width: 10),
+        const SizedBox(width: 10),
         Expanded(
-          child: MetricCard(label: 'Descanso', value: '02:00'),
+          child: TimerCard(
+            label: 'Descanso',
+            value: _formatDuration(restRemaining),
+            running: restRunning,
+            onToggle: onToggleRest,
+            onReset: onResetRest,
+          ),
         ),
       ],
+    );
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (duration.inHours > 0) {
+      return '${duration.inHours}:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
+  }
+}
+
+class TimerCard extends StatelessWidget {
+  const TimerCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.running,
+    required this.onToggle,
+    required this.onReset,
+  });
+
+  final String label;
+  final String value;
+  final bool running;
+  final VoidCallback onToggle;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: 6),
+            Text(value, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: onToggle,
+                    icon: Icon(running ? Icons.pause : Icons.play_arrow),
+                    label: Text(running ? 'Pausar' : 'Iniciar'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(0, 38),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton.filledTonal(
+                  tooltip: 'Resetear $label',
+                  onPressed: onReset,
+                  icon: const Icon(Icons.restart_alt),
+                  style: IconButton.styleFrom(
+                    backgroundColor: colors.raised,
+                    minimumSize: const Size(38, 38),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:agujetas_flutter/main.dart';
 import 'package:agujetas_flutter/repositories.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -28,6 +29,11 @@ void main() {
   testWidgets(
     'training flow exposes unilateral, set type and second weight controls',
     (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         AgujetasApp(repository: DemoAgujetasRepository()),
       );
@@ -63,5 +69,81 @@ void main() {
 
     expect(find.text('Entrenar · Hipertrofia'), findsOneWidget);
     expect(find.text('Modo Hipertrofia'), findsOneWidget);
+  });
+
+  testWidgets('training timers expose start, pause and reset controls', (
+    tester,
+  ) async {
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Entrenar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tiempo total'), findsOneWidget);
+    expect(find.text('Descanso'), findsOneWidget);
+    expect(find.text('Iniciar'), findsNWidgets(2));
+
+    await tester.tap(find.text('Iniciar').first);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Pausar'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.restart_alt).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('00:00'), findsOneWidget);
+  });
+
+  testWidgets('training mode dropdown confirms reset after session activity', (
+    tester,
+  ) async {
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Entrenar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Modo Fuerza'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Modo Técnica').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entrenar · Técnica'), findsOneWidget);
+
+    await tester.tap(find.text('Iniciar').first);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.text('Modo Técnica'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Modo Libre').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Cambiar modo de sesión'), findsOneWidget);
+    expect(find.text('Cambiar y reiniciar'), findsOneWidget);
+  });
+
+  testWidgets('weekly summary opens the monthly session calendar', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Ver mes'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Calendario mensual'), findsOneWidget);
+    expect(
+      find.text(
+        'Tocá un día con marca para revisar lo que hiciste o lo planificado.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Entrenos recientes'), findsOneWidget);
   });
 }
