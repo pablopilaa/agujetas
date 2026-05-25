@@ -874,6 +874,10 @@ class TrainScreen extends StatelessWidget {
         ReorderableListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          proxyDecorator: stitchReorderProxy,
+          onReorderStart: (_) => HapticFeedback.mediumImpact(),
+          onReorderEnd: (_) => HapticFeedback.selectionClick(),
           itemCount: exercises.length,
           onReorder: (oldIndex, newIndex) {
             final next = [...exercises];
@@ -893,6 +897,24 @@ class TrainScreen extends StatelessWidget {
                 next[index] = updated;
                 onExercisesChanged(next);
               },
+              onMoveUp: index == 0
+                  ? null
+                  : () {
+                      final next = [...exercises];
+                      final item = next.removeAt(index);
+                      next.insert(index - 1, item);
+                      onExercisesChanged(next);
+                      HapticFeedback.selectionClick();
+                    },
+              onMoveDown: index == exercises.length - 1
+                  ? null
+                  : () {
+                      final next = [...exercises];
+                      final item = next.removeAt(index);
+                      next.insert(index + 1, item);
+                      onExercisesChanged(next);
+                      HapticFeedback.selectionClick();
+                    },
             );
           },
         ),
@@ -907,11 +929,15 @@ class ExerciseCard extends StatelessWidget {
     required this.index,
     required this.exercise,
     required this.onChanged,
+    this.onMoveUp,
+    this.onMoveDown,
   });
 
   final int index;
   final WorkoutExercise exercise;
   final ValueChanged<WorkoutExercise> onChanged;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
 
   @override
   Widget build(BuildContext context) {
@@ -925,10 +951,7 @@ class ExerciseCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                ReorderableDelayedDragStartListener(
-                  index: index,
-                  child: const GripDots(),
-                ),
+                ReorderGrip(index: index, label: 'Reordenar ${exercise.name}'),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -954,6 +977,10 @@ class ExerciseCard extends StatelessWidget {
                   selected: {exercise.isUnilateral},
                   onSelectionChanged: (value) =>
                       onChanged(exercise.copyWith(isUnilateral: value.first)),
+                ),
+                ReorderAccessibilityMenu(
+                  onMoveUp: onMoveUp,
+                  onMoveDown: onMoveDown,
                 ),
               ],
             ),
@@ -1678,6 +1705,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ReorderableListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          proxyDecorator: stitchReorderProxy,
+          onReorderStart: (_) => HapticFeedback.mediumImpact(),
+          onReorderEnd: (_) => HapticFeedback.selectionClick(),
           itemCount: widget.exercises.length,
           onReorder: (oldIndex, newIndex) {
             final next = [...widget.exercises];
@@ -1691,15 +1722,40 @@ class _LibraryScreenState extends State<LibraryScreen> {
             return Card(
               key: ValueKey('library-${exercise.id}'),
               child: ListTile(
-                leading: ReorderableDelayedDragStartListener(
+                leading: ReorderGrip(
                   index: index,
-                  child: const GripDots(),
+                  label: 'Reordenar ${exercise.name}',
                 ),
                 title: Text(exercise.name),
                 subtitle: Text(
                   '${exercise.muscleGroup} - ${exercise.isUnilateral ? 'unilateral' : 'bilateral'}',
                 ),
-                trailing: ExerciseImageBadge(imageUri: exercise.imageUri),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ExerciseImageBadge(imageUri: exercise.imageUri),
+                    ReorderAccessibilityMenu(
+                      onMoveUp: index == 0
+                          ? null
+                          : () {
+                              final next = [...widget.exercises];
+                              final item = next.removeAt(index);
+                              next.insert(index - 1, item);
+                              widget.onExercisesChanged(next);
+                              HapticFeedback.selectionClick();
+                            },
+                      onMoveDown: index == widget.exercises.length - 1
+                          ? null
+                          : () {
+                              final next = [...widget.exercises];
+                              final item = next.removeAt(index);
+                              next.insert(index + 1, item);
+                              widget.onExercisesChanged(next);
+                              HapticFeedback.selectionClick();
+                            },
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -2513,29 +2569,140 @@ class BrandMark extends StatelessWidget {
   }
 }
 
+Widget stitchReorderProxy(
+  Widget child,
+  int index,
+  Animation<double> animation,
+) {
+  return AnimatedBuilder(
+    animation: animation,
+    child: child,
+    builder: (context, child) {
+      final t = Curves.easeOutCubic.transform(animation.value);
+      return Transform.scale(
+        scale: 1 + (0.018 * t),
+        child: Material(
+          color: Colors.transparent,
+          elevation: 10 * t,
+          shadowColor: Colors.black.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(8),
+          child: child,
+        ),
+      );
+    },
+  );
+}
+
+class ReorderGrip extends StatelessWidget {
+  const ReorderGrip({super.key, required this.index, required this.label});
+
+  final int index;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return ReorderableDragStartListener(
+      index: index,
+      child: Tooltip(
+        message: label,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.grab,
+          child: Semantics(
+            button: true,
+            label: label,
+            hint: 'Arrastra para cambiar el orden',
+            child: const GripDots(),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class ReorderAccessibilityMenu extends StatelessWidget {
+  const ReorderAccessibilityMenu({
+    super.key,
+    required this.onMoveUp,
+    required this.onMoveDown,
+  });
+
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<_ReorderAction>(
+      tooltip: 'Mover',
+      icon: const Icon(Icons.more_vert),
+      enabled: onMoveUp != null || onMoveDown != null,
+      onSelected: (action) {
+        switch (action) {
+          case _ReorderAction.up:
+            onMoveUp?.call();
+          case _ReorderAction.down:
+            onMoveDown?.call();
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _ReorderAction.up,
+          enabled: onMoveUp != null,
+          child: const Text('Mover arriba'),
+        ),
+        PopupMenuItem(
+          value: _ReorderAction.down,
+          enabled: onMoveDown != null,
+          child: const Text('Mover abajo'),
+        ),
+      ],
+    );
+  }
+}
+
+enum _ReorderAction { up, down }
+
 class GripDots extends StatelessWidget {
   const GripDots({super.key});
 
   @override
   Widget build(BuildContext context) {
     final color = context.appColors.textSecondary;
-    return SizedBox(
-      width: 36,
+    return Container(
+      width: 44,
       height: 44,
-      child: Center(
-        child: Wrap(
-          spacing: 3,
-          runSpacing: 3,
-          children: List.generate(
-            6,
-            (_) => Container(
-              width: 4,
-              height: 4,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-          ),
-        ),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8)),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _GripDotRow(color: color),
+          const SizedBox(height: 4),
+          _GripDotRow(color: color),
+        ],
       ),
+    );
+  }
+}
+
+class _GripDotRow extends StatelessWidget {
+  const _GripDotRow({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < 3; i++) ...[
+          Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          if (i < 2) const SizedBox(width: 4),
+        ],
+      ],
     );
   }
 }
