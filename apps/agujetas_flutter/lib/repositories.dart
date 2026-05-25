@@ -276,6 +276,7 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
         photoUrl: firebaseUser.photoURL,
         roles: const {AppRole.normal},
         activeRole: AppRole.normal,
+        plan: AppPlan.free,
       );
       await userRef.set({
         ...user.toJson(),
@@ -306,8 +307,9 @@ class DemoAgujetasRepository implements AgujetasRepository {
     displayName: 'Demo Agujetas',
     email: 'demo@agujetas.app',
     photoUrl: null,
-    roles: {AppRole.normal, AppRole.trainer},
+    roles: {AppRole.normal},
     activeRole: AppRole.normal,
+    plan: AppPlan.free,
   );
 
   @override

@@ -2,6 +2,8 @@ import 'exercise_image_resolver.dart';
 
 enum AppRole { normal, trainer }
 
+enum AppPlan { free, pro }
+
 enum SetType { normal, warmup, dropset }
 
 extension AppRoleX on AppRole {
@@ -45,6 +47,22 @@ extension SetTypeX on SetType {
   }
 }
 
+extension AppPlanX on AppPlan {
+  String get value => switch (this) {
+    AppPlan.free => 'free',
+    AppPlan.pro => 'pro',
+  };
+
+  String get label => switch (this) {
+    AppPlan.free => 'Free',
+    AppPlan.pro => 'Pro',
+  };
+
+  static AppPlan fromValue(String? value) {
+    return value == AppPlan.pro.value ? AppPlan.pro : AppPlan.free;
+  }
+}
+
 class AppUser {
   const AppUser({
     required this.uid,
@@ -53,6 +71,7 @@ class AppUser {
     required this.photoUrl,
     required this.roles,
     required this.activeRole,
+    required this.plan,
   });
 
   final String uid;
@@ -61,8 +80,11 @@ class AppUser {
   final String? photoUrl;
   final Set<AppRole> roles;
   final AppRole activeRole;
+  final AppPlan plan;
 
   bool get isTrainer => roles.contains(AppRole.trainer);
+  bool get isPro => plan == AppPlan.pro;
+  bool get canUseTrainerMode => isPro && roles.contains(AppRole.trainer);
 
   Map<String, Object?> toJson() => {
     'uid': uid,
@@ -71,6 +93,7 @@ class AppUser {
     'photoURL': photoUrl,
     'roles': roles.map((role) => role.value).toList(),
     'activeRole': activeRole.value,
+    'plan': plan.value,
     'updatedAt': DateTime.now().toUtc().toIso8601String(),
   };
 
@@ -87,10 +110,11 @@ class AppUser {
       photoUrl: json['photoURL']?.toString(),
       roles: roles,
       activeRole: roles.contains(activeRole) ? activeRole : roles.first,
+      plan: AppPlanX.fromValue(json['plan']?.toString()),
     );
   }
 
-  AppUser copyWith({Set<AppRole>? roles, AppRole? activeRole}) {
+  AppUser copyWith({Set<AppRole>? roles, AppRole? activeRole, AppPlan? plan}) {
     return AppUser(
       uid: uid,
       displayName: displayName,
@@ -98,6 +122,7 @@ class AppUser {
       photoUrl: photoUrl,
       roles: roles ?? this.roles,
       activeRole: activeRole ?? this.activeRole,
+      plan: plan ?? this.plan,
     );
   }
 }

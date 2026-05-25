@@ -351,6 +351,7 @@ class _HomeShellState extends State<HomeShell> {
         sessionMode: _sessionMode,
         exercises: _workout,
         onExercisesChanged: (items) => setState(() => _workout = items),
+        onOpenLibrary: () => setState(() => _tab = 3),
       ),
       ProgressScreen(
         user: widget.user,
@@ -372,14 +373,6 @@ class _HomeShellState extends State<HomeShell> {
       ),
     ];
     return Scaffold(
-      drawer: StitchSideMenu(
-        selectedIndex: _tab,
-        user: widget.user,
-        onSelect: (index) {
-          Navigator.of(context).pop();
-          setState(() => _tab = index);
-        },
-      ),
       body: SafeArea(child: pages[_tab]),
       bottomNavigationBar: StitchBottomNav(
         selectedIndex: _tab,
@@ -444,14 +437,30 @@ class _HomeDashboardState extends State<HomeDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final isTrainerMode = widget.user.activeRole == AppRole.trainer;
+    final isTrainerMode =
+        widget.user.canUseTrainerMode &&
+        widget.user.activeRole == AppRole.trainer;
     return AppScaffold(
       title: isTrainerMode
           ? 'Panel entrenador'
           : 'Hola, ${widget.user.firstName}',
       user: widget.user,
+      menuActions: [
+        AppMenuAction(
+          icon: Icons.home_outlined,
+          label: isTrainerMode ? 'Panel entrenador' : 'Resumen',
+          selected: true,
+          onSelected: () {},
+        ),
+        AppMenuAction(
+          icon: Icons.calendar_month_outlined,
+          label: 'Calendario de sesiones',
+          onSelected: widget.onOpenCalendar,
+        ),
+      ],
       children: [
         if (widget.notice != null) InfoBanner(text: widget.notice!),
+        RoleSwitcher(user: widget.user, repository: widget.repository),
         if (!isTrainerMode) ...[
           const WeeklySummaryCard(),
           SessionModeSelector(
@@ -470,7 +479,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
             ),
           ),
         ],
-        RoleSwitcher(user: widget.user, repository: widget.repository),
         if (isTrainerMode)
           _TrainerPanel(
             user: widget.user,
@@ -605,12 +613,6 @@ class _AthletePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const DashboardCard(
-          icon: Icons.bolt_outlined,
-          title: 'Entrenamiento autogestionado',
-          subtitle:
-              'Crea rutinas, registra series, mira progreso y exporta tus datos.',
-        ),
         DashboardCard(
           icon: Icons.link_outlined,
           title: 'Vincular entrenador',
@@ -872,6 +874,7 @@ class TrainScreen extends StatelessWidget {
     required this.sessionMode,
     required this.exercises,
     required this.onExercisesChanged,
+    required this.onOpenLibrary,
   });
 
   final AppUser user;
@@ -879,12 +882,26 @@ class TrainScreen extends StatelessWidget {
   final String sessionMode;
   final List<WorkoutExercise> exercises;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
+  final VoidCallback onOpenLibrary;
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Entrenar · $sessionMode',
       user: user,
+      menuActions: [
+        AppMenuAction(
+          icon: Icons.play_circle_outline,
+          label: 'Sesión actual',
+          selected: true,
+          onSelected: () {},
+        ),
+        AppMenuAction(
+          icon: Icons.bookmarks_outlined,
+          label: 'Biblioteca de rutinas',
+          onSelected: onOpenLibrary,
+        ),
+      ],
       trailing: FilledButton.icon(
         onPressed: () async {
           await repository.saveSession(user: user, exercises: exercises);
@@ -1263,37 +1280,33 @@ class SetEditor extends StatelessWidget {
               ),
             ],
           ),
-          for (var i = 0; i < set.segments.length; i++)
+          _SetMainFields(
+            segment: set.segments.first,
+            rir: set.rir,
+            onSegmentChanged: (segment) {
+              final segments = [...set.segments];
+              segments[0] = segment;
+              onChanged(set.copyWith(segments: segments));
+            },
+            onRirChanged: (rir) => onChanged(set.copyWith(rir: rir)),
+          ),
+          for (var i = 1; i < set.segments.length; i++)
             Padding(
-              padding: EdgeInsets.only(top: i == 0 ? 0 : 8),
+              padding: const EdgeInsets.only(top: 8),
               child: SegmentEditor(
-                label: i == 0 ? 'Peso principal' : 'Peso 2 / backoff',
+                label: 'Peso 2 / backoff',
                 segment: set.segments[i],
                 onChanged: (segment) {
                   final segments = [...set.segments];
                   segments[i] = segment;
                   onChanged(set.copyWith(segments: segments));
                 },
-                onRemove: i == 0
-                    ? null
-                    : () {
-                        final segments = [...set.segments]..removeAt(i);
-                        onChanged(set.copyWith(segments: segments));
-                      },
+                onRemove: () {
+                  final segments = [...set.segments]..removeAt(i);
+                  onChanged(set.copyWith(segments: segments));
+                },
               ),
             ),
-          const SizedBox(height: 8),
-          TextFormField(
-            key: ValueKey('rir-${set.order}-${set.rir ?? ''}'),
-            initialValue: set.rir?.toString() ?? '',
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'RIR',
-              prefixIcon: Icon(Icons.speed_outlined),
-            ),
-            onChanged: (value) =>
-                onChanged(set.copyWith(rir: int.tryParse(value))),
-          ),
           if (set.segments.length < 2)
             Align(
               alignment: Alignment.centerLeft,
@@ -1312,6 +1325,94 @@ class SetEditor extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _SetMainFields extends StatelessWidget {
+  const _SetMainFields({
+    required this.segment,
+    required this.rir,
+    required this.onSegmentChanged,
+    required this.onRirChanged,
+  });
+
+  final WeightSegment segment;
+  final int? rir;
+  final ValueChanged<WeightSegment> onSegmentChanged;
+  final ValueChanged<int?> onRirChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _CompactSetField(
+            key: ValueKey('kg-main-${segment.weightKg}'),
+            label: 'Kg',
+            value: segment.weightKg == 0
+                ? ''
+                : segment.weightKg.toStringAsFixed(0),
+            onChanged: (value) => onSegmentChanged(
+              WeightSegment(
+                weightKg: double.tryParse(value.replaceAll(',', '.')) ?? 0,
+                reps: segment.reps,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _CompactSetField(
+            key: ValueKey('reps-main-${segment.reps}'),
+            label: 'Reps',
+            value: segment.reps == 0 ? '' : segment.reps.toString(),
+            onChanged: (value) => onSegmentChanged(
+              WeightSegment(
+                weightKg: segment.weightKg,
+                reps: int.tryParse(value) ?? 0,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _CompactSetField(
+            key: ValueKey('rir-main-${rir ?? ''}'),
+            label: 'RIR',
+            value: rir?.toString() ?? '',
+            onChanged: (value) => onRirChanged(int.tryParse(value)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompactSetField extends StatelessWidget {
+  const _CompactSetField({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      initialValue: value,
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.center,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      ),
+      onChanged: onChanged,
     );
   }
 }
@@ -1637,6 +1738,19 @@ class ProgressScreen extends StatelessWidget {
     );
     return AppScaffold(
       title: 'Progreso',
+      menuActions: [
+        AppMenuAction(
+          icon: Icons.insights_outlined,
+          label: 'Resumen de progreso',
+          selected: true,
+          onSelected: () {},
+        ),
+        AppMenuAction(
+          icon: Icons.calendar_month_outlined,
+          label: 'Calendario de sesiones',
+          onSelected: onOpenCalendar,
+        ),
+      ],
       children: [
         const SectionHeader(
           title: 'Rendimiento',
@@ -1710,6 +1824,19 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Biblioteca',
+      menuActions: [
+        AppMenuAction(
+          icon: Icons.search,
+          label: 'Catálogo',
+          selected: true,
+          onSelected: () {},
+        ),
+        AppMenuAction(
+          icon: Icons.add_circle_outline,
+          label: 'Crear ejercicio',
+          onSelected: _openCustomExerciseSheet,
+        ),
+      ],
       children: [
         TextField(
           onChanged: (value) => setState(() => _query = value.trim()),
@@ -2281,6 +2408,19 @@ class ProfileScreen extends StatelessWidget {
     return AppScaffold(
       title: 'Perfil',
       user: user,
+      menuActions: [
+        AppMenuAction(
+          icon: Icons.person_outline,
+          label: 'Cuenta',
+          selected: true,
+          onSelected: () {},
+        ),
+        AppMenuAction(
+          icon: Icons.palette_outlined,
+          label: 'Apariencia',
+          onSelected: () {},
+        ),
+      ],
       children: [
         Container(
           padding: const EdgeInsets.all(18),
@@ -2349,19 +2489,161 @@ class RoleSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selectedRole =
+        user.canUseTrainerMode && user.activeRole == AppRole.trainer
+        ? AppRole.trainer
+        : AppRole.normal;
     return DashboardCard(
-      icon: Icons.switch_account_outlined,
-      title: 'Modo de uso',
-      subtitle: 'Entrena solo o gestiona entrenados desde la misma cuenta.',
-      child: SegmentedButton<AppRole>(
-        showSelectedIcon: false,
-        segments: const [
-          ButtonSegment(value: AppRole.normal, label: Text('Normal')),
-          ButtonSegment(value: AppRole.trainer, label: Text('Entrenador')),
+      icon: Icons.workspace_premium_outlined,
+      title: 'Modo de cuenta',
+      subtitle: user.isPro
+          ? 'Alterna entre entrenar para vos y gestionar entrenados.'
+          : 'El modo entrenador está incluido en Agujetas Pro.',
+      action: _SoftChip(
+        label: user.plan.label,
+        color: user.isPro
+            ? context.appColors.primaryStrong
+            : context.appColors.textSecondary,
+        background: context.appColors.raised,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _AccountModeButton(
+              icon: Icons.person_outline,
+              label: 'Modo usuario',
+              selected: selectedRole == AppRole.normal,
+              onTap: () => repository.setActiveRole(user, AppRole.normal),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _AccountModeButton(
+              icon: Icons.groups_outlined,
+              label: 'Modo entrenador',
+              selected: selectedRole == AppRole.trainer,
+              locked: !user.isPro,
+              onTap: user.isPro
+                  ? () => repository.setActiveRole(user, AppRole.trainer)
+                  : () => _showTrainerUpgradeDialog(context),
+            ),
+          ),
         ],
-        selected: {user.activeRole},
-        onSelectionChanged: (value) =>
-            repository.setActiveRole(user, value.first),
+      ),
+    );
+  }
+
+  void _showTrainerUpgradeDialog(BuildContext context) {
+    final isDemo = user.uid == 'demo-user';
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Modo entrenador es Pro'),
+        content: const Text(
+          'Con Agujetas Pro podés crear grupos de entrenados, compartir rutinas, asignar tareas, schedules y metas, y revisar progreso desde tu panel de entrenador.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Ahora no'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              if (isDemo) {
+                repository.setActiveRole(
+                  user.copyWith(
+                    plan: AppPlan.pro,
+                    roles: {...user.roles, AppRole.trainer},
+                  ),
+                  AppRole.trainer,
+                );
+                return;
+              }
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('La compra Pro se conectará al checkout.'),
+                ),
+              );
+            },
+            child: Text(isDemo ? 'Activar Pro demo' : 'Ver planes'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountModeButton extends StatelessWidget {
+  const _AccountModeButton({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.locked = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool locked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final foreground = locked
+        ? colors.textSecondary.withValues(alpha: 0.55)
+        : selected
+        ? Colors.white
+        : colors.text;
+    final background = locked
+        ? colors.raised.withValues(alpha: 0.55)
+        : selected
+        ? colors.primaryStrong
+        : colors.raised;
+    return Opacity(
+      opacity: locked ? 0.62 : 1,
+      child: Material(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Container(
+            height: 52,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: selected ? Colors.transparent : colors.divider,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  locked ? Icons.lock_outline : icon,
+                  size: 18,
+                  color: foreground,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: foreground,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2496,6 +2778,20 @@ class InfoBanner extends StatelessWidget {
   }
 }
 
+class AppMenuAction {
+  const AppMenuAction({
+    required this.icon,
+    required this.label,
+    required this.onSelected,
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onSelected;
+  final bool selected;
+}
+
 class AppScaffold extends StatelessWidget {
   const AppScaffold({
     super.key,
@@ -2503,11 +2799,13 @@ class AppScaffold extends StatelessWidget {
     required this.children,
     this.user,
     this.trailing,
+    this.menuActions = const [],
   });
 
   final String title;
   final AppUser? user;
   final Widget? trailing;
+  final List<AppMenuAction> menuActions;
   final List<Widget> children;
 
   @override
@@ -2539,24 +2837,56 @@ class AppScaffold extends StatelessWidget {
               BrandMark(size: 28, dark: dark),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontSize: 16,
-                    color: colors.primaryStrong,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontSize: 16,
+                              color: colors.primaryStrong,
+                            ),
+                      ),
+                    ),
+                    if (menuActions.isNotEmpty)
+                      PopupMenuButton<int>(
+                        tooltip: 'Submenú',
+                        position: PopupMenuPosition.under,
+                        icon: const Icon(Icons.keyboard_arrow_down),
+                        onSelected: (index) => menuActions[index].onSelected(),
+                        itemBuilder: (context) => [
+                          for (var i = 0; i < menuActions.length; i++)
+                            PopupMenuItem<int>(
+                              value: i,
+                              child: Row(
+                                children: [
+                                  Icon(menuActions[i].icon, size: 20),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: Text(menuActions[i].label)),
+                                  if (menuActions[i].selected)
+                                    Icon(
+                                      Icons.check,
+                                      color: colors.primaryStrong,
+                                    ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                  ],
                 ),
               ),
-              ?trailing,
-              Builder(
-                builder: (context) => IconButton(
-                  tooltip: 'Menu',
-                  onPressed: () => Scaffold.maybeOf(context)?.openDrawer(),
-                  icon: const Icon(Icons.menu),
+              if (trailing != null) ...[
+                const SizedBox(width: 8),
+                Flexible(
+                  flex: 0,
+                  child: FittedBox(fit: BoxFit.scaleDown, child: trailing!),
                 ),
-              ),
+              ],
             ],
           ),
         ),

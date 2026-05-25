@@ -8,13 +8,17 @@ void main() {
     await tester.pump();
 
     expect(find.text('Inicio'), findsWidgets);
-    await tester.scrollUntilVisible(
-      find.text('Entrenamiento autogestionado'),
-      300,
-    );
-    expect(find.text('Entrenamiento autogestionado'), findsOneWidget);
+    expect(find.text('Modo de cuenta'), findsOneWidget);
+    expect(find.text('Modo usuario'), findsOneWidget);
+    expect(find.text('Modo entrenador'), findsOneWidget);
 
-    await tester.tap(find.text('Entrenador').first);
+    await tester.tap(find.text('Modo entrenador').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Modo entrenador es Pro'), findsOneWidget);
+    expect(find.text('Activar Pro demo'), findsOneWidget);
+
+    await tester.tap(find.text('Activar Pro demo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Panel entrenador'), findsOneWidget);
