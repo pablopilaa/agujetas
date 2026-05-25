@@ -68,7 +68,7 @@ flowchart TD
 | Biblioteca | Bottom nav, menú lateral | Buscar catálogo | Lista filtrada |
 | Biblioteca | Crear ejercicio personalizado | Formulario de ejercicio | Nuevo ejercicio en rutina y Firestore |
 | Biblioteca | Elegir imagen de galería | Selector nativo | `imageUri` local asociado |
-| Biblioteca | Elegir imagen del repositorio | Selector interno | `app-image://...` asociado |
+| Biblioteca | Elegir imagen del repositorio | Selector interno | `agujetas-image://...` asociado |
 | Biblioteca | Agregar ejercicio | Agregar a rutina activa | Entrenamiento actual actualizado |
 | Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado |
 | Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado |

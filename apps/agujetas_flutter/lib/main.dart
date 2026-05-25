@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import 'app_theme.dart';
+import 'exercise_image_resolver.dart';
 import 'firebase_options.dart';
 import 'models.dart';
 import 'notification_service.dart';
@@ -1689,7 +1690,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
               icon: Icons.dataset_outlined,
               title: 'Catálogo importado',
               subtitle:
-                  '${catalog.length} ejercicios desde tus JSON y el catálogo Lyfta.',
+                  '${catalog.length} ejercicios desde tus JSON y el catálogo migrado.',
               child: Column(
                 children: [
                   for (final item in filtered)
@@ -1733,7 +1734,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    ExerciseImageBadge(imageUri: exercise.imageUri),
+                    ExerciseImageBadge(
+                      exerciseId: exercise.id,
+                      name: exercise.name,
+                      muscleGroup: exercise.muscleGroup,
+                      imageUri: exercise.imageUri,
+                    ),
                     ReorderAccessibilityMenu(
                       onMoveUp: index == 0
                           ? null
@@ -1833,7 +1839,12 @@ class _CatalogTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: ExerciseImageBadge(imageUri: item.imageUri),
+      leading: ExerciseImageBadge(
+        exerciseId: item.id,
+        name: item.name,
+        muscleGroup: item.muscleGroup,
+        imageUri: item.imageUri,
+      ),
       title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(
         '${item.muscleGroup}${item.usageCount > 0 ? ' - usado ${item.usageCount}x' : ''}',
@@ -1848,30 +1859,80 @@ class _CatalogTile extends StatelessWidget {
 }
 
 class ExerciseImageBadge extends StatelessWidget {
-  const ExerciseImageBadge({super.key, required this.imageUri});
+  const ExerciseImageBadge({
+    super.key,
+    required this.exerciseId,
+    required this.name,
+    required this.muscleGroup,
+    this.imageUri,
+    this.size = 44,
+  });
 
+  final String exerciseId;
+  final String name;
+  final String muscleGroup;
   final String? imageUri;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final hasImage = imageUri != null && imageUri!.isNotEmpty;
+    final localGalleryImage =
+        imageUri != null &&
+        imageUri!.isNotEmpty &&
+        !imageUri!.startsWith('app-image://') &&
+        !imageUri!.startsWith('agujetas-image://');
+
     return Container(
-      width: 44,
-      height: 44,
+      width: size,
+      height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: hasImage ? colors.primaryContainer : colors.raised,
+        color: colors.raised,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(
-        hasImage
-            ? (imageUri!.startsWith('app-image://')
-                  ? Icons.image_search_outlined
-                  : Icons.photo_library_outlined)
-            : Icons.fitness_center,
-        color: hasImage ? Colors.white : colors.textSecondary,
-      ),
+      clipBehavior: Clip.antiAlias,
+      child: localGalleryImage
+          ? Icon(Icons.photo_library_outlined, color: colors.textSecondary)
+          : FutureBuilder<ResolvedExerciseImage>(
+              future: ExerciseImageResolver.instance.resolve(
+                exerciseId: exerciseId,
+                name: name,
+                muscleGroup: muscleGroup,
+                imageUri: imageUri,
+              ),
+              builder: (context, snapshot) {
+                final resolved = snapshot.data;
+                if (resolved == null) {
+                  return Icon(
+                    Icons.fitness_center,
+                    color: colors.textSecondary,
+                  );
+                }
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(3),
+                      child: SvgPicture.asset(
+                        resolved.assetPath,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    if (resolved.legacyUriBlocked)
+                      Positioned(
+                        right: 3,
+                        bottom: 3,
+                        child: Icon(
+                          Icons.verified_outlined,
+                          size: 12,
+                          color: colors.primaryStrong,
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
     );
   }
 }
@@ -1916,7 +1977,16 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
           const SizedBox(height: 12),
           Row(
             children: [
-              ExerciseImageBadge(imageUri: _imageUri),
+              ExerciseImageBadge(
+                exerciseId: 'custom-preview',
+                name: _nameController.text.trim().isEmpty
+                    ? 'Ejercicio personalizado'
+                    : _nameController.text.trim(),
+                muscleGroup: _muscleController.text.trim().isEmpty
+                    ? 'General'
+                    : _muscleController.text.trim(),
+                imageUri: _imageUri,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -2003,30 +2073,93 @@ class RepositoryImagePicker extends StatelessWidget {
     return FutureBuilder<List<ExerciseCatalogEntry>>(
       future: catalogFuture,
       builder: (context, snapshot) {
-        final items = (snapshot.data ?? const <ExerciseCatalogEntry>[])
-            .where((item) => item.imageUri?.startsWith('app-image://') == true)
-            .take(30)
+        final catalog = snapshot.data ?? const <ExerciseCatalogEntry>[];
+        final priorityItems = catalog
+            .where((item) => item.usageCount > 0)
+            .take(40)
             .toList();
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-          children: [
-            Text(
-              'Imagen del repositorio',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            for (final item in items)
-              ListTile(
-                leading: ExerciseImageBadge(imageUri: item.imageUri),
-                title: Text(item.name),
-                subtitle: Text(item.imageUri ?? ''),
-                onTap: () => Navigator.of(context).pop(item.imageUri),
-              ),
-          ],
+        final fallbackItems = priorityItems.isEmpty
+            ? catalog.take(40).toList()
+            : priorityItems;
+        return FutureBuilder<List<_RepositoryImageOption>>(
+          future: _loadOptions(fallbackItems),
+          builder: (context, optionSnapshot) {
+            final options =
+                optionSnapshot.data ?? const <_RepositoryImageOption>[];
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              children: [
+                Text(
+                  'Imagen del repositorio',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Assets propios Agujetas. No se muestran imágenes Lyfta.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+                if (options.isEmpty)
+                  const ListTile(
+                    leading: Icon(Icons.image_search_outlined),
+                    title: Text('Cargando imágenes propias'),
+                  ),
+                for (final option in options)
+                  ListTile(
+                    leading: ExerciseImageBadge(
+                      exerciseId: option.item.id,
+                      name: option.item.name,
+                      muscleGroup: option.item.muscleGroup,
+                      imageUri: option.uri,
+                    ),
+                    title: Text(option.item.name),
+                    subtitle: Text(
+                      'agujetas-generated · ${option.resolved.status}',
+                    ),
+                    onTap: () => Navigator.of(context).pop(option.uri),
+                  ),
+              ],
+            );
+          },
         );
       },
     );
   }
+
+  Future<List<_RepositoryImageOption>> _loadOptions(
+    List<ExerciseCatalogEntry> items,
+  ) async {
+    final options = <_RepositoryImageOption>[];
+    for (final item in items) {
+      final resolved = await ExerciseImageResolver.instance.resolve(
+        exerciseId: item.id,
+        name: item.name,
+        muscleGroup: item.muscleGroup,
+        imageUri: item.imageUri,
+      );
+      if (resolved.imageId == null) continue;
+      options.add(
+        _RepositoryImageOption(
+          item: item,
+          uri: resolved.uri,
+          resolved: resolved,
+        ),
+      );
+    }
+    return options;
+  }
+}
+
+class _RepositoryImageOption {
+  const _RepositoryImageOption({
+    required this.item,
+    required this.uri,
+    required this.resolved,
+  });
+
+  final ExerciseCatalogEntry item;
+  final String uri;
+  final ResolvedExerciseImage resolved;
 }
 
 class ProfileScreen extends StatelessWidget {

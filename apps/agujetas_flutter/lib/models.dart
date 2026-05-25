@@ -1,3 +1,5 @@
+import 'exercise_image_resolver.dart';
+
 enum AppRole { normal, trainer }
 
 enum SetType { normal, warmup, dropset }
@@ -223,7 +225,7 @@ class WorkoutExercise {
       muscleGroup: json['muscleGroup']?.toString() ?? 'General',
       isUnilateral: json['isUnilateral'] == true,
       sets: sets.isEmpty ? defaultWorkoutSets() : sets,
-      imageUri: json['imageUri']?.toString(),
+      imageUri: sanitizeExerciseImageUri(json['imageUri']?.toString()),
       isCustom: json['isCustom'] == true,
     );
   }
@@ -295,7 +297,7 @@ class ExerciseCatalogEntry {
       id: json['id']?.toString() ?? json['key']?.toString() ?? name,
       name: name,
       muscleGroup: rawMuscle?.toString().trim() ?? 'General',
-      imageUri: json['imageUri']?.toString(),
+      imageUri: sanitizeExerciseImageUri(json['imageUri']?.toString()),
       usageCount: _readInt(json['usageCount']),
       lastUsedDate: DateTime.tryParse(json['lastUsedDate']?.toString() ?? ''),
       isCustom: json['isCustom'] == true || json['inCustomSession'] == true,

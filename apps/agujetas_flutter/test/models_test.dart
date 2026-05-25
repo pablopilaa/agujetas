@@ -1,7 +1,10 @@
+import 'package:agujetas_flutter/exercise_image_resolver.dart';
 import 'package:agujetas_flutter/models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('set type parser normalizes warmup and dropset aliases', () {
     expect(SetTypeX.fromValue('entrada en calor'), SetType.warmup);
     expect(SetTypeX.fromValue('drop set'), SetType.dropset);
@@ -56,12 +59,69 @@ void main() {
       id: 'custom-1',
       name: 'Press propio',
       muscleGroup: 'Pectoral',
-      imageUri: 'app-image://00011101',
+      imageUri: 'agujetas-image://ag_press_propio_test',
       isCustom: true,
     ).toWorkoutExercise();
 
     expect(exercise.sets, hasLength(3));
-    expect(exercise.imageUri, 'app-image://00011101');
+    expect(exercise.imageUri, 'agujetas-image://ag_press_propio_test');
     expect(exercise.isCustom, isTrue);
   });
+
+  test('legacy app-image URIs are stripped from catalog data', () {
+    final exercise = ExerciseCatalogEntry.fromJson({
+      'id': 'legacy-1',
+      'ejercicio': 'Press legado',
+      'musculo': 'Pectoral',
+      'imageUri': 'app-image://00011101',
+    });
+
+    expect(exercise.imageUri, isNull);
+  });
+
+  test('image resolver maps catalog exercises to Agujetas assets', () async {
+    final resolved = await ExerciseImageResolver.instance.resolve(
+      exerciseId: '1 a 2 cajas de salto',
+      name: '1 a 2 cajas de salto',
+      muscleGroup: 'General',
+    );
+
+    expect(resolved.imageId, isNotNull);
+    expect(resolved.assetPath, startsWith('assets/exercise_images/thumbs/'));
+    expect(resolved.assetPath, isNot(contains('lyfta')));
+    expect(resolved.source, 'agujetas-generated');
+  });
+
+  test(
+    'legacy Lyfta URI is blocked and resolved through safe catalog art',
+    () async {
+      final resolved = await ExerciseImageResolver.instance.resolve(
+        exerciseId: '1 a 2 cajas de salto',
+        name: '1 a 2 cajas de salto',
+        muscleGroup: 'General',
+        imageUri: 'app-image://42091101',
+      );
+
+      expect(resolved.legacyUriBlocked, isTrue);
+      expect(resolved.assetPath, startsWith('assets/exercise_images/thumbs/'));
+      expect(resolved.assetPath, isNot(contains('lyfta')));
+    },
+  );
+
+  test(
+    'image resolver falls back to local placeholder for unknown exercises',
+    () async {
+      final resolved = await ExerciseImageResolver.instance.resolve(
+        exerciseId: 'custom-no-match',
+        name: 'Ejercicio inventado',
+        muscleGroup: 'Pectoral',
+      );
+
+      expect(resolved.isFallback, isTrue);
+      expect(
+        resolved.assetPath,
+        contains('assets/exercise_images/placeholders/'),
+      );
+    },
+  );
 }

@@ -19,7 +19,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.11.5
+  sdk: ^3.10.7
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -71,6 +71,9 @@ flutter:
   assets:
     - assets/brand/logo-light.svg
     - assets/brand/logo-dark.svg
+    - assets/exercise_images/agujetas-image-manifest.json
+    - assets/exercise_images/placeholders/
+    - assets/exercise_images/thumbs/
     - assets/user_data/catalogo_ejercicios_2026-05-13.json
     - assets/user_data/historico_2025-12-31_a_2026-05-13.json
 
