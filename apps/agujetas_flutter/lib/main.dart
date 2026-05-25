@@ -320,6 +320,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   late List<WorkoutExercise> _workout;
+  String _sessionMode = 'Fuerza';
   String? _lastInviteCode;
   String? _notice;
 
@@ -339,12 +340,15 @@ class _HomeShellState extends State<HomeShell> {
         notice: _notice,
         onInviteCreated: (code) => setState(() => _lastInviteCode = code),
         onNotice: (notice) => setState(() => _notice = notice),
-        onStartWorkout: () => setState(() => _tab = 1),
+        selectedSessionMode: _sessionMode,
+        onSessionModeSelected: _selectSessionMode,
+        onStartWorkout: () => _startWorkout(_sessionMode),
         onOpenCalendar: () => _openCalendar(context),
       ),
       TrainScreen(
         user: widget.user,
         repository: widget.repository,
+        sessionMode: _sessionMode,
         exercises: _workout,
         onExercisesChanged: (items) => setState(() => _workout = items),
       ),
@@ -391,6 +395,17 @@ class _HomeShellState extends State<HomeShell> {
       builder: (_) => const SessionCalendarSheet(),
     );
   }
+
+  void _selectSessionMode(String mode) {
+    _startWorkout(mode);
+  }
+
+  void _startWorkout(String mode) {
+    setState(() {
+      _sessionMode = mode;
+      _tab = 1;
+    });
+  }
 }
 
 class HomeDashboard extends StatefulWidget {
@@ -402,6 +417,8 @@ class HomeDashboard extends StatefulWidget {
     required this.notice,
     required this.onInviteCreated,
     required this.onNotice,
+    required this.selectedSessionMode,
+    required this.onSessionModeSelected,
     required this.onStartWorkout,
     required this.onOpenCalendar,
   });
@@ -412,6 +429,8 @@ class HomeDashboard extends StatefulWidget {
   final String? notice;
   final ValueChanged<String> onInviteCreated;
   final ValueChanged<String> onNotice;
+  final String selectedSessionMode;
+  final ValueChanged<String> onSessionModeSelected;
   final VoidCallback onStartWorkout;
   final VoidCallback onOpenCalendar;
 
@@ -435,7 +454,10 @@ class _HomeDashboardState extends State<HomeDashboard> {
         if (widget.notice != null) InfoBanner(text: widget.notice!),
         if (!isTrainerMode) ...[
           const WeeklySummaryCard(),
-          const SessionModeSelector(),
+          SessionModeSelector(
+            selectedMode: widget.selectedSessionMode,
+            onSelected: widget.onSessionModeSelected,
+          ),
           RecommendedWorkoutCard(onStart: widget.onStartWorkout),
           DashboardCard(
             icon: Icons.calendar_month_outlined,
@@ -681,7 +703,14 @@ class _DayPill extends StatelessWidget {
 }
 
 class SessionModeSelector extends StatelessWidget {
-  const SessionModeSelector({super.key});
+  const SessionModeSelector({
+    super.key,
+    required this.selectedMode,
+    required this.onSelected,
+  });
+
+  final String selectedMode;
+  final ValueChanged<String> onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -698,20 +727,36 @@ class SessionModeSelector extends StatelessWidget {
         children: [
           for (var i = 0; i < modes.length; i++)
             Expanded(
-              child: Container(
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: i == 0 ? colors.surface : Colors.transparent,
+              child: Padding(
+                padding: EdgeInsets.only(right: i == modes.length - 1 ? 0 : 2),
+                child: Material(
+                  color: modes[i] == selectedMode
+                      ? colors.surface
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
-                  border: i == 0 ? Border.all(color: colors.divider) : null,
-                ),
-                child: Text(
-                  modes[i],
-                  style: TextStyle(
-                    color: i == 0 ? colors.text : colors.textSecondary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => onSelected(modes[i]),
+                    child: Container(
+                      height: 38,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: modes[i] == selectedMode
+                            ? Border.all(color: colors.divider)
+                            : null,
+                      ),
+                      child: Text(
+                        modes[i],
+                        style: TextStyle(
+                          color: modes[i] == selectedMode
+                              ? colors.text
+                              : colors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -824,19 +869,21 @@ class TrainScreen extends StatelessWidget {
     super.key,
     required this.user,
     required this.repository,
+    required this.sessionMode,
     required this.exercises,
     required this.onExercisesChanged,
   });
 
   final AppUser user;
   final AgujetasRepository repository;
+  final String sessionMode;
   final List<WorkoutExercise> exercises;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: 'Entrenar',
+      title: 'Entrenar · $sessionMode',
       user: user,
       trailing: FilledButton.icon(
         onPressed: () async {
@@ -854,6 +901,7 @@ class TrainScreen extends StatelessWidget {
         label: const Text('Guardar'),
       ),
       children: [
+        _SessionIntentCard(mode: sessionMode),
         const CompactTimers(),
         CurrentSetLogger(
           exercise: exercises.isEmpty ? null : exercises.first,
@@ -920,6 +968,57 @@ class TrainScreen extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _SessionIntentCard extends StatelessWidget {
+  const _SessionIntentCard({required this.mode});
+
+  final String mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final icon = switch (mode) {
+      'Hipertrofia' => Icons.trending_up,
+      'Técnica' => Icons.tune,
+      'Libre' => Icons.edit_note,
+      _ => Icons.bolt,
+    };
+    final copy = switch (mode) {
+      'Hipertrofia' => 'Volumen, control y proximidad al fallo.',
+      'Técnica' => 'Calidad de movimiento, tempo y ejecución prolija.',
+      'Libre' => 'Sesión flexible para registrar lo que hagas hoy.',
+      _ => 'Carga alta, descansos más largos y foco en progresión.',
+    };
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.divider),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.primaryStrong),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Modo $mode',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(copy, style: Theme.of(context).textTheme.labelMedium),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

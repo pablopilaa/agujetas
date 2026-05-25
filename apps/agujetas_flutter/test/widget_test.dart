@@ -47,4 +47,17 @@ void main() {
       expect(find.text('Peso 2 / backoff'), findsWidgets);
     },
   );
+
+  testWidgets('session mode chips open training with selected intent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Hipertrofia'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entrenar · Hipertrofia'), findsOneWidget);
+    expect(find.text('Modo Hipertrofia'), findsOneWidget);
+  });
 }
