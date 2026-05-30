@@ -836,12 +836,12 @@ class RecommendedWorkoutCard extends StatelessWidget {
       icon: Icons.fitness_center,
       title: 'Empuje A',
       subtitle: 'Pecho, hombro y tríceps',
+      onTap: onStart,
       action: _SoftChip(
         label: 'Recomendado hoy',
         color: colors.primaryStrong,
         background: colors.raised,
       ),
-      onTap: onStart,
       child: Column(
         children: [
           Divider(color: colors.divider),
@@ -974,7 +974,7 @@ class _TrainScreenState extends State<TrainScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       title:
-          'Routine Active\nEmpuje A • ${_formatSessionDuration(_totalElapsed)}',
+          'Entrenar · ${widget.sessionMode}\nEmpuje A • ${_formatSessionDuration(_totalElapsed)}',
       user: widget.user,
       menuActions: [
         AppMenuAction(
@@ -1353,6 +1353,12 @@ class ExerciseCard extends StatelessWidget {
                   onSelectionChanged: (value) =>
                       onChanged(exercise.copyWith(isUnilateral: value.first)),
                 ),
+                IconButton(
+                  tooltip: 'Detalle del ejercicio',
+                  onPressed: () =>
+                      showExerciseDetailSheet(context, exercise: exercise),
+                  icon: const Icon(Icons.info_outline),
+                ),
                 ReorderAccessibilityMenu(
                   onMoveUp: onMoveUp,
                   onMoveDown: onMoveDown,
@@ -1371,6 +1377,243 @@ class ExerciseCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+Future<void> showExerciseDetailSheet(
+  BuildContext context, {
+  required WorkoutExercise exercise,
+  VoidCallback? onAdd,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => _ExerciseDetailSheet(exercise: exercise, onAdd: onAdd),
+  );
+}
+
+class _ExerciseDetailSheet extends StatelessWidget {
+  const _ExerciseDetailSheet({required this.exercise, this.onAdd});
+
+  final WorkoutExercise exercise;
+  final VoidCallback? onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              height: 178,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: colors.raised,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colors.divider),
+              ),
+              child: ExerciseImageBadge(
+                exerciseId: exercise.id,
+                name: exercise.name,
+                muscleGroup: exercise.muscleGroup,
+                imageUri: exercise.imageUri,
+                size: 132,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              exercise.name,
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Ficha técnica, historial y acciones rápidas.',
+              style: TextStyle(color: colors.textSecondary),
+            ),
+            const SizedBox(height: 14),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 2.7,
+              children: [
+                _DetailMetaTile(
+                  icon: Icons.accessibility_new,
+                  label: 'Músculo',
+                  value: exercise.muscleGroup,
+                ),
+                _DetailMetaTile(
+                  icon: Icons.fitness_center,
+                  label: 'Equipo',
+                  value: 'Libre / máquina',
+                ),
+                _DetailMetaTile(
+                  icon: Icons.flag_outlined,
+                  label: 'Nivel',
+                  value: 'Intermedio',
+                ),
+                _DetailMetaTile(
+                  icon: Icons.compare_arrows,
+                  label: 'Tipo',
+                  value: exercise.isUnilateral ? 'Unilateral' : 'Bilateral',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      onAdd?.call();
+                      Navigator.of(context).pop();
+                    },
+                    icon: const Icon(Icons.add),
+                    label: Text(onAdd == null ? 'Ya en rutina' : 'Agregar'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.show_chart),
+                    label: const Text('Ver progreso'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _DetailSection(
+              title: 'Instrucciones',
+              icon: Icons.format_list_numbered,
+              children: const [
+                'Prepará la posición y estabilizá el torso antes de iniciar.',
+                'Mové la carga con control, sin rebotes ni compensaciones.',
+                'Registrá kg, reps y RIR al terminar cada serie.',
+              ],
+            ),
+            _DetailSection(
+              title: 'Seguridad',
+              icon: Icons.health_and_safety_outlined,
+              children: const [
+                'Usá calentamiento si la primera serie efectiva es pesada.',
+                'Marcá dropset cuando reduzcas peso para extender reps.',
+                'Si duele una articulación, bajá carga o cambiá variante.',
+              ],
+            ),
+            DashboardCard(
+              icon: Icons.history,
+              title: 'Historial reciente',
+              subtitle:
+                  '${exercise.sets.length} series planificadas · último volumen estimado ${exercise.sets.length * 600} kg-reps',
+              child: const _ProgressBar(value: 0.64),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailMetaTile extends StatelessWidget {
+  const _DetailMetaTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.divider),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: colors.primaryStrong),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.labelSmall),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailSection extends StatelessWidget {
+  const _DetailSection({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<String> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return DashboardCard(
+      icon: icon,
+      title: title,
+      subtitle: 'Guía operativa para registrar mejor el ejercicio.',
+      child: Column(
+        children: [
+          for (final item in children)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 7),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.check_circle,
+                    size: 16,
+                    color: colors.primaryStrong,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -2224,6 +2467,7 @@ class ProgressScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.appColors;
     final workingSets = exercises
         .expand((exercise) => exercise.sets)
         .where((set) => set.setType != SetType.warmup)
@@ -2239,6 +2483,12 @@ class ProgressScreen extends StatelessWidget {
     );
     return AppScaffold(
       title: 'Progreso',
+      user: user,
+      trailing: IconButton(
+        tooltip: 'Calendario',
+        onPressed: onOpenCalendar,
+        icon: const Icon(Icons.calendar_month_outlined),
+      ),
       menuActions: [
         AppMenuAction(
           icon: Icons.insights_outlined,
@@ -2253,20 +2503,58 @@ class ProgressScreen extends StatelessWidget {
         ),
       ],
       children: [
-        const SectionHeader(
-          title: 'Rendimiento',
-          subtitle: 'Volumen, consistencia y calidad de series.',
-        ),
         Row(
           children: [
             Expanded(
-              child: MetricCard(label: 'Semana', value: '3/5'),
+              child: _ProgressMetricTile(
+                icon: Icons.local_fire_department_outlined,
+                label: 'Racha',
+                value: '12',
+                suffix: 'días',
+                color: colors.amber,
+              ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
-              child: MetricCard(label: 'Mejor racha', value: '12 d'),
+              child: _ProgressMetricTile(
+                icon: Icons.scale_outlined,
+                label: 'Volumen',
+                value: '${(volume / 1000).round()}k',
+                suffix: 'kg sem.',
+                color: colors.primaryStrong,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: _ProgressMetricTile(
+                icon: Icons.calendar_today_outlined,
+                label: 'Sesiones',
+                value: '48',
+                suffix: 'totales',
+              ),
             ),
           ],
+        ),
+        const _CompactSectionTitle('Actividad semanal'),
+        const _WeeklyActivityStrip(),
+        DashboardCard(
+          icon: Icons.show_chart,
+          title: 'Volumen semanal',
+          subtitle: 'Tendencia estimada con tus series efectivas.',
+          child: _VolumeChartCard(volume: volume),
+        ),
+        const _CompactSectionTitle('Marcas personales'),
+        DashboardCard(
+          icon: Icons.monitor_weight_outlined,
+          title: 'Peso máximo',
+          subtitle: '120 kg · Press banca',
+          action: const _MiniValuePill('12 oct'),
+        ),
+        DashboardCard(
+          icon: Icons.workspace_premium_outlined,
+          title: 'Mejor serie',
+          subtitle: '8 reps · 100 kg · Peso muerto',
+          action: const _MiniValuePill('PR'),
         ),
         DashboardCard(
           icon: Icons.monitor_weight_outlined,
@@ -2274,9 +2562,22 @@ class ProgressScreen extends StatelessWidget {
           subtitle: '${volume.round()} kg-reps sin contar calentamientos',
           child: _ProgressBar(value: workingSets.isEmpty ? 0 : 0.68),
         ),
+        const _CompactSectionTitle('Hitos recientes'),
+        const DashboardCard(
+          icon: Icons.auto_awesome,
+          title: 'Nueva marca en sentadilla',
+          subtitle: '100kg x 5 reps. Excelente trabajo.',
+          action: _MiniValuePill('Hace 2d'),
+        ),
+        const DashboardCard(
+          icon: Icons.fitness_center,
+          title: 'Consistencia de hierro',
+          subtitle: 'Completaste 4 sesiones esta semana.',
+          action: _MiniValuePill('Hace 5d'),
+        ),
         DashboardCard(
-          icon: Icons.timeline_outlined,
-          title: 'Dropsets registrados',
+          icon: Icons.layers_outlined,
+          title: 'Dropsets',
           subtitle:
               '${workingSets.where((set) => set.setType == SetType.dropset).length} series con reducción de peso',
           child: const _ProgressBar(value: 0.42),
@@ -2285,15 +2586,241 @@ class ProgressScreen extends StatelessWidget {
         DashboardCard(
           icon: Icons.calendar_month_outlined,
           title: 'Calendario',
-          subtitle:
-              'Schedules y metas asignadas viven acá, no en configuración.',
+          subtitle: 'Historial mensual, schedules y metas asignadas.',
           onTap: onOpenCalendar,
-          action: Icon(
-            Icons.chevron_right,
-            color: context.appColors.primaryStrong,
-          ),
+          action: Icon(Icons.chevron_right, color: colors.primaryStrong),
         ),
       ],
+    );
+  }
+}
+
+class _ProgressMetricTile extends StatelessWidget {
+  const _ProgressMetricTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.suffix,
+    this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String suffix;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 14, color: color ?? colors.primaryStrong),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Text(
+              value,
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontSize: 20),
+            ),
+            Text(suffix, style: Theme.of(context).textTheme.labelMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyActivityStrip extends StatelessWidget {
+  const _WeeklyActivityStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    const days = [
+      ('L', true),
+      ('M', false),
+      ('X', true),
+      ('J', true),
+      ('V', false),
+      ('S', false),
+      ('D', false),
+    ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.divider),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          for (final day in days)
+            Column(
+              children: [
+                Text(day.$1, style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 7),
+                Container(
+                  width: 28,
+                  height: 28,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: day.$2 ? colors.primaryContainer : colors.raised,
+                    shape: BoxShape.circle,
+                  ),
+                  child: day.$2
+                      ? const Icon(Icons.check, size: 15, color: Colors.white)
+                      : null,
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VolumeChartCard extends StatelessWidget {
+  const _VolumeChartCard({required this.volume});
+
+  final double volume;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final points = [0.28, 0.42, 0.35, 0.62, 0.78, 0.82, 0.68];
+    return Container(
+      height: 132,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.background,
+        border: Border.all(color: colors.divider),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _SoftChip(
+                label: 'General',
+                color: Colors.white,
+                background: colors.primaryContainer,
+              ),
+              const SizedBox(width: 6),
+              _SoftChip(
+                label: 'Press banca',
+                color: colors.primaryStrong,
+                background: colors.raised,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: CustomPaint(
+              painter: _SparklinePainter(
+                points: points,
+                line: colors.primaryStrong,
+                accent: colors.amber,
+                grid: colors.divider,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Text(
+            '${volume.round()} kg-reps esta semana',
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SparklinePainter extends CustomPainter {
+  const _SparklinePainter({
+    required this.points,
+    required this.line,
+    required this.accent,
+    required this.grid,
+  });
+
+  final List<double> points;
+  final Color line;
+  final Color accent;
+  final Color grid;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = grid
+      ..strokeWidth = 1;
+    for (var i = 1; i < 4; i++) {
+      final y = size.height * i / 4;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    final path = Path();
+    for (var i = 0; i < points.length; i++) {
+      final x = size.width * i / (points.length - 1);
+      final y = size.height * (1 - points[i]);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = line
+        ..strokeWidth = 2.4
+        ..style = PaintingStyle.stroke,
+    );
+    final bestIndex = points.indexOf(points.reduce((a, b) => a > b ? a : b));
+    final best = Offset(
+      size.width * bestIndex / (points.length - 1),
+      size.height * (1 - points[bestIndex]),
+    );
+    canvas.drawCircle(best, 4, Paint()..color = accent);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
+      oldDelegate.points != points ||
+      oldDelegate.line != line ||
+      oldDelegate.accent != accent ||
+      oldDelegate.grid != grid;
+}
+
+class _MiniValuePill extends StatelessWidget {
+  const _MiniValuePill(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SoftChip(
+      label: label,
+      color: context.appColors.primaryStrong,
+      background: context.appColors.raised,
     );
   }
 }
@@ -2320,22 +2847,35 @@ class _LibraryScreenState extends State<LibraryScreen> {
   late final Future<List<ExerciseCatalogEntry>> _catalogFuture =
       _loadCatalogSnapshot();
   String _query = '';
+  bool _showMine = false;
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Biblioteca',
+      user: widget.user,
+      trailing: IconButton(
+        tooltip: 'Crear ejercicio',
+        onPressed: _openCustomExerciseSheet,
+        icon: const Icon(Icons.add_circle_outline),
+      ),
+      bottomAction: FilledButton.icon(
+        onPressed: _openCustomExerciseSheet,
+        icon: const Icon(Icons.add),
+        label: const Text('Crear ejercicio personalizado'),
+      ),
       menuActions: [
         AppMenuAction(
           icon: Icons.search,
           label: 'Catálogo',
-          selected: true,
-          onSelected: () {},
+          selected: !_showMine,
+          onSelected: () => setState(() => _showMine = false),
         ),
         AppMenuAction(
-          icon: Icons.add_circle_outline,
-          label: 'Crear ejercicio',
-          onSelected: _openCustomExerciseSheet,
+          icon: Icons.bookmarks_outlined,
+          label: 'Mis ejercicios',
+          selected: _showMine,
+          onSelected: () => setState(() => _showMine = true),
         ),
       ],
       children: [
@@ -2351,148 +2891,160 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
           ),
         ),
-        DashboardCard(
-          icon: Icons.add_circle_outline,
-          title: 'Ejercicio personalizado',
-          subtitle:
-              'Crea un ejercicio con 3 series predeterminadas y asócialo a una imagen local o del repositorio.',
-          action: FilledButton(
-            onPressed: _openCustomExerciseSheet,
-            child: const Text('Crear'),
-          ),
+        const SizedBox(height: 12),
+        _LibraryTabs(
+          showMine: _showMine,
+          onChanged: (value) => setState(() => _showMine = value),
         ),
-        DashboardCard(
-          icon: Icons.bookmarks_outlined,
-          title: 'Rutina base',
-          subtitle:
-              '${widget.exercises.length} ejercicios listos para editar y asignar',
-          action: FilledButton(
-            onPressed: () async {
-              final routine = RoutineTemplate(
-                id: const Uuid().v4(),
-                ownerId: widget.user.uid,
-                title: 'Rutina base Agujetas',
-                exercises: widget.exercises,
-              );
-              await widget.repository.saveRoutineTemplate(
-                owner: widget.user,
-                routine: routine,
-              );
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Rutina guardada')),
-                );
-              }
-            },
-            child: const Text('Guardar'),
-          ),
-        ),
-        StreamBuilder<List<ExerciseCatalogEntry>>(
-          stream: widget.repository.watchCustomExercises(widget.user.uid),
-          builder: (context, snapshot) {
-            final items = snapshot.data ?? const <ExerciseCatalogEntry>[];
-            if (items.isEmpty) return const SizedBox.shrink();
-            return DashboardCard(
-              icon: Icons.auto_awesome_motion_outlined,
-              title: 'Tus ejercicios',
-              subtitle: '${items.length} ejercicios personalizados',
-              child: Column(
+        const _LibraryFilterChips(),
+        const _LibraryAssetBanner(),
+        if (!_showMine)
+          FutureBuilder<List<ExerciseCatalogEntry>>(
+            future: _catalogFuture,
+            builder: (context, snapshot) {
+              final catalog = snapshot.data ?? const <ExerciseCatalogEntry>[];
+              final filtered = _filterCatalog(catalog).take(18).toList();
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final item in items.take(5))
-                    _CatalogTile(
-                      item: item,
-                      onAdd: () => _addExercise(item.toWorkoutExercise()),
-                    ),
-                ],
-              ),
-            );
-          },
-        ),
-        FutureBuilder<List<ExerciseCatalogEntry>>(
-          future: _catalogFuture,
-          builder: (context, snapshot) {
-            final catalog = snapshot.data ?? const <ExerciseCatalogEntry>[];
-            final filtered = _filterCatalog(catalog).take(8).toList();
-            return DashboardCard(
-              icon: Icons.dataset_outlined,
-              title: 'Catálogo importado',
-              subtitle:
-                  '${catalog.length} ejercicios desde tus JSON y el catálogo migrado.',
-              child: Column(
-                children: [
+                  _CompactSectionTitle(
+                    _query.isEmpty ? 'Más usados' : 'Resultados',
+                  ),
                   for (final item in filtered)
                     _CatalogTile(
                       item: item,
+                      onTap: () => showExerciseDetailSheet(
+                        context,
+                        exercise: item.toWorkoutExercise(),
+                        onAdd: () => _addExercise(item.toWorkoutExercise()),
+                      ),
                       onAdd: () => _addExercise(item.toWorkoutExercise()),
                     ),
+                  if (filtered.isEmpty)
+                    DashboardCard(
+                      icon: Icons.search_off_outlined,
+                      title: 'Sin resultados',
+                      subtitle:
+                          'Probá buscar por nombre, músculo o agregá un ejercicio propio.',
+                      action: FilledButton(
+                        onPressed: _openCustomExerciseSheet,
+                        child: const Text('Crear'),
+                      ),
+                    ),
                 ],
-              ),
-            );
-          },
-        ),
-        ReorderableListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          buildDefaultDragHandles: false,
-          proxyDecorator: stitchReorderProxy,
-          onReorderStart: (_) => HapticFeedback.mediumImpact(),
-          onReorderEnd: (_) => HapticFeedback.selectionClick(),
-          itemCount: widget.exercises.length,
-          onReorder: (oldIndex, newIndex) {
-            final next = [...widget.exercises];
-            final target = newIndex > oldIndex ? newIndex - 1 : newIndex;
-            final item = next.removeAt(oldIndex);
-            next.insert(target, item);
-            widget.onExercisesChanged(next);
-          },
-          itemBuilder: (context, index) {
-            final exercise = widget.exercises[index];
-            return Card(
-              key: ValueKey('library-${exercise.id}'),
-              child: ListTile(
-                leading: ReorderGrip(
-                  index: index,
-                  label: 'Reordenar ${exercise.name}',
-                ),
-                title: Text(exercise.name),
-                subtitle: Text(
-                  '${exercise.muscleGroup} - ${exercise.isUnilateral ? 'unilateral' : 'bilateral'}',
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+              );
+            },
+          )
+        else ...[
+          DashboardCard(
+            icon: Icons.bookmarks_outlined,
+            title: 'Rutina base',
+            subtitle:
+                '${widget.exercises.length} ejercicios listos para editar, reordenar y asignar.',
+            action: FilledButton(
+              onPressed: () async {
+                final routine = RoutineTemplate(
+                  id: const Uuid().v4(),
+                  ownerId: widget.user.uid,
+                  title: 'Rutina base Agujetas',
+                  exercises: widget.exercises,
+                );
+                await widget.repository.saveRoutineTemplate(
+                  owner: widget.user,
+                  routine: routine,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Rutina guardada')),
+                  );
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ),
+          StreamBuilder<List<ExerciseCatalogEntry>>(
+            stream: widget.repository.watchCustomExercises(widget.user.uid),
+            builder: (context, snapshot) {
+              final items = snapshot.data ?? const <ExerciseCatalogEntry>[];
+              if (items.isEmpty) {
+                return DashboardCard(
+                  icon: Icons.auto_awesome_motion_outlined,
+                  title: 'Tus ejercicios',
+                  subtitle:
+                      'Todavía no creaste ejercicios personalizados. Podés usar galería local o una imagen propia del repositorio.',
+                  action: FilledButton(
+                    onPressed: _openCustomExerciseSheet,
+                    child: const Text('Crear'),
+                  ),
+                );
+              }
+              return DashboardCard(
+                icon: Icons.auto_awesome_motion_outlined,
+                title: 'Tus ejercicios',
+                subtitle: '${items.length} ejercicios personalizados',
+                child: Column(
                   children: [
-                    ExerciseImageBadge(
-                      exerciseId: exercise.id,
-                      name: exercise.name,
-                      muscleGroup: exercise.muscleGroup,
-                      imageUri: exercise.imageUri,
-                    ),
-                    ReorderAccessibilityMenu(
-                      onMoveUp: index == 0
-                          ? null
-                          : () {
-                              final next = [...widget.exercises];
-                              final item = next.removeAt(index);
-                              next.insert(index - 1, item);
-                              widget.onExercisesChanged(next);
-                              HapticFeedback.selectionClick();
-                            },
-                      onMoveDown: index == widget.exercises.length - 1
-                          ? null
-                          : () {
-                              final next = [...widget.exercises];
-                              final item = next.removeAt(index);
-                              next.insert(index + 1, item);
-                              widget.onExercisesChanged(next);
-                              HapticFeedback.selectionClick();
-                            },
-                    ),
+                    for (final item in items.take(8))
+                      _CatalogTile(
+                        item: item,
+                        onTap: () => showExerciseDetailSheet(
+                          context,
+                          exercise: item.toWorkoutExercise(),
+                          onAdd: () => _addExercise(item.toWorkoutExercise()),
+                        ),
+                        onAdd: () => _addExercise(item.toWorkoutExercise()),
+                      ),
                   ],
                 ),
-              ),
-            );
-          },
-        ),
+              );
+            },
+          ),
+          const _CompactSectionTitle('Orden de rutina'),
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            proxyDecorator: stitchReorderProxy,
+            onReorderStart: (_) => HapticFeedback.mediumImpact(),
+            onReorderEnd: (_) => HapticFeedback.selectionClick(),
+            itemCount: widget.exercises.length,
+            onReorder: (oldIndex, newIndex) {
+              final next = [...widget.exercises];
+              final target = newIndex > oldIndex ? newIndex - 1 : newIndex;
+              final item = next.removeAt(oldIndex);
+              next.insert(target, item);
+              widget.onExercisesChanged(next);
+            },
+            itemBuilder: (context, index) {
+              final exercise = widget.exercises[index];
+              return _LibraryRoutineTile(
+                key: ValueKey('library-${exercise.id}'),
+                index: index,
+                exercise: exercise,
+                onTap: () =>
+                    showExerciseDetailSheet(context, exercise: exercise),
+                onMoveUp: index == 0
+                    ? null
+                    : () {
+                        final next = [...widget.exercises];
+                        final item = next.removeAt(index);
+                        next.insert(index - 1, item);
+                        widget.onExercisesChanged(next);
+                        HapticFeedback.selectionClick();
+                      },
+                onMoveDown: index == widget.exercises.length - 1
+                    ? null
+                    : () {
+                        final next = [...widget.exercises];
+                        final item = next.removeAt(index);
+                        next.insert(index + 1, item);
+                        widget.onExercisesChanged(next);
+                        HapticFeedback.selectionClick();
+                      },
+              );
+            },
+          ),
+        ],
       ],
     );
   }
@@ -2557,29 +3109,293 @@ class _LibraryScreenState extends State<LibraryScreen> {
 }
 
 class _CatalogTile extends StatelessWidget {
-  const _CatalogTile({required this.item, required this.onAdd});
+  const _CatalogTile({
+    required this.item,
+    required this.onAdd,
+    required this.onTap,
+  });
 
   final ExerciseCatalogEntry item;
   final VoidCallback onAdd;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: ExerciseImageBadge(
-        exerciseId: item.id,
-        name: item.name,
-        muscleGroup: item.muscleGroup,
-        imageUri: item.imageUri,
+    final colors = context.appColors;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              ExerciseImageBadge(
+                exerciseId: item.id,
+                name: item.name,
+                muscleGroup: item.muscleGroup,
+                imageUri: item.imageUri,
+                size: 52,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${item.muscleGroup}${item.usageCount > 0 ? ' · usado ${item.usageCount}x' : ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: colors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Favorito',
+                onPressed: () {},
+                icon: const Icon(Icons.star_border),
+              ),
+              IconButton.filledTonal(
+                tooltip: 'Agregar',
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ),
+        ),
       ),
-      title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        '${item.muscleGroup}${item.usageCount > 0 ? ' - usado ${item.usageCount}x' : ''}',
+    );
+  }
+}
+
+class _LibraryTabs extends StatelessWidget {
+  const _LibraryTabs({required this.showMine, required this.onChanged});
+
+  final bool showMine;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: context.appColors.raised,
+        borderRadius: BorderRadius.circular(12),
       ),
-      trailing: IconButton(
-        tooltip: 'Agregar',
-        onPressed: onAdd,
-        icon: const Icon(Icons.add_circle_outline),
+      child: Row(
+        children: [
+          Expanded(
+            child: _LibraryTabButton(
+              label: 'Catálogo',
+              selected: !showMine,
+              onTap: () => onChanged(false),
+            ),
+          ),
+          Expanded(
+            child: _LibraryTabButton(
+              label: 'Mis ejercicios',
+              selected: showMine,
+              onTap: () => onChanged(true),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LibraryTabButton extends StatelessWidget {
+  const _LibraryTabButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Material(
+      color: selected ? colors.surface : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: selected ? Border.all(color: colors.divider) : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? colors.text : colors.textSecondary,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LibraryFilterChips extends StatelessWidget {
+  const _LibraryFilterChips();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          _FilterPill(icon: Icons.accessibility_new, label: 'Grupo muscular'),
+          _FilterPill(icon: Icons.fitness_center, label: 'Equipamiento'),
+          _FilterPill(icon: Icons.star_border, label: 'Favoritos'),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterPill extends StatelessWidget {
+  const _FilterPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.divider),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: colors.primaryStrong),
+          const SizedBox(width: 6),
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _LibraryAssetBanner extends StatelessWidget {
+  const _LibraryAssetBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.amberContainer.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.amberContainer),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.offline_pin_outlined, color: colors.amber),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Imágenes propias locales: sin Lyfta y listas para funcionar offline.',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LibraryRoutineTile extends StatelessWidget {
+  const _LibraryRoutineTile({
+    super.key,
+    required this.index,
+    required this.exercise,
+    required this.onTap,
+    this.onMoveUp,
+    this.onMoveDown,
+  });
+
+  final int index;
+  final WorkoutExercise exercise;
+  final VoidCallback onTap;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              ReorderGrip(index: index, label: 'Reordenar ${exercise.name}'),
+              const SizedBox(width: 10),
+              ExerciseImageBadge(
+                exerciseId: exercise.id,
+                name: exercise.name,
+                muscleGroup: exercise.muscleGroup,
+                imageUri: exercise.imageUri,
+                size: 48,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      exercise.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${exercise.muscleGroup} · ${exercise.sets.length} series · ${exercise.isUnilateral ? 'unilateral' : 'bilateral'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: colors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              ReorderAccessibilityMenu(
+                onMoveUp: onMoveUp,
+                onMoveDown: onMoveDown,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2923,44 +3739,12 @@ class ProfileScreen extends StatelessWidget {
         ),
       ],
       children: [
-        Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: context.appColors.surface,
-            border: Border.all(color: context.appColors.divider),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              BrandMark(size: 72, dark: dark),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Agujetas',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    Text(
-                      'Cuenta comercial lista para Android e iOS',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        DashboardCard(
-          icon: Icons.account_circle_outlined,
-          title: user.displayName,
-          subtitle: '${user.email}\nRol activo: ${user.activeRole.label}',
-        ),
-        DashboardCard(
+        _ProfileHero(user: user, dark: dark),
+        RoleSwitcher(user: user, repository: repository),
+        _SettingsSection(
           icon: Icons.palette_outlined,
           title: 'Apariencia',
-          subtitle: 'Sistema / Claro / Oscuro',
+          subtitle: 'Elegí cómo se ve Agujetas en este dispositivo.',
           child: SegmentedButton<ThemeMode>(
             showSelectedIcon: false,
             segments: const [
@@ -2972,12 +3756,224 @@ class ProfileScreen extends StatelessWidget {
             onSelectionChanged: (value) => onThemeModeChanged(value.first),
           ),
         ),
-        FilledButton.tonalIcon(
-          onPressed: repository.signOut,
-          icon: const Icon(Icons.logout),
-          label: const Text('Cerrar sesión'),
+        _SettingsSection(
+          icon: Icons.notifications_active_outlined,
+          title: 'Permisos',
+          subtitle:
+              'Controlá notificaciones, sonidos de descanso e imágenes locales.',
+          child: Column(
+            children: const [
+              _SwitchSettingRow(
+                icon: Icons.timer_outlined,
+                title: 'Alertas de descanso',
+                subtitle: 'Sonido y aviso aunque la app esté en segundo plano.',
+                value: true,
+              ),
+              _SwitchSettingRow(
+                icon: Icons.monitor_weight_outlined,
+                title: 'Seguimiento de peso',
+                subtitle: 'Avisos cuando la tendencia se aleja de tu meta.',
+                value: true,
+              ),
+              _SwitchSettingRow(
+                icon: Icons.photo_library_outlined,
+                title: 'Galería local',
+                subtitle: 'Sólo para ejercicios personalizados.',
+                value: false,
+              ),
+            ],
+          ),
+        ),
+        _SettingsSection(
+          icon: Icons.privacy_tip_outlined,
+          title: 'Privacidad y datos',
+          subtitle: 'Tus datos de entrenamiento pertenecen a tu cuenta.',
+          child: Column(
+            children: [
+              _ProfileActionRow(
+                icon: Icons.download_outlined,
+                title: 'Exportar mis datos',
+                subtitle: 'Sesiones, rutinas, peso corporal y progreso.',
+                onTap: () {},
+              ),
+              _ProfileActionRow(
+                icon: Icons.delete_outline,
+                title: 'Eliminar cuenta',
+                subtitle: 'Borra datos de usuario luego de confirmar.',
+                danger: true,
+                onTap: () {},
+              ),
+            ],
+          ),
+        ),
+        _SettingsSection(
+          icon: Icons.security_outlined,
+          title: 'Seguridad',
+          subtitle: 'Google Sign-In, reglas Firestore y sesiones activas.',
+          child: Column(
+            children: [
+              _ProfileActionRow(
+                icon: Icons.verified_user_outlined,
+                title: 'Cuenta Google verificada',
+                subtitle: user.email,
+                onTap: () {},
+              ),
+              _ProfileActionRow(
+                icon: Icons.logout,
+                title: 'Cerrar sesión',
+                subtitle: 'Salir de esta sesión en el dispositivo.',
+                onTap: repository.signOut,
+              ),
+            ],
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({required this.user, required this.dark});
+
+  final AppUser user;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border.all(color: colors.divider),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          BrandMark(size: 92, dark: dark),
+          const SizedBox(height: 12),
+          Text(
+            user.displayName,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 3),
+          Text(
+            user.email,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _SoftChip(
+                label: user.plan.label,
+                color: user.isPro ? colors.primaryStrong : colors.textSecondary,
+                background: colors.raised,
+              ),
+              _SoftChip(
+                label: 'Rol: ${user.activeRole.label}',
+                color: colors.primaryStrong,
+                background: colors.primaryContainer.withValues(alpha: 0.12),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DashboardCard(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      child: child,
+    );
+  }
+}
+
+class _SwitchSettingRow extends StatefulWidget {
+  const _SwitchSettingRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool value;
+
+  @override
+  State<_SwitchSettingRow> createState() => _SwitchSettingRowState();
+}
+
+class _SwitchSettingRowState extends State<_SwitchSettingRow> {
+  late bool _enabled = widget.value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(widget.icon, color: colors.primaryStrong),
+      title: Text(widget.title),
+      subtitle: Text(widget.subtitle),
+      trailing: Switch(
+        value: _enabled,
+        onChanged: (value) => setState(() => _enabled = value),
+      ),
+    );
+  }
+}
+
+class _ProfileActionRow extends StatelessWidget {
+  const _ProfileActionRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final foreground = danger ? Colors.red.shade700 : colors.primaryStrong;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: foreground),
+      title: Text(title, style: danger ? TextStyle(color: foreground) : null),
+      subtitle: Text(subtitle),
+      trailing: Icon(Icons.chevron_right, color: colors.textSecondary),
+      onTap: onTap,
     );
   }
 }
@@ -3179,7 +4175,7 @@ class CompactTimers extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: colors.raised,
+        color: colors.surface,
         border: Border.all(color: colors.divider),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -3187,6 +4183,7 @@ class CompactTimers extends StatelessWidget {
         children: [
           Expanded(
             child: TimerCard(
+              icon: Icons.timer_outlined,
               label: 'Tiempo total',
               value: _formatDuration(totalElapsed),
               running: totalRunning,
@@ -3194,9 +4191,10 @@ class CompactTimers extends StatelessWidget {
               onReset: onResetTotal,
             ),
           ),
-          Container(width: 1, height: 42, color: colors.divider),
+          Container(width: 1, height: 46, color: colors.divider),
           Expanded(
             child: TimerCard(
+              icon: Icons.hourglass_bottom_outlined,
               label: 'Descanso',
               value: _formatDuration(restRemaining),
               running: restRunning,
@@ -3222,6 +4220,7 @@ class CompactTimers extends StatelessWidget {
 class TimerCard extends StatelessWidget {
   const TimerCard({
     super.key,
+    required this.icon,
     required this.label,
     required this.value,
     required this.running,
@@ -3229,6 +4228,7 @@ class TimerCard extends StatelessWidget {
     required this.onReset,
   });
 
+  final IconData icon;
   final String label;
   final String value;
   final bool running;
@@ -3239,44 +4239,36 @@ class TimerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.appColors;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
-          Icon(
-            label == 'Descanso'
-                ? Icons.hourglass_bottom_outlined
-                : Icons.timer_outlined,
-            size: 16,
-            color: colors.textSecondary,
-          ),
-          const SizedBox(width: 5),
+          Icon(icon, size: 20, color: colors.primaryStrong),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 2),
+                Text(label, style: Theme.of(context).textTheme.labelSmall),
                 Text(value, style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
           ),
           TextButton.icon(
             onPressed: onToggle,
-            icon: Icon(running ? Icons.pause : Icons.play_arrow),
+            icon: Icon(running ? Icons.pause : Icons.play_arrow, size: 18),
             label: Text(running ? 'Pausar' : 'Iniciar'),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              minimumSize: const Size(0, 36),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(0, 34),
             ),
           ),
           IconButton(
             tooltip: 'Resetear $label',
             onPressed: onReset,
             icon: const Icon(Icons.restart_alt),
-            iconSize: 18,
+            iconSize: 19,
             visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints.tightFor(width: 34, height: 34),
           ),
         ],
       ),
@@ -3601,7 +4593,7 @@ class _BottomNavItem extends StatelessWidget {
         children: [
           Container(
             width: 36,
-            height: 28,
+            height: 24,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: selected

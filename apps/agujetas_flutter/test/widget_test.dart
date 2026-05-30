@@ -61,7 +61,7 @@ void main() {
   testWidgets('session mode chips open training with selected intent', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.physicalSize = const Size(900, 1500);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -69,10 +69,10 @@ void main() {
     await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
     await tester.pump();
 
-    await tester.tap(find.text('Hipertrofia'));
+    await tester.tap(find.text('Hipertrofia').first);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Routine Active'), findsOneWidget);
+    expect(find.textContaining('Entrenar · Hipertrofia'), findsOneWidget);
     expect(find.text('Modo Hipertrofia'), findsOneWidget);
   });
 
@@ -114,8 +114,7 @@ void main() {
     await tester.tap(find.text('Modo Técnica').last);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Routine Active'), findsOneWidget);
-    expect(find.text('Modo Técnica'), findsOneWidget);
+    expect(find.textContaining('Entrenar · Técnica'), findsOneWidget);
 
     await tester.tap(find.text('Iniciar').first);
     await tester.pump(const Duration(milliseconds: 100));

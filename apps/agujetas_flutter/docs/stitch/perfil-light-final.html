@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Perfil - FitFocus</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#a15f4f",
+                        "surface": "#FFFFFF",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "divider": "#DCE5DF",
+                        "on-tertiary-container": "#fff3f1",
+                        "surface-dim": "#d8dbd8",
+                        "secondary-fixed-dim": "#ffb874",
+                        "secondary-fixed": "#ffdcbf",
+                        "surface-tint": "#1f695b",
+                        "primary": "#156355",
+                        "on-tertiary-fixed": "#380d04",
+                        "inverse-surface": "#2d3130",
+                        "outline": "#6f7976",
+                        "surface-container-low": "#f2f4f2",
+                        "on-secondary-fixed-variant": "#6a3b00",
+                        "on-surface": "#191c1b",
+                        "on-secondary-fixed": "#2d1600",
+                        "on-background": "#191c1b",
+                        "on-secondary": "#ffffff",
+                        "tertiary": "#844739",
+                        "on-tertiary-fixed-variant": "#6f3729",
+                        "primary-fixed": "#a9f0de",
+                        "surface-container": "#eceeec",
+                        "on-primary-container": "#d3fff2",
+                        "error-container": "#ffdad6",
+                        "background": "#F7F8F5",
+                        "surface-container-highest": "#e0e3e1",
+                        "on-secondary-container": "#764200",
+                        "primary-fixed-dim": "#8dd4c2",
+                        "on-surface-variant": "#3f4946",
+                        "surface-variant": "#e0e3e1",
+                        "text-primary": "#17211D",
+                        "primary-container": "#357c6d",
+                        "on-primary-fixed": "#00201a",
+                        "on-error": "#ffffff",
+                        "primary-strong": "#2A6357",
+                        "text-secondary": "#5F6F68",
+                        "tertiary-fixed-dim": "#ffb4a3",
+                        "danger": "#C94C4C",
+                        "surface-container-high": "#e6e9e6",
+                        "on-primary-fixed-variant": "#005144",
+                        "on-error-container": "#93000a",
+                        "outline-variant": "#bec9c4",
+                        "secondary-container": "#feb064",
+                        "inverse-primary": "#8dd4c2",
+                        "secondary": "#8b5007",
+                        "inverse-on-surface": "#eff1ef",
+                        "surface-bright": "#f7faf7",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#ffdad2",
+                        "surface-raised": "#EEF3EF",
+                        "error": "#ba1a1a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "touch-target-min": "44px",
+                        "margin-mobile": "16px",
+                        "stack-md": "16px",
+                        "stack-lg": "24px",
+                        "gutter": "12px",
+                        "base-unit": "4px",
+                        "stack-sm": "8px"
+                    },
+                    "fontFamily": {
+                        "body": ["Inter"],
+                        "metadata": ["Inter"],
+                        "page-heading": ["Inter"],
+                        "display": ["Inter"],
+                        "section-header": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body": ["15px", { "lineHeight": "22px", "letterSpacing": "0", "fontWeight": "400" }],
+                        "metadata": ["12px", { "lineHeight": "16px", "letterSpacing": "0", "fontWeight": "500" }],
+                        "page-heading": ["22px", { "lineHeight": "28px", "letterSpacing": "0", "fontWeight": "600" }],
+                        "display": ["28px", { "lineHeight": "34px", "letterSpacing": "0", "fontWeight": "700" }],
+                        "section-header": ["16px", { "lineHeight": "24px", "letterSpacing": "0", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background font-body pb-24 selection:bg-primary-container selection:text-on-primary">
+<!-- TopAppBar Component -->
+<header class="bg-surface dark:bg-on-surface docked full-width top-0 bg-surface dark:bg-on-surface flat no shadows flex justify-between items-center px-margin-mobile h-touch-target-min w-full z-50 sticky">
+<button aria-label="Menu" class="h-touch-target-min w-touch-target-min flex items-center justify-center text-on-surface-variant dark:text-outline-variant hover:opacity-80 transition-opacity active:scale-95 duration-100">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+</button>
+<h1 class="font-display text-display text-primary dark:text-primary-fixed-dim">FitFocus</h1>
+<button aria-label="Settings" class="h-touch-target-min w-touch-target-min flex items-center justify-center text-on-surface-variant dark:text-outline-variant hover:opacity-80 transition-opacity active:scale-95 duration-100">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</header>
+<main class="px-margin-mobile pt-stack-lg pb-stack-lg max-w-md mx-auto space-y-stack-lg">
+<!-- Account Header -->
+<section class="flex flex-col items-center text-center">
+<div class="w-24 h-24 bg-surface-raised rounded-full mb-stack-sm flex items-center justify-center border border-divider"><img alt="Logo Agujetas" class="w-full h-full object-contain rounded-full" src="https://lh3.googleusercontent.com/aida/ADBb0ug8WeaNSUH4-VydQMJkPC1WGNLK4AB7bTfRcG3WH_iEWTpYY-izrJUIrzO1zd-Ue5XcnsHKmbw-CyQNmkYg7JNJhGyVmF306B5Eypka6d0NKiLoQZPSetgDLjBdrAqu2XuifQgE4lN1E2ijhSjA_FmMMwtRiMmNcnEzG5GIg4KysprK7AEgTC20n9iicPp5cxifMqKrGz4Knuc3B-Ikmqzgd796tmuzsOg4DCqu2ETqBWE1pZUFERUA8ww"/></div>
+<h2 class="font-page-heading text-page-heading text-text-primary">Carlos Atleta</h2>
+<p class="font-body text-body text-text-secondary mb-3">carlos.atleta@gmail.com</p>
+<div class="bg-primary-container text-on-primary font-metadata text-metadata px-3 py-1 rounded-full uppercase tracking-wider">
+                Plan Pro
+            </div>
+</section>
+<!-- Theme Preference -->
+<section class="space-y-stack-sm">
+<h3 class="font-section-header text-section-header text-text-primary">Apariencia</h3>
+<div class="flex bg-surface-raised p-1 rounded-lg border border-divider">
+<button class="flex-1 py-2 text-center bg-surface shadow-sm rounded border border-divider font-metadata text-metadata text-primary font-semibold">Sistema</button>
+<button class="flex-1 py-2 text-center rounded font-metadata text-metadata text-text-secondary">Claro</button>
+<button class="flex-1 py-2 text-center rounded font-metadata text-metadata text-text-secondary">Oscuro</button>
+</div>
+</section>
+<!-- Permissions -->
+<section class="space-y-stack-sm">
+<h3 class="font-section-header text-section-header text-text-primary">Permisos</h3>
+<div class="bg-surface rounded-lg border border-divider divide-y divide-divider">
+<div class="flex justify-between items-center p-4 min-h-touch-target-min">
+<span class="font-body text-body text-text-primary">Notificaciones</span>
+<button aria-pressed="true" class="w-11 h-6 bg-primary-container rounded-full relative">
+<span class="absolute right-1 top-1 w-4 h-4 bg-surface rounded-full"></span>
+</button>
+</div>
+<div class="flex flex-col p-4">
+<div class="flex justify-between items-center mb-1">
+<span class="font-body text-body text-text-primary">Acceso a Galería</span>
+<button aria-pressed="false" class="w-11 h-6 bg-surface-dim rounded-full relative">
+<span class="absolute left-1 top-1 w-4 h-4 bg-surface rounded-full"></span>
+</button>
+</div>
+<p class="font-metadata text-metadata text-text-secondary">Las imágenes personalizadas se guardan localmente.</p>
+</div>
+</div>
+</section>
+<!-- Privacy & Data -->
+<section class="space-y-stack-sm">
+<h3 class="font-section-header text-section-header text-text-primary">Privacidad y Datos</h3>
+<div class="flex flex-col space-y-3">
+<button class="w-full flex justify-between items-center px-4 min-h-touch-target-min bg-surface border border-divider rounded-lg hover:bg-surface-raised transition-colors text-left">
+<span class="font-body text-body text-text-primary">Exportar datos</span>
+<span class="material-symbols-outlined text-text-secondary" data-icon="download">download</span>
+</button>
+<button class="w-full flex justify-between items-center px-4 min-h-touch-target-min bg-surface border border-divider rounded-lg hover:bg-surface-raised transition-colors text-left">
+<span class="font-body text-body text-text-primary">Descargar historial</span>
+<span class="material-symbols-outlined text-text-secondary" data-icon="history">history</span>
+</button>
+<button class="w-full flex justify-between items-center px-4 min-h-touch-target-min bg-surface border border-error-container rounded-lg hover:bg-error-container transition-colors text-left">
+<span class="font-body text-body text-danger">Eliminar cuenta</span>
+<span class="material-symbols-outlined text-danger" data-icon="delete">delete</span>
+</button>
+</div>
+</section>
+<!-- Security & Links -->
+<section class="space-y-stack-sm">
+<h3 class="font-section-header text-section-header text-text-primary">Seguridad e Información</h3>
+<div class="bg-surface rounded-lg border border-divider divide-y divide-divider">
+<button class="w-full flex justify-between items-center p-4 min-h-touch-target-min hover:bg-surface-raised transition-colors text-left">
+<span class="font-body text-body text-text-primary">Sesiones Activas</span>
+<span class="material-symbols-outlined text-text-secondary" data-icon="devices">devices</span>
+</button>
+<button class="w-full flex justify-between items-center p-4 min-h-touch-target-min hover:bg-surface-raised transition-colors text-left">
+<span class="font-body text-body text-text-primary">Política de Privacidad</span>
+<span class="material-symbols-outlined text-text-secondary" data-icon="chevron_right">chevron_right</span>
+</button>
+<button class="w-full flex justify-between items-center p-4 min-h-touch-target-min hover:bg-surface-raised transition-colors text-left">
+<span class="font-body text-body text-text-primary">Términos</span>
+<span class="material-symbols-outlined text-text-secondary" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- Logout Action -->
+<div class="pt-stack-md">
+<button class="w-full min-h-touch-target-min bg-surface border-2 border-divider text-text-primary font-section-header text-section-header rounded-lg hover:bg-surface-raised transition-colors flex items-center justify-center space-x-2">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span>Cerrar sesión</span>
+</button>
+</div>
+</main>
+<!-- BottomNavBar Component -->
+<nav class="bg-surface dark:bg-on-surface docked full-width bottom-0 rounded-t-xl bg-surface dark:bg-on-surface border-t border-divider dark:border-outline-variant flat no shadows fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-gutter py-base-unit h-16 pb-safe md:hidden">
+<a class="flex flex-col items-center justify-center text-text-secondary dark:text-outline-variant hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors w-full h-full" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="home">home</span>
+<span class="font-metadata text-metadata">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary dark:text-outline-variant hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors w-full h-full" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="exercise">exercise</span>
+<span class="font-metadata text-metadata">Entrenar</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary dark:text-outline-variant hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors w-full h-full" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="insights">insights</span>
+<span class="font-metadata text-metadata">Progreso</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary dark:text-outline-variant hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors w-full h-full" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="local_library">local_library</span>
+<span class="font-metadata text-metadata">Biblioteca</span>
+</a>
+<!-- Active Tab: Perfil -->
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-semibold hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors w-full h-full transform scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-metadata text-metadata">Perfil</span>
+</a>
+</nav>
+</body></html>

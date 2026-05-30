@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Progreso - Agujetas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary": "#ffffff",
+                      "tertiary-container": "#a15f4f",
+                      "secondary": "#8b5007",
+                      "on-secondary-fixed-variant": "#6a3b00",
+                      "surface-container-low": "#f2f4f2",
+                      "secondary-container": "#feb064",
+                      "on-secondary-fixed": "#2d1600",
+                      "danger": "#C94C4C",
+                      "on-primary-fixed-variant": "#005144",
+                      "surface-raised": "#EEF3EF",
+                      "on-secondary-container": "#764200",
+                      "on-tertiary": "#ffffff",
+                      "on-background": "#191c1b",
+                      "surface-container-lowest": "#ffffff",
+                      "outline-variant": "#bec9c4",
+                      "primary-strong": "#2A6357",
+                      "on-primary-container": "#d3fff2",
+                      "surface": "#FFFFFF",
+                      "inverse-primary": "#8dd4c2",
+                      "outline": "#6f7976",
+                      "error": "#ba1a1a",
+                      "surface-container-high": "#e6e9e6",
+                      "background": "#F7F8F5",
+                      "secondary-fixed": "#ffdcbf",
+                      "inverse-surface": "#2d3130",
+                      "tertiary-fixed": "#ffdad2",
+                      "primary-fixed": "#a9f0de",
+                      "on-error-container": "#93000a",
+                      "text-secondary": "#5F6F68",
+                      "primary": "#156355",
+                      "on-surface-variant": "#3f4946",
+                      "surface-bright": "#f7faf7",
+                      "on-tertiary-fixed": "#380d04",
+                      "on-primary-fixed": "#00201a",
+                      "primary-fixed-dim": "#8dd4c2",
+                      "on-tertiary-fixed-variant": "#6f3729",
+                      "surface-container-highest": "#e0e3e1",
+                      "on-tertiary-container": "#fff3f1",
+                      "secondary-fixed-dim": "#ffb874",
+                      "error-container": "#ffdad6",
+                      "text-primary": "#17211D",
+                      "surface-dim": "#d8dbd8",
+                      "on-surface": "#191c1b",
+                      "tertiary": "#844739",
+                      "on-secondary": "#ffffff",
+                      "surface-tint": "#1f695b",
+                      "inverse-on-surface": "#eff1ef",
+                      "surface-container": "#eceeec",
+                      "tertiary-fixed-dim": "#ffb4a3",
+                      "surface-variant": "#e0e3e1",
+                      "divider": "#DCE5DF",
+                      "on-error": "#ffffff",
+                      "primary-container": "#357c6d"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-md": "16px",
+                      "base-unit": "4px",
+                      "gutter": "12px",
+                      "stack-lg": "24px",
+                      "stack-sm": "8px",
+                      "touch-target-min": "44px",
+                      "margin-mobile": "16px"
+              },
+              "fontFamily": {
+                      "section-header": ["Inter"],
+                      "metadata": ["Inter"],
+                      "display": ["Inter"],
+                      "page-heading": ["Inter"],
+                      "body": ["Inter"]
+              },
+              "fontSize": {
+                      "section-header": ["16px", {"lineHeight": "24px", "letterSpacing": "0", "fontWeight": "600"}],
+                      "metadata": ["12px", {"lineHeight": "16px", "letterSpacing": "0", "fontWeight": "500"}],
+                      "display": ["28px", {"lineHeight": "34px", "letterSpacing": "0", "fontWeight": "700"}],
+                      "page-heading": ["22px", {"lineHeight": "28px", "letterSpacing": "0", "fontWeight": "600"}],
+                      "body": ["15px", {"lineHeight": "22px", "letterSpacing": "0", "fontWeight": "400"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .pt-safe { padding-top: env(safe-area-inset-top, 24px); }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 24px); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-text-primary font-body antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopAppBar -->
+<header class="bg-background dark:bg-background flex items-center justify-between px-margin-mobile w-full h-[64px] pt-safe sticky top-0 z-40">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 flex items-center justify-center shrink-0">
+<img alt="Agujetas Logo" class="w-8 h-8 object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ug8WeaNSUH4-VydQMJkPC1WGNLK4AB7bTfRcG3WH_iEWTpYY-izrJUIrzO1zd-Ue5XcnsHKmbw-CyQNmkYg7JNJhGyVmF306B5Eypka6d0NKiLoQZPSetgDLjBdrAqu2XuifQgE4lN1E2ijhSjA_FmMMwtRiMmNcnEzG5GIg4KysprK7AEgTC20n9iicPp5cxifMqKrGz4Knuc3B-Ikmqzgd796tmuzsOg4DCqu2ETqBWE1pZUFERUA8ww"/>
+</div>
+<h1 class="text-primary dark:text-primary-fixed-dim font-page-heading text-page-heading">Progreso</h1>
+</div>
+<button class="w-[44px] h-[44px] flex items-center justify-center text-primary dark:text-primary-fixed-dim hover:bg-surface-raised dark:hover:bg-surface-container-low rounded-full transition-colors active:scale-95 duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">date_range</span>
+</button>
+</header>
+<!-- Main Canvas -->
+<main class="px-margin-mobile pb-[100px] flex flex-col gap-stack-lg mt-stack-md">
+<!-- Summary Row -->
+<section class="flex gap-gutter overflow-x-auto hide-scrollbar pb-1">
+<!-- Racha -->
+<div class="bg-surface rounded-lg border border-divider flex-1 min-w-[100px] p-3 flex flex-col items-center justify-center gap-1">
+<div class="flex items-center gap-1 text-secondary-container">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+<span class="font-metadata text-metadata text-text-secondary">Racha</span>
+</div>
+<div class="font-display text-display text-text-primary">12</div>
+<div class="font-metadata text-metadata text-text-secondary">días</div>
+</div>
+<!-- Volumen -->
+<div class="bg-surface rounded-lg border border-divider flex-1 min-w-[110px] p-3 flex flex-col items-center justify-center gap-1">
+<div class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[18px]">weight</span>
+<span class="font-metadata text-metadata text-text-secondary">Volumen</span>
+</div>
+<div class="font-display text-display text-text-primary">14k</div>
+<div class="font-metadata text-metadata text-text-secondary">kg sem.</div>
+</div>
+<!-- Sesiones -->
+<div class="bg-surface rounded-lg border border-divider flex-1 min-w-[100px] p-3 flex flex-col items-center justify-center gap-1">
+<div class="flex items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[18px]">calendar_today</span>
+<span class="font-metadata text-metadata text-text-secondary">Sesiones</span>
+</div>
+<div class="font-display text-display text-text-primary">48</div>
+<div class="font-metadata text-metadata text-text-secondary">totales</div>
+</div>
+</section>
+<!-- Weekly Activity Strip -->
+<section>
+<h2 class="font-section-header text-section-header text-text-primary mb-stack-sm">Actividad Semanal</h2>
+<div class="bg-surface rounded-lg border border-divider p-4 flex justify-between items-center">
+<div class="flex flex-col items-center gap-2">
+<span class="font-metadata text-metadata text-text-secondary">L</span>
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="font-metadata text-metadata text-text-secondary">M</span>
+<div class="w-8 h-8 rounded-full bg-surface-raised flex items-center justify-center"></div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="font-metadata text-metadata text-text-secondary">X</span>
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="font-metadata text-metadata text-text-secondary">J</span>
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary relative">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">check</span>
+<div class="absolute -bottom-1 w-1 h-1 rounded-full bg-secondary-container"></div>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="font-metadata text-metadata text-text-secondary text-primary font-bold">V</span>
+<div class="w-8 h-8 rounded-full border-2 border-primary flex items-center justify-center bg-surface"></div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="font-metadata text-metadata text-text-secondary">S</span>
+<div class="w-8 h-8 rounded-full bg-surface-raised flex items-center justify-center"></div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="font-metadata text-metadata text-text-secondary">D</span>
+<div class="w-8 h-8 rounded-full bg-surface-raised flex items-center justify-center"></div>
+</div>
+</div>
+</section>
+<!-- Exercise Selector & Chart -->
+<section class="flex flex-col gap-stack-md">
+<div class="flex items-center justify-between">
+<h2 class="font-section-header text-section-header text-text-primary">Volumen Semanal</h2>
+<div class="flex gap-2 overflow-x-auto hide-scrollbar">
+<button class="bg-primary-container text-on-primary-container px-4 py-1.5 rounded-full font-metadata text-metadata whitespace-nowrap transition-colors">
+                        General
+                    </button>
+<button class="bg-surface-raised text-text-secondary border border-divider px-4 py-1.5 rounded-full font-metadata text-metadata whitespace-nowrap transition-colors hover:bg-surface-variant">
+                        Press Banca
+                    </button>
+<button class="bg-surface-raised text-text-secondary border border-divider px-4 py-1.5 rounded-full font-metadata text-metadata whitespace-nowrap transition-colors hover:bg-surface-variant">
+                        Sentadilla
+                    </button>
+</div>
+</div>
+<!-- Chart Card -->
+<div class="bg-surface rounded-lg border border-divider p-4 relative h-[200px] flex flex-col justify-end overflow-hidden">
+<!-- Y-Axis Labels -->
+<div class="absolute left-4 top-4 bottom-8 flex flex-col justify-between font-metadata text-metadata text-outline text-xs">
+<span>15k</span>
+<span>10k</span>
+<span>5k</span>
+</div>
+<!-- Grid Lines -->
+<div class="absolute inset-0 top-4 bottom-8 left-12 right-4 flex flex-col justify-between pointer-events-none">
+<div class="border-t border-dashed border-divider w-full"></div>
+<div class="border-t border-dashed border-divider w-full"></div>
+<div class="border-t border-dashed border-divider w-full"></div>
+</div>
+<!-- Simulated Line Chart using SVG -->
+<svg class="absolute inset-0 top-4 bottom-8 left-12 right-4 w-[calc(100%-4rem)] h-[calc(100%-3rem)] overflow-visible" preserveaspectratio="none" viewbox="0 0 100 100">
+<path d="M0,80 L20,60 L40,70 L60,30 L80,20 L100,40" fill="none" stroke="#156355" stroke-linecap="round" stroke-linejoin="round" stroke-width="3" vector-effect="non-scaling-stroke"></path>
+<!-- Area under curve (Simulated with gradient) -->
+<path d="M0,80 L20,60 L40,70 L60,30 L80,20 L100,40 L100,100 L0,100 Z" fill="url(#chart-gradient)" opacity="0.2"></path>
+<defs>
+<lineargradient id="chart-gradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#156355"></stop>
+<stop offset="100%" stop-color="#FFFFFF"></stop>
+</lineargradient>
+</defs>
+<!-- Amber Peak Highlight -->
+<circle cx="80" cy="20" fill="#feb064" r="4" stroke="#FFFFFF" stroke-width="2" vector-effect="non-scaling-stroke"></circle>
+</svg>
+<!-- X-Axis Labels -->
+<div class="flex justify-between font-metadata text-metadata text-outline text-xs mt-auto pl-8">
+<span>Sem 1</span>
+<span>Sem 2</span>
+<span>Sem 3</span>
+<span>Sem 4</span>
+<span>Sem 5</span>
+<span>Actual</span>
+</div>
+</div>
+</section>
+<!-- PR Cards -->
+<section>
+<h2 class="font-section-header text-section-header text-text-primary mb-stack-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px] text-primary">emoji_events</span>
+                Marcas Personales
+            </h2>
+<div class="grid grid-cols-3 gap-gutter">
+<div class="bg-surface rounded-lg border border-divider p-3 flex flex-col gap-1">
+<span class="font-metadata text-metadata text-text-secondary">Peso Máx</span>
+<span class="font-page-heading text-page-heading text-text-primary">120<span class="text-sm font-normal text-text-secondary ml-1">kg</span></span>
+<span class="font-metadata text-[10px] text-outline">Press Banca</span>
+</div>
+<div class="bg-surface rounded-lg border border-divider p-3 flex flex-col gap-1">
+<span class="font-metadata text-metadata text-text-secondary">Mejor Serie</span>
+<span class="font-page-heading text-page-heading text-text-primary">8<span class="text-sm font-normal text-text-secondary ml-1">reps</span></span>
+<span class="font-metadata text-[10px] text-outline">100kg • Peso Muerto</span>
+</div>
+<div class="bg-surface rounded-lg border border-divider p-3 flex flex-col gap-1">
+<span class="font-metadata text-metadata text-text-secondary">Volumen Día</span>
+<span class="font-page-heading text-page-heading text-text-primary">4.2<span class="text-sm font-normal text-text-secondary ml-1">k</span></span>
+<span class="font-metadata text-[10px] text-outline">12 Oct 2023</span>
+</div>
+</div>
+</section>
+<!-- Milestones List -->
+<section>
+<h2 class="font-section-header text-section-header text-text-primary mb-stack-sm">Hitos Recientes</h2>
+<div class="flex flex-col gap-2">
+<div class="bg-surface rounded-lg border border-divider p-3 flex items-start gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container/20 flex items-center justify-center text-secondary-container shrink-0">
+<span class="material-symbols-outlined text-[20px]">fitness_center</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="font-body text-body text-text-primary font-medium">Nueva marca en Sentadilla</span>
+<span class="font-metadata text-metadata text-text-secondary">100kg x 5 reps. ¡Excelente trabajo!</span>
+</div>
+<span class="font-metadata text-[10px] text-outline ml-auto">Hace 2d</span>
+</div>
+<div class="bg-surface rounded-lg border border-divider p-3 flex items-start gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center text-primary shrink-0">
+<span class="material-symbols-outlined text-[20px]">directions_run</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<span class="font-body text-body text-text-primary font-medium">Consistencia de Hierro</span>
+<span class="font-metadata text-metadata text-text-secondary">Completaste 4 sesiones esta semana.</span>
+</div>
+<span class="font-metadata text-[10px] text-outline ml-auto">Hace 5d</span>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface dark:bg-surface-container-lowest border-t border-divider dark:border-outline-variant shadow-sm fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe h-[80px] rounded-t-xl md:hidden">
+<button class="flex flex-col items-center justify-center text-text-secondary dark:text-on-surface-variant px-3 py-1.5 hover:bg-surface-raised dark:hover:bg-surface-container-high transition-colors active:scale-90 duration-150 rounded-lg">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="font-metadata text-metadata">Inicio</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary dark:text-on-surface-variant px-3 py-1.5 hover:bg-surface-raised dark:hover:bg-surface-container-high transition-colors active:scale-90 duration-150 rounded-lg">
+<span class="material-symbols-outlined mb-1">fitness_center</span>
+<span class="font-metadata text-metadata">Entrenar</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-lg px-3 py-1.5 hover:bg-surface-raised dark:hover:bg-surface-container-high transition-colors active:scale-90 duration-150">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<span class="font-metadata text-metadata">Progreso</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary dark:text-on-surface-variant px-3 py-1.5 hover:bg-surface-raised dark:hover:bg-surface-container-high transition-colors active:scale-90 duration-150 rounded-lg">
+<span class="material-symbols-outlined mb-1">library_books</span>
+<span class="font-metadata text-metadata">Biblioteca</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary dark:text-on-surface-variant px-3 py-1.5 hover:bg-surface-raised dark:hover:bg-surface-container-high transition-colors active:scale-90 duration-150 rounded-lg">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="font-metadata text-metadata">Perfil</span>
+</button>
+</nav>
+</body></html>
