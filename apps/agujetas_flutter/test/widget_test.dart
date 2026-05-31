@@ -320,6 +320,51 @@ void main() {
     expect(edited!.imageUri, 'agujetas-image://ag_press');
   });
 
+  testWidgets('training flow edits a custom exercise already in session', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Biblioteca'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Crear ejercicio personalizado').first);
+    await tester.pumpAndSettle();
+    final nameField = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField && widget.decoration?.labelText == 'Nombre',
+    );
+    await tester.enterText(nameField, 'Press custom');
+    await tester.tap(find.text('Crear con 3 series'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Entrenar').last);
+    await tester.pumpAndSettle();
+
+    final customExercise = find.text('Press custom');
+    await tester.ensureVisible(customExercise);
+    expect(customExercise, findsOneWidget);
+
+    await tester.tap(find.byTooltip('Opciones del ejercicio').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar ejercicio'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar ejercicio'), findsOneWidget);
+    await tester.enterText(nameField, 'Press custom editado');
+    await tester.tap(find.text('Guardar cambios'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Press custom editado'), findsOneWidget);
+    expect(find.text('Press custom'), findsNothing);
+  });
+
   testWidgets('training timers expose start, pause and reset controls', (
     tester,
   ) async {

@@ -382,6 +382,7 @@ class _HomeShellState extends State<HomeShell> {
         localSessions: _localSessions,
         hasEditedWorkout: _workoutDirty,
         onExercisesChanged: _updateWorkout,
+        onSaveCustomExercise: _saveCustomExerciseLocally,
         onSessionActivity: () {},
         onSessionModeChanged: _changeTrainingMode,
         onSessionSavedLocally: _saveSessionLocally,
@@ -1339,6 +1340,7 @@ class TrainScreen extends StatefulWidget {
     required this.localSessions,
     required this.hasEditedWorkout,
     required this.onExercisesChanged,
+    required this.onSaveCustomExercise,
     required this.onSessionActivity,
     required this.onSessionModeChanged,
     required this.onSessionSavedLocally,
@@ -1354,6 +1356,8 @@ class TrainScreen extends StatefulWidget {
   final List<LocalWorkoutSession> localSessions;
   final bool hasEditedWorkout;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
+  final Future<void> Function(ExerciseCatalogEntry exercise)
+  onSaveCustomExercise;
   final VoidCallback onSessionActivity;
   final ValueChanged<String> onSessionModeChanged;
   final Future<void> Function(
@@ -1368,6 +1372,8 @@ class TrainScreen extends StatefulWidget {
 }
 
 class _TrainScreenState extends State<TrainScreen> {
+  late final Future<List<ExerciseCatalogEntry>> _catalogFuture =
+      _loadCatalogSnapshot();
   Timer? _ticker;
   Duration _totalElapsed = Duration.zero;
   Duration _restRemaining = const Duration(minutes: 2);
@@ -1505,6 +1511,9 @@ class _TrainScreenState extends State<TrainScreen> {
                 next[index] = updated;
                 widget.onExercisesChanged(next);
               },
+              onEditCustomExercise: exercise.isCustom
+                  ? () => _editCustomExercise(index, exercise)
+                  : null,
               onMoveUp: index == 0
                   ? null
                   : () {
@@ -1550,6 +1559,39 @@ class _TrainScreenState extends State<TrainScreen> {
 
   void _markSessionActivity() {
     widget.onSessionActivity();
+  }
+
+  Future<void> _editCustomExercise(int index, WorkoutExercise exercise) async {
+    final updated = await showModalBottomSheet<ExerciseCatalogEntry>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => CustomExerciseSheet(
+        catalogFuture: _catalogFuture,
+        initialExercise: ExerciseCatalogEntry(
+          id: exercise.id,
+          name: exercise.name,
+          muscleGroup: exercise.muscleGroup,
+          imageUri: exercise.imageUri,
+          isCustom: true,
+        ),
+      ),
+    );
+    if (updated == null) return;
+    await widget.onSaveCustomExercise(updated);
+    if (!mounted) return;
+    final next = [...widget.exercises];
+    if (index < 0 || index >= next.length) return;
+    next[index] = exercise.copyWith(
+      name: updated.name,
+      muscleGroup: updated.muscleGroup,
+      imageUri: updated.imageUri,
+      isCustom: true,
+    );
+    widget.onExercisesChanged(next);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${updated.name} actualizado en la sesión')),
+    );
   }
 
   void _toggleTotalTimer() {
@@ -1749,6 +1791,7 @@ class ExerciseCard extends StatelessWidget {
     required this.exercise,
     this.latestRecord,
     required this.onChanged,
+    this.onEditCustomExercise,
     this.onMoveUp,
     this.onMoveDown,
   });
@@ -1757,6 +1800,7 @@ class ExerciseCard extends StatelessWidget {
   final WorkoutExercise exercise;
   final ExerciseHistoryRecord? latestRecord;
   final ValueChanged<WorkoutExercise> onChanged;
+  final VoidCallback? onEditCustomExercise;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
 
@@ -1825,14 +1869,33 @@ class ExerciseCard extends StatelessWidget {
                   onSelectionChanged: (value) =>
                       onChanged(exercise.copyWith(isUnilateral: value.first)),
                 ),
-                IconButton(
-                  tooltip: 'Detalle del ejercicio',
-                  onPressed: () => showExerciseDetailSheet(
-                    context,
-                    exercise: exercise,
-                    latestRecord: latestRecord,
-                  ),
-                  icon: const Icon(Icons.info_outline),
+                PopupMenuButton<String>(
+                  tooltip: 'Opciones del ejercicio',
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'detail':
+                        showExerciseDetailSheet(
+                          context,
+                          exercise: exercise,
+                          latestRecord: latestRecord,
+                        );
+                        break;
+                      case 'editCustom':
+                        onEditCustomExercise?.call();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'detail',
+                      child: Text('Detalle'),
+                    ),
+                    if (onEditCustomExercise != null)
+                      const PopupMenuItem(
+                        value: 'editCustom',
+                        child: Text('Editar ejercicio'),
+                      ),
+                  ],
                 ),
                 ReorderAccessibilityMenu(
                   onMoveUp: onMoveUp,
@@ -4288,26 +4351,26 @@ class _LibraryScreenState extends State<LibraryScreen> {
       SnackBar(content: Text('${exercise.name} eliminado localmente')),
     );
   }
+}
 
-  static Future<List<ExerciseCatalogEntry>> _loadCatalogSnapshot() async {
-    final raw = await rootBundle.loadString(
-      'assets/user_data/catalogo_ejercicios_2026-05-13.json',
-    );
-    final decoded = jsonDecode(raw) as Map<String, Object?>;
-    final rows = decoded['rows'] as List<dynamic>? ?? const [];
-    return rows
-        .whereType<Map>()
-        .map(
-          (item) => ExerciseCatalogEntry.fromJson(item.cast<String, Object?>()),
-        )
-        .where((item) => item.name.isNotEmpty)
-        .toList()
-      ..sort((a, b) {
-        final usage = b.usageCount.compareTo(a.usageCount);
-        if (usage != 0) return usage;
-        return a.name.compareTo(b.name);
-      });
-  }
+Future<List<ExerciseCatalogEntry>> _loadCatalogSnapshot() async {
+  final raw = await rootBundle.loadString(
+    'assets/user_data/catalogo_ejercicios_2026-05-13.json',
+  );
+  final decoded = jsonDecode(raw) as Map<String, Object?>;
+  final rows = decoded['rows'] as List<dynamic>? ?? const [];
+  return rows
+      .whereType<Map>()
+      .map(
+        (item) => ExerciseCatalogEntry.fromJson(item.cast<String, Object?>()),
+      )
+      .where((item) => item.name.isNotEmpty)
+      .toList()
+    ..sort((a, b) {
+      final usage = b.usageCount.compareTo(a.usageCount);
+      if (usage != 0) return usage;
+      return a.name.compareTo(b.name);
+    });
 }
 
 class _CatalogTile extends StatelessWidget {

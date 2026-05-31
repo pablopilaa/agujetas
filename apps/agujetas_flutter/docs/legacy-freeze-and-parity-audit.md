@@ -289,3 +289,10 @@ Onceavo bloque local-first implementado:
 - La pestaña `Mis ejercicios` filtra `Tus ejercicios` con la misma busqueda de Biblioteca.
 - El modal `CustomExerciseSheet` soporta modo crear y modo editar, con campos precargados e imagen asociada preservada.
 - Tests cubren edicion/borrado en `LocalWorkoutStore` y edicion desde la hoja de ejercicio personalizado.
+
+Doceavo bloque local-first implementado:
+
+- Entrenar expone opciones por ejercicio y permite editar ejercicios personalizados ya agregados a la sesion activa.
+- La edicion desde Entrenar reutiliza `CustomExerciseSheet`, guarda primero el catalogo custom local y despues actualiza la instancia activa.
+- La accion no aparece en ejercicios del catalogo base, evitando editar por accidente datos importados/legacy.
+- Tests de widget cubren crear un ejercicio personalizado, agregarlo a la sesion, editarlo desde Entrenar y ver el cambio en la tarjeta activa.
