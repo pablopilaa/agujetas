@@ -131,6 +131,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('En edición'), findsOneWidget);
+
+    await tester.tap(find.text('Entrenar').last);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Empuje A'), findsOneWidget);
+    expect(find.text('Press banca'), findsWidgets);
   });
 
   testWidgets('training timers expose start, pause and reset controls', (

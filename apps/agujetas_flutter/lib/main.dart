@@ -324,6 +324,7 @@ class _HomeShellState extends State<HomeShell> {
   final _localStore = LocalWorkoutStore.instance;
   int _tab = 0;
   late List<WorkoutExercise> _workout;
+  List<WorkoutExercise> _routineEditorExercises = const [];
   List<LocalWorkoutSession> _localSessions = const [];
   List<RoutineTemplate> _localRoutines = const [];
   String _sessionMode = 'Fuerza';
@@ -346,6 +347,12 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final editingRoutine = _editingRoutineId != null;
+    final libraryExercises = editingRoutine
+        ? _routineEditorExercises
+        : _workout;
+    final ValueChanged<List<WorkoutExercise>> onLibraryExercisesChanged =
+        editingRoutine ? _updateRoutineEditor : _updateWorkout;
     final pages = [
       HomeDashboard(
         user: widget.user,
@@ -386,11 +393,11 @@ class _HomeShellState extends State<HomeShell> {
       LibraryScreen(
         user: widget.user,
         repository: widget.repository,
-        exercises: _workout,
+        exercises: libraryExercises,
         routines: _localRoutines,
         editingRoutineId: _editingRoutineId,
         editingRoutineTitle: _editingRoutineTitle,
-        onExercisesChanged: _updateWorkout,
+        onExercisesChanged: onLibraryExercisesChanged,
         onStartRoutine: _startRoutine,
         onEditRoutine: _editRoutine,
         onSaveRoutine: _saveRoutine,
@@ -451,15 +458,12 @@ class _HomeShellState extends State<HomeShell> {
 
   void _editRoutine(RoutineTemplate routine) {
     setState(() {
-      _workout = _cloneWorkoutExercises(routine.exercises);
-      _activeRoutineTitle = routine.title;
+      _routineEditorExercises = _cloneWorkoutExercises(routine.exercises);
       _editingRoutineId = routine.id;
       _editingRoutineTitle = routine.title;
-      _workoutDirty = true;
       _tab = 3;
       _notice = 'Editando rutina "${routine.title}" localmente.';
     });
-    unawaited(_persistActiveDraft());
   }
 
   Future<void> _saveRoutine(RoutineTemplate routine) async {
@@ -488,11 +492,9 @@ class _HomeShellState extends State<HomeShell> {
         id: id,
         ownerId: widget.user.uid,
         title: title,
-        exercises: _cloneWorkoutExercises(_workout),
+        exercises: _cloneWorkoutExercises(_routineEditorExercises),
       ),
     );
-    if (!mounted) return;
-    setState(() => _workoutDirty = false);
   }
 
   Future<void> _saveEditingRoutineAsCopy() async {
@@ -501,7 +503,7 @@ class _HomeShellState extends State<HomeShell> {
       id: const Uuid().v4(),
       ownerId: widget.user.uid,
       title: '$title copia',
-      exercises: _cloneWorkoutExercises(_workout),
+      exercises: _cloneWorkoutExercises(_routineEditorExercises),
     );
     await _saveRoutine(copy);
   }
@@ -519,9 +521,7 @@ class _HomeShellState extends State<HomeShell> {
       if (_editingRoutineId == routine.id) {
         _editingRoutineId = null;
         _editingRoutineTitle = null;
-        _activeRoutineTitle = 'Empuje A';
-        _workout = seedWorkout();
-        _workoutDirty = false;
+        _routineEditorExercises = const [];
       }
     });
   }
@@ -567,6 +567,7 @@ class _HomeShellState extends State<HomeShell> {
       _activeRoutineTitle = 'Empuje A';
       _editingRoutineId = null;
       _editingRoutineTitle = null;
+      _routineEditorExercises = const [];
       _workoutDirty = false;
       _sessionResetToken++;
       _tab = 1;
@@ -582,6 +583,12 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_persistActiveDraft());
   }
 
+  void _updateRoutineEditor(List<WorkoutExercise> items) {
+    setState(() {
+      _routineEditorExercises = items;
+    });
+  }
+
   Future<void> _restoreActiveDraft() async {
     final draft = await _localStore.loadActiveDraft(widget.user.uid);
     if (!mounted || draft == null) return;
@@ -591,6 +598,7 @@ class _HomeShellState extends State<HomeShell> {
       _workoutDirty = true;
       _editingRoutineId = null;
       _editingRoutineTitle = null;
+      _routineEditorExercises = const [];
       _notice = 'Restauré tu sesión activa guardada en este dispositivo.';
     });
   }
@@ -681,6 +689,7 @@ class _HomeShellState extends State<HomeShell> {
       _workoutDirty = false;
       _editingRoutineId = null;
       _editingRoutineTitle = null;
+      _routineEditorExercises = const [];
       _sessionResetToken++;
       _notice = 'Sesión guardada en el historial local.';
     });

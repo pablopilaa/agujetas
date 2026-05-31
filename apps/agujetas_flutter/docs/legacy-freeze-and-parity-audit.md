@@ -250,3 +250,10 @@ Sexto bloque local-first implementado:
 - La plantilla en edición puede guardarse sobre el mismo `RoutineTemplate` o guardarse como copia.
 - La rutina editada puede iniciarse directamente desde Biblioteca sin pasar por Firestore.
 - Tests de widget cubren que una rutina importada entra al editor local y expone acciones de guardado.
+
+Séptimo bloque local-first implementado:
+
+- El editor de rutinas usa una lista propia separada de la sesión activa.
+- Abrir una rutina para editar ya no reemplaza el entrenamiento actual ni persiste un draft de sesión.
+- Agregar o reordenar ejercicios dentro de una plantilla en edición afecta sólo al editor hasta guardar o iniciar esa rutina.
+- Tests de widget cubren que cargar una rutina en el editor no cambia la sesión activa `Empuje A`.
