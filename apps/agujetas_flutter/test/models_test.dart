@@ -1,4 +1,5 @@
 import 'package:agujetas_flutter/exercise_image_resolver.dart';
+import 'package:agujetas_flutter/legacy_history_importer.dart';
 import 'package:agujetas_flutter/local_workout_store.dart';
 import 'package:agujetas_flutter/models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -173,6 +174,94 @@ void main() {
       expect(sessions, hasLength(1));
       expect(sessions.single.exercises.first.sets, isNotEmpty);
       expect(draft, isNull);
+    },
+  );
+
+  test(
+    'legacy history importer groups exported rows into local sessions',
+    () async {
+      final result = await LegacyHistoryImporter.loadBundled(
+        userId: 'import-user',
+      );
+
+      expect(result.sessions, hasLength(20));
+      expect(result.skippedRows, lessThanOrEqualTo(3));
+      expect(result.sessions.first.exercises, isNotEmpty);
+      expect(result.sessions.first.finishedAt.year, 2026);
+      expect(
+        result.sessions.expand((session) => session.exercises),
+        anyElement((exercise) => exercise.name == 'Curl bíceps predicador'),
+      );
+    },
+  );
+
+  test(
+    'legacy history importer preserves hyphen weights as backoff segments',
+    () {
+      final result = LegacyHistoryImporter.parseRows(
+        userId: 'import-user',
+        rows: [
+          {
+            'fecha_hora_iso': '2026-02-19T00:00:00+01:00',
+            'rutina': 'Push-Pull-Piernas',
+            'duracion_seg': '3883',
+            'orden_ejercicio': '1',
+            'numero_serie': '5',
+            'musculo': 'Espalda',
+            'ejercicio': 'Jalón lateral alternativo',
+            'repeticiones': '10',
+            'peso_kg': '25-15',
+            'rir': '0',
+          },
+        ],
+      );
+
+      final set = result.sessions.single.exercises.single.sets.single;
+
+      expect(set.segments, hasLength(2));
+      expect(set.segments.first.weightKg, 25);
+      expect(set.segments.first.reps, 10);
+      expect(set.segments.last.weightKg, 15);
+      expect(set.segments.last.reps, 0);
+      expect(set.hasBackoffSegment, isTrue);
+    },
+  );
+
+  test(
+    'local workout store imports legacy sessions only once by stable id',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = LocalWorkoutStore.instance;
+      final result = LegacyHistoryImporter.parseRows(
+        userId: 'dedupe-user',
+        rows: [
+          {
+            'fecha_hora_iso': '2026-02-19T00:00:00+01:00',
+            'rutina': 'Push-Pull-Piernas',
+            'duracion_seg': '3883',
+            'orden_ejercicio': '1',
+            'numero_serie': '1',
+            'musculo': 'Espalda',
+            'ejercicio': 'Remo sentado con espalda recta y cable',
+            'repeticiones': '15',
+            'peso_kg': '26',
+          },
+        ],
+      );
+
+      final first = await store.saveImportedSessions(
+        userId: 'dedupe-user',
+        sessions: result.sessions,
+      );
+      final second = await store.saveImportedSessions(
+        userId: 'dedupe-user',
+        sessions: result.sessions,
+      );
+      final sessions = await store.loadSessions('dedupe-user');
+
+      expect(first, 1);
+      expect(second, 0);
+      expect(sessions, hasLength(1));
     },
   );
 }

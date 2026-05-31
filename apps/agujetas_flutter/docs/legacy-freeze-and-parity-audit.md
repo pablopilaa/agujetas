@@ -203,9 +203,9 @@ Primer bloque local-first implementado:
 
 Pendiente inmediato:
 
-- Importar historial JSON real del usuario.
 - Reconstruir índice completo por ejercicio.
 - Migrar rutinas y sesiones personalizadas.
+- Convertir la importación histórica en flujo visible/configurable antes de distribuir una build comercial.
 
 Segundo bloque local-first implementado:
 
@@ -216,3 +216,11 @@ Segundo bloque local-first implementado:
 - Las tarjetas de ejercicio en Entrenar muestran el último registro local disponible.
 - El detalle de ejercicio muestra historial reciente real cuando existe, o estado vacío honesto cuando todavía no hay datos.
 - Las notificaciones locales hacen no-op defensivo si el canal nativo no existe en tests, sin romper el guardado de sesión.
+
+Tercer bloque local-first implementado:
+
+- `LegacyHistoryImporter` lee `assets/user_data/historico_2025-12-31_a_2026-05-13.json` sin depender de `rootBundle.loadString`, para preservar UTF-8 y evitar cuelgues en tests con assets grandes.
+- El histórico exportado se agrupa en sesiones locales: 354 filas pasan a 20 sesiones.
+- Las filas con pesos tipo `25-15` se importan como `segments`, preservando el segundo peso/backoff sin inventar reps que no estaban en el CSV/JSON original.
+- `LocalWorkoutStore.saveImportedSessions` deduplica por id estable para no duplicar sesiones al reabrir la app.
+- En una instalación local sin historial previo, `HomeShell` importa el histórico incluido como asset y lo deja disponible para calendario, progreso y últimos registros por ejercicio.

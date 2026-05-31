@@ -92,6 +92,26 @@ class LocalWorkoutSession {
       durationSeconds: durationSeconds,
     );
   }
+
+  LocalWorkoutSession copyWith({
+    String? id,
+    String? userId,
+    String? sessionMode,
+    List<WorkoutExercise>? exercises,
+    DateTime? startedAt,
+    DateTime? finishedAt,
+    int? durationSeconds,
+  }) {
+    return LocalWorkoutSession(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      sessionMode: sessionMode ?? this.sessionMode,
+      exercises: exercises ?? this.exercises,
+      startedAt: startedAt ?? this.startedAt,
+      finishedAt: finishedAt ?? this.finishedAt,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+    );
+  }
 }
 
 class LocalWorkoutStore {
@@ -170,6 +190,30 @@ class LocalWorkoutStore {
       jsonEncode(next.map((item) => item.toJson()).toList()),
     );
     return session;
+  }
+
+  Future<int> saveImportedSessions({
+    required String userId,
+    required List<LocalWorkoutSession> sessions,
+  }) async {
+    if (sessions.isEmpty) return 0;
+    final prefs = await SharedPreferences.getInstance();
+    final previous = await loadSessions(userId);
+    final existingIds = previous.map((session) => session.id).toSet();
+    final imported = <LocalWorkoutSession>[];
+    for (final session in sessions) {
+      if (existingIds.contains(session.id)) continue;
+      existingIds.add(session.id);
+      imported.add(session.copyWith(userId: userId));
+    }
+    if (imported.isEmpty) return 0;
+    final next = [...imported, ...previous]
+      ..sort((a, b) => b.finishedAt.compareTo(a.finishedAt));
+    await prefs.setString(
+      _sessionsKey(userId),
+      jsonEncode(next.take(2000).map((item) => item.toJson()).toList()),
+    );
+    return imported.length;
   }
 
   String _activeDraftKey(String userId) =>

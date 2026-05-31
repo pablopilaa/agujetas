@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import 'app_theme.dart';
 import 'exercise_image_resolver.dart';
 import 'firebase_options.dart';
+import 'legacy_history_importer.dart';
 import 'local_workout_store.dart';
 import 'models.dart';
 import 'notification_service.dart';
@@ -447,7 +448,29 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _loadLocalSessions() async {
-    final sessions = await _localStore.loadSessions(widget.user.uid);
+    var sessions = await _localStore.loadSessions(widget.user.uid);
+    if (sessions.isEmpty) {
+      try {
+        final result = await LegacyHistoryImporter.loadBundled(
+          userId: widget.user.uid,
+        );
+        final imported = await _localStore.saveImportedSessions(
+          userId: widget.user.uid,
+          sessions: result.sessions,
+        );
+        if (imported > 0) {
+          sessions = await _localStore.loadSessions(widget.user.uid);
+          if (mounted) {
+            setState(
+              () => _notice =
+                  'Importé $imported sesiones históricas locales desde tu backup.',
+            );
+          }
+        }
+      } catch (_) {
+        // La app debe seguir usable aunque el asset histórico no exista.
+      }
+    }
     if (!mounted) return;
     setState(() => _localSessions = sessions);
   }
