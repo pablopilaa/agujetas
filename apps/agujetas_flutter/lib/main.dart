@@ -1328,6 +1328,19 @@ class ExerciseCard extends StatelessWidget {
               children: [
                 ReorderGrip(index: index, label: 'Reordenar ${exercise.name}'),
                 const SizedBox(width: 10),
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () =>
+                      showExerciseDetailSheet(context, exercise: exercise),
+                  child: ExerciseImageBadge(
+                    exerciseId: exercise.id,
+                    name: exercise.name,
+                    muscleGroup: exercise.muscleGroup,
+                    imageUri: exercise.imageUri,
+                    size: 50,
+                  ),
+                ),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1658,6 +1671,16 @@ class CurrentSetLogger extends StatelessWidget {
         children: [
           Row(
             children: [
+              if (exercise != null) ...[
+                ExerciseImageBadge(
+                  exerciseId: exercise!.id,
+                  name: exercise!.name,
+                  muscleGroup: exercise!.muscleGroup,
+                  imageUri: exercise!.imageUri,
+                  size: 42,
+                ),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Text(
                   exercise?.name ?? 'Set actual',
