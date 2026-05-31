@@ -1,4 +1,5 @@
 import 'package:agujetas_flutter/app_theme.dart';
+import 'package:agujetas_flutter/local_workout_store.dart';
 import 'package:agujetas_flutter/main.dart';
 import 'package:agujetas_flutter/models.dart';
 import 'package:agujetas_flutter/repositories.dart';
@@ -539,7 +540,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('Entrenos recientes'), findsOneWidget);
+    expect(find.textContaining('Sesiones de'), findsOneWidget);
     expect(find.textContaining('Push-Pull-Piernas'), findsWidgets);
     expect(find.text('Sin entrenos locales todavía'), findsNothing);
   });
@@ -567,8 +568,71 @@ void main() {
     await tester.tap(find.byTooltip('Calendario'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Entrenos recientes'), findsOneWidget);
+    expect(find.textContaining('Sesiones de'), findsOneWidget);
     expect(find.textContaining('Fuerza · Press banca'), findsWidgets);
     expect(find.text('Sin entrenos locales todavía'), findsNothing);
   });
+
+  testWidgets(
+    'monthly calendar navigates months and opens full session detail',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final now = DateTime.now();
+      final previousMonth = DateTime(now.year, now.month - 1, 15, 20);
+      final session = LocalWorkoutSession(
+        id: 'session-previous-month',
+        userId: 'calendar-user',
+        sessionMode: 'Fuerza',
+        exercises: seedWorkout(),
+        startedAt: previousMonth.subtract(const Duration(minutes: 58)).toUtc(),
+        finishedAt: previousMonth.toUtc(),
+        durationSeconds: 58 * 60,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AgujetasTheme.light(),
+          home: Scaffold(
+            body: MonthlySessionCalendarSheet(sessions: [session]),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Mes anterior'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('1 sesión en ${_monthNameForTest(previousMonth.month)}'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Fuerza · Press banca'), findsWidgets);
+
+      await tester.tap(find.textContaining('Fuerza · Press banca').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Series registradas'), findsWidgets);
+      expect(find.textContaining('RIR'), findsWidgets);
+      expect(find.textContaining('kg x'), findsWidgets);
+    },
+  );
 }
+
+String _monthNameForTest(int month) => const [
+  'Enero',
+  'Febrero',
+  'Marzo',
+  'Abril',
+  'Mayo',
+  'Junio',
+  'Julio',
+  'Agosto',
+  'Septiembre',
+  'Octubre',
+  'Noviembre',
+  'Diciembre',
+][month - 1];

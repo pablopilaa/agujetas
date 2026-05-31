@@ -3252,21 +3252,52 @@ String _formatKg(double value) => value == value.roundToDouble()
     ? value.round().toString()
     : value.toStringAsFixed(1);
 
-class MonthlySessionCalendarSheet extends StatelessWidget {
+class MonthlySessionCalendarSheet extends StatefulWidget {
   const MonthlySessionCalendarSheet({super.key, required this.sessions});
 
   final List<LocalWorkoutSession> sessions;
 
   @override
+  State<MonthlySessionCalendarSheet> createState() =>
+      _MonthlySessionCalendarSheetState();
+}
+
+class _MonthlySessionCalendarSheetState
+    extends State<MonthlySessionCalendarSheet> {
+  late DateTime _visibleMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _visibleMonth = DateTime(now.year, now.month);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final now = DateTime.now();
-    final monthStart = DateTime(now.year, now.month);
+    final monthStart = DateTime(_visibleMonth.year, _visibleMonth.month);
     final firstGridDay = monthStart.subtract(
       Duration(days: monthStart.weekday - 1),
     );
-    final sessionsByDay = _sessionsByDay(sessions);
-    final recentSessions = sessions.take(8).toList();
+    final sessionsByDay = _sessionsByDay(widget.sessions);
+    final monthSessions = widget.sessions
+        .where(
+          (session) =>
+              session.finishedAt.toLocal().year == _visibleMonth.year &&
+              session.finishedAt.toLocal().month == _visibleMonth.month,
+        )
+        .toList();
+    final recentSessions = widget.sessions.take(6).toList();
+    final monthVolume = monthSessions.fold<double>(
+      0,
+      (sum, session) => sum + _sessionVolume(session),
+    );
+    final monthDuration = monthSessions.fold<Duration>(
+      Duration.zero,
+      (sum, session) => sum + Duration(seconds: session.durationSeconds),
+    );
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
@@ -3278,10 +3309,20 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
+            IconButton(
+              tooltip: 'Mes anterior',
+              onPressed: () => _shiftMonth(-1),
+              icon: const Icon(Icons.chevron_left),
+            ),
             _SoftChip(
-              label: '${_monthName(now.month)} ${now.year}',
+              label: '${_monthName(_visibleMonth.month)} ${_visibleMonth.year}',
               color: colors.primaryStrong,
               background: colors.raised,
+            ),
+            IconButton(
+              tooltip: 'Mes siguiente',
+              onPressed: () => _shiftMonth(1),
+              icon: const Icon(Icons.chevron_right),
             ),
           ],
         ),
@@ -3289,6 +3330,19 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
         Text(
           'Tocá un día con marca para revisar entrenamientos guardados en este dispositivo.',
           style: Theme.of(context).textTheme.labelMedium,
+        ),
+        const SizedBox(height: 12),
+        DashboardCard(
+          icon: Icons.calendar_month,
+          title:
+              '${monthSessions.length} sesión${monthSessions.length == 1 ? '' : 'es'} en ${_monthName(_visibleMonth.month)}',
+          subtitle:
+              '${_formatDuration(monthDuration)} acumulados · ${_formatCompactVolume(monthVolume)}',
+          action: TextButton.icon(
+            onPressed: _goToCurrentMonth,
+            icon: const Icon(Icons.today),
+            label: const Text('Hoy'),
+          ),
         ),
         const SizedBox(height: 14),
         Row(
@@ -3383,6 +3437,31 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
+          'Sesiones de ${_monthName(_visibleMonth.month)}',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        if (monthSessions.isEmpty)
+          DashboardCard(
+            icon: Icons.history,
+            title: 'Sin entrenos en este mes',
+            subtitle:
+                'Usá las flechas del calendario para revisar meses anteriores o registrar una sesión nueva.',
+          )
+        else
+          for (final session in monthSessions)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.fitness_center),
+                title: Text(_sessionTitle(session)),
+                subtitle: Text(_sessionSubtitle(session)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    _openSessionDetail(context, session.finishedAt, session),
+              ),
+            ),
+        const SizedBox(height: 16),
+        Text(
           'Entrenos recientes',
           style: Theme.of(context).textTheme.titleMedium,
         ),
@@ -3398,7 +3477,7 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
           for (final session in recentSessions)
             Card(
               child: ListTile(
-                leading: const Icon(Icons.fitness_center),
+                leading: const Icon(Icons.history),
                 title: Text(_sessionTitle(session)),
                 subtitle: Text(_sessionSubtitle(session)),
                 trailing: const Icon(Icons.chevron_right),
@@ -3408,6 +3487,17 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
             ),
       ],
     );
+  }
+
+  void _shiftMonth(int delta) {
+    setState(() {
+      _visibleMonth = DateTime(_visibleMonth.year, _visibleMonth.month + delta);
+    });
+  }
+
+  void _goToCurrentMonth() {
+    final now = DateTime.now();
+    setState(() => _visibleMonth = DateTime(now.year, now.month));
   }
 
   static Map<String, List<LocalWorkoutSession>> _sessionsByDay(
@@ -3488,18 +3578,59 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             for (final exercise in session.exercises)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: ExerciseImageBadge(
-                  exerciseId: exercise.id,
-                  name: exercise.name,
-                  muscleGroup: exercise.muscleGroup,
-                  imageUri: exercise.imageUri,
-                  size: 42,
-                ),
-                title: Text(exercise.name),
-                subtitle: Text(
-                  '${exercise.sets.length} series · ${_formatCompactVolume(_exerciseVolume(exercise))}',
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          ExerciseImageBadge(
+                            exerciseId: exercise.id,
+                            name: exercise.name,
+                            muscleGroup: exercise.muscleGroup,
+                            imageUri: exercise.imageUri,
+                            size: 42,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  exercise.name,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                Text(
+                                  '${exercise.sets.length} series · ${_formatCompactVolume(_exerciseVolume(exercise))}',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.labelMedium,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (exercise.isUnilateral)
+                            const _SoftChip(
+                              label: 'Unilateral',
+                              color: Color(0xFF0B5F66),
+                              background: Color(0xFFE2F3F2),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Series registradas',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 6),
+                      for (final set in exercise.sets)
+                        _SessionSetHistoryRow(set: set),
+                    ],
+                  ),
                 ),
               ),
           ],
@@ -3528,6 +3659,62 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
     'Noviembre',
     'Diciembre',
   ][month - 1];
+}
+
+class _SessionSetHistoryRow extends StatelessWidget {
+  const _SessionSetHistoryRow({required this.set});
+
+  final WorkoutSet set;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.raised,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 32,
+            child: Text(
+              'S${set.order}',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+          Expanded(child: Text(_segmentSummary(set.segments))),
+          const SizedBox(width: 8),
+          _SoftChip(
+            label: _shortSetTypeLabel(set.setType),
+            color: colors.primaryStrong,
+            background: colors.surface,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            set.rir == null ? 'RIR -' : 'RIR ${set.rir}',
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _segmentSummary(List<WeightSegment> segments) {
+    if (segments.isEmpty) return 'Sin carga registrada';
+    return segments
+        .map((segment) => '${_formatKg(segment.weightKg)} kg x ${segment.reps}')
+        .join(' + ');
+  }
+
+  static String _shortSetTypeLabel(SetType type) => switch (type) {
+    SetType.normal => 'Normal',
+    SetType.warmup => 'Cal',
+    SetType.dropset => 'Drop',
+  };
 }
 
 class ProgressScreen extends StatelessWidget {

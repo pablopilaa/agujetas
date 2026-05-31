@@ -16,7 +16,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - iOS bundle id: `com.pablopilaa.agujetas`.
 - Login con Google mediante Firebase Auth.
 - Persistencia local-first base con `shared_preferences` para borrador de sesion activa e historial local minimo.
-- Calendario mensual, progreso y tarjetas de entrenamiento conectados al historial local guardado en el dispositivo.
+- Calendario mensual navegable, progreso y tarjetas de entrenamiento conectados al historial local guardado en el dispositivo, con detalle de sesión, series, segmentos y RIR.
 - Seguimiento de peso corporal local-first con recordatorio diario opcional y sync best-effort si hay backend disponible.
 - Importacion local del historico exportado desde la app Expo legacy incluido en `assets/user_data`.
 - Importacion local de rutinas y sesiones personalizadas legacy desde `assets/user_data/catalogo_ejercicios_2026-05-13.json`.

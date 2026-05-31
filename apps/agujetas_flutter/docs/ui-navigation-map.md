@@ -22,7 +22,7 @@ flowchart TD
   S -->|Hipertrofia| C2["Entrenar · Hipertrofia"]
   S -->|Técnica| C3["Entrenar · Técnica"]
   S -->|Libre| C4["Entrenar · Libre"]
-  B --> D["Calendario de sesiones"]
+  B --> D["Calendario mensual"]
   B --> F["Bottom nav fija"]
   B --> X["Dropdown contextual por pantalla"]
 
@@ -50,6 +50,11 @@ flowchart TD
   G3 --> G5["Alerta diaria de peso"]
   G --> D
 
+  D["Calendario mensual"] --> D1["Mes anterior / siguiente / hoy"]
+  D --> D2["Día con sesiones"]
+  D2 --> D3["Detalle de sesión histórica"]
+  D3 --> D4["Ejercicios, series, kg, reps, RIR y segmentos"]
+
   H["Biblioteca"] --> H1["Buscar catálogo"]
   H --> H2["Crear ejercicio personalizado"]
   H2 --> H3["Elegir imagen de galería"]
@@ -76,7 +81,7 @@ flowchart TD
 | Inicio | Usuario Pro | Tocar Modo entrenador | Panel entrenador |
 | Inicio | Selector Fuerza / Hipertrofia / Técnica / Libre | Elegir modo de sesión | Entrenar con modo elegido |
 | Inicio | CTA iniciar entrenamiento | Iniciar sesión recomendada | Entrenar |
-| Inicio | Card calendario | Ver calendario de sesiones | Bottom sheet de calendario |
+| Inicio | Card calendario | Ver calendario mensual | Bottom sheet de calendario con navegación por mes |
 | Entrenar | Bottom nav, CTA inicio | Editar kg / reps / RIR | Misma pantalla, estado actualizado |
 | Entrenar | Grip six dots | Reordenar ejercicios | Misma pantalla, orden actualizado |
 | Entrenar | Menú mover | Mover arriba / abajo | Misma pantalla, orden actualizado |
@@ -84,7 +89,10 @@ flowchart TD
 | Entrenar | Timer descanso | Programar alerta | Notificación local |
 | Progreso | Bottom nav | Registrar peso | Bottom sheet de peso |
 | Progreso | Alertarme cada mañana | Programar alerta diaria | Notificación local diaria |
-| Progreso | Calendario | Ver calendario de sesiones | Bottom sheet de calendario |
+| Progreso | Calendario | Ver calendario mensual | Bottom sheet de calendario con sesiones históricas |
+| Calendario mensual | Flechas mes anterior/siguiente | Cambiar mes visible | Misma pantalla con resumen mensual actualizado |
+| Calendario mensual | Día con sesiones | Revisar entrenos del día | Hoja con sesiones de esa fecha |
+| Calendario mensual | Sesión histórica | Ver detalle completo | Hoja con ejercicios, series, kg, reps, RIR y segmentos |
 | Biblioteca | Bottom nav | Buscar catálogo | Lista filtrada |
 | Biblioteca | Crear ejercicio personalizado | Formulario de ejercicio | Nuevo ejercicio en rutina y Firestore |
 | Biblioteca | Elegir imagen de galería | Selector nativo | `imageUri` local asociado |

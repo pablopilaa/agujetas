@@ -303,3 +303,12 @@ Decimotercer bloque local-first implementado:
 - Biblioteca permite quitar ejercicios del orden de rutina local con confirmacion.
 - En ambos casos la accion no borra historial guardado ni elimina el ejercicio del catalogo.
 - Tests de widget cubren el flujo de quitar desde Entrenar y desde Biblioteca.
+
+Decimocuarto bloque local-first implementado:
+
+- El calendario mensual ya no queda fijo al mes actual: permite navegar mes anterior, mes siguiente y volver a hoy.
+- El resumen del calendario muestra sesiones, duración y volumen acumulado del mes visible.
+- La lista de sesiones del mes permite abrir cada entrenamiento guardado.
+- El detalle de sesión histórica muestra ejercicios, miniatura local, unilateralidad, series registradas, tipo de serie, pesos/reps por segmento y RIR.
+- Esto acerca la paridad con el calendario mensual heredado de Agujetas legacy sin depender de Firestore ni cloud.
+- Tests de widget cubren navegación de meses y apertura de detalle histórico completo.
