@@ -164,6 +164,37 @@ void main() {
     expect(draft.exercises.first.name, exercises.first.name);
   });
 
+  test('local workout store persists user permission preferences', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+
+    expect(
+      (await store.loadUserPreferences('preferences-user')).restAlertsEnabled,
+      isTrue,
+    );
+    expect(
+      (await store.loadUserPreferences('preferences-user')).localGalleryEnabled,
+      isFalse,
+    );
+
+    await store.saveUserPreferences(
+      userId: 'preferences-user',
+      preferences: const LocalUserPreferences(
+        restAlertsEnabled: false,
+        bodyWeightAlertsEnabled: true,
+        localGalleryEnabled: true,
+      ),
+    );
+
+    final preferences = await store.loadUserPreferences('preferences-user');
+    final otherPreferences = await store.loadUserPreferences('other-user');
+
+    expect(preferences.restAlertsEnabled, isFalse);
+    expect(preferences.bodyWeightAlertsEnabled, isTrue);
+    expect(preferences.localGalleryEnabled, isTrue);
+    expect(otherPreferences.localGalleryEnabled, isFalse);
+  });
+
   test('active workout draft preserves timer state', () async {
     SharedPreferences.setMockInitialValues({});
     final store = LocalWorkoutStore.instance;

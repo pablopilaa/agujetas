@@ -876,6 +876,7 @@ void main() {
     String? importedRawJson;
     var exported = false;
     var legacyImported = false;
+    var preferences = const LocalUserPreferences();
     const backupJson =
         '{"schema":"agujetas.localBackup","schemaVersion":1,"sessions":[]}';
     const user = AppUser(
@@ -896,7 +897,9 @@ void main() {
             user: user,
             repository: DemoAgujetasRepository(),
             themeMode: ThemeMode.light,
+            preferences: preferences,
             onThemeModeChanged: (_) {},
+            onPreferencesChanged: (next) => preferences = next,
             onExportLocalBackup: () async {
               exported = true;
               return backupJson;
@@ -972,6 +975,76 @@ void main() {
       find.textContaining('5 sesiones y 6 rutinas nuevas'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('profile permission toggles emit persistent preferences', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var preferences = const LocalUserPreferences();
+    const user = AppUser(
+      uid: 'profile-preferences-user',
+      displayName: 'Demo',
+      email: 'demo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => ProfileScreen(
+              user: user,
+              repository: DemoAgujetasRepository(),
+              themeMode: ThemeMode.light,
+              preferences: preferences,
+              onThemeModeChanged: (_) {},
+              onPreferencesChanged: (next) =>
+                  setState(() => preferences = next),
+              onExportLocalBackup: () async => '{}',
+              onImportLocalBackup: (_) async => const LocalBackupImportResult(
+                sessions: 0,
+                routines: 0,
+                bodyWeights: 0,
+                customExercises: 0,
+              ),
+              onImportBundledLegacyData: () async =>
+                  const LegacyLocalImportResult(
+                    importedSessions: 0,
+                    availableSessions: 0,
+                    skippedHistoryRows: 0,
+                    importedRoutines: 0,
+                    availableRoutines: 0,
+                  ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final gallerySetting = find.text('Galería local');
+    await tester.ensureVisible(gallerySetting);
+    expect(preferences.localGalleryEnabled, isFalse);
+
+    final gallerySwitch = find.descendant(
+      of: find.ancestor(of: gallerySetting, matching: find.byType(ListTile)),
+      matching: find.byType(Switch),
+    );
+    await tester.tap(gallerySwitch);
+    await tester.pumpAndSettle();
+
+    expect(preferences.localGalleryEnabled, isTrue);
+    expect(preferences.restAlertsEnabled, isTrue);
+    expect(preferences.bodyWeightAlertsEnabled, isTrue);
   });
 }
 

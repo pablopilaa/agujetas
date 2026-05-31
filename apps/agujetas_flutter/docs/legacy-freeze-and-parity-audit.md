@@ -367,3 +367,10 @@ Vigésimo primer bloque local-first implementado:
 - La búsqueda de miniaturas ya no depende de claves mal codificadas ni de texto mojibake para mapear nombres del catálogo.
 - Se mantiene bloqueado `app-image://` legacy para no renderizar assets Lyfta en builds comerciales.
 - Test unitario cubre que un nombre con tilde como `Jalón lateral alternativo` resuelve contra el asset local propio `ag_jalon_lateral_alternativo...`.
+
+Vigésimo segundo bloque local-first implementado:
+
+- Perfil deja de mostrar toggles de permisos meramente visuales: `Alertas de descanso`, `Seguimiento de peso` y `Galería local` ahora se guardan por usuario en `SharedPreferences`.
+- `HomeShell` carga esas preferencias al iniciar y las vuelve a persistir cada vez que el usuario cambia un switch.
+- El diseño sigue offline-first y no requiere Firestore, Storage ni RevenueCat para conservar estas decisiones del usuario.
+- Tests unitarios cubren persistencia por usuario; tests de widget cubren que el switch de galería emite y refleja la preferencia actual.

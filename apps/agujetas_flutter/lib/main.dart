@@ -339,6 +339,7 @@ class _HomeShellState extends State<HomeShell> {
   Duration _restRemaining = const Duration(minutes: 2);
   bool _totalRunning = false;
   bool _restRunning = false;
+  LocalUserPreferences _preferences = const LocalUserPreferences();
   String? _lastInviteCode;
   String? _notice;
 
@@ -350,6 +351,7 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_loadLocalRoutines());
     unawaited(_loadLocalBodyWeights());
     unawaited(_loadLocalCustomExercises());
+    unawaited(_loadUserPreferences());
     unawaited(_restoreActiveDraft());
   }
 
@@ -430,7 +432,9 @@ class _HomeShellState extends State<HomeShell> {
         user: widget.user,
         repository: widget.repository,
         themeMode: widget.themeMode,
+        preferences: _preferences,
         onThemeModeChanged: widget.onThemeModeChanged,
+        onPreferencesChanged: _updateUserPreferences,
         onExportLocalBackup: _exportLocalBackup,
         onImportLocalBackup: _importLocalBackup,
         onImportBundledLegacyData: _importBundledLegacyData,
@@ -779,6 +783,22 @@ class _HomeShellState extends State<HomeShell> {
     final exercises = await _localStore.loadCustomExercises(widget.user.uid);
     if (!mounted) return;
     setState(() => _localCustomExercises = exercises);
+  }
+
+  Future<void> _loadUserPreferences() async {
+    final preferences = await _localStore.loadUserPreferences(widget.user.uid);
+    if (!mounted) return;
+    setState(() => _preferences = preferences);
+  }
+
+  void _updateUserPreferences(LocalUserPreferences preferences) {
+    setState(() => _preferences = preferences);
+    unawaited(
+      _localStore.saveUserPreferences(
+        userId: widget.user.uid,
+        preferences: preferences,
+      ),
+    );
   }
 
   Future<void> _persistActiveDraft() {
@@ -6341,7 +6361,9 @@ class ProfileScreen extends StatelessWidget {
     required this.user,
     required this.repository,
     required this.themeMode,
+    required this.preferences,
     required this.onThemeModeChanged,
+    required this.onPreferencesChanged,
     required this.onExportLocalBackup,
     required this.onImportLocalBackup,
     required this.onImportBundledLegacyData,
@@ -6350,7 +6372,9 @@ class ProfileScreen extends StatelessWidget {
   final AppUser user;
   final AgujetasRepository repository;
   final ThemeMode themeMode;
+  final LocalUserPreferences preferences;
   final ValueChanged<ThemeMode> onThemeModeChanged;
+  final ValueChanged<LocalUserPreferences> onPreferencesChanged;
   final Future<String> Function() onExportLocalBackup;
   final Future<LocalBackupImportResult> Function(String rawJson)
   onImportLocalBackup;
@@ -6399,24 +6423,33 @@ class ProfileScreen extends StatelessWidget {
           subtitle:
               'Controlá notificaciones, sonidos de descanso e imágenes locales.',
           child: Column(
-            children: const [
+            children: [
               _SwitchSettingRow(
                 icon: Icons.timer_outlined,
                 title: 'Alertas de descanso',
                 subtitle: 'Sonido y aviso aunque la app esté en segundo plano.',
-                value: true,
+                value: preferences.restAlertsEnabled,
+                onChanged: (value) => onPreferencesChanged(
+                  preferences.copyWith(restAlertsEnabled: value),
+                ),
               ),
               _SwitchSettingRow(
                 icon: Icons.monitor_weight_outlined,
                 title: 'Seguimiento de peso',
                 subtitle: 'Avisos cuando la tendencia se aleja de tu meta.',
-                value: true,
+                value: preferences.bodyWeightAlertsEnabled,
+                onChanged: (value) => onPreferencesChanged(
+                  preferences.copyWith(bodyWeightAlertsEnabled: value),
+                ),
               ),
               _SwitchSettingRow(
                 icon: Icons.photo_library_outlined,
                 title: 'Galería local',
                 subtitle: 'Sólo para ejercicios personalizados.',
-                value: false,
+                value: preferences.localGalleryEnabled,
+                onChanged: (value) => onPreferencesChanged(
+                  preferences.copyWith(localGalleryEnabled: value),
+                ),
               ),
             ],
           ),
@@ -6726,20 +6759,20 @@ class _SwitchSettingRow extends StatefulWidget {
     required this.title,
     required this.subtitle,
     required this.value,
+    required this.onChanged,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
   final bool value;
+  final ValueChanged<bool> onChanged;
 
   @override
   State<_SwitchSettingRow> createState() => _SwitchSettingRowState();
 }
 
 class _SwitchSettingRowState extends State<_SwitchSettingRow> {
-  late bool _enabled = widget.value;
-
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
@@ -6748,10 +6781,7 @@ class _SwitchSettingRowState extends State<_SwitchSettingRow> {
       leading: Icon(widget.icon, color: colors.primaryStrong),
       title: Text(widget.title),
       subtitle: Text(widget.subtitle),
-      trailing: Switch(
-        value: _enabled,
-        onChanged: (value) => setState(() => _enabled = value),
-      ),
+      trailing: Switch(value: widget.value, onChanged: widget.onChanged),
     );
   }
 }

@@ -183,6 +183,52 @@ class LocalBackupImportResult {
       '$customExercises ejercicios propios';
 }
 
+class LocalUserPreferences {
+  const LocalUserPreferences({
+    this.restAlertsEnabled = true,
+    this.bodyWeightAlertsEnabled = true,
+    this.localGalleryEnabled = false,
+  });
+
+  final bool restAlertsEnabled;
+  final bool bodyWeightAlertsEnabled;
+  final bool localGalleryEnabled;
+
+  Map<String, Object?> toJson() => {
+    'restAlertsEnabled': restAlertsEnabled,
+    'bodyWeightAlertsEnabled': bodyWeightAlertsEnabled,
+    'localGalleryEnabled': localGalleryEnabled,
+    'schemaVersion': 1,
+  };
+
+  factory LocalUserPreferences.fromJson(Map<String, Object?> json) {
+    return LocalUserPreferences(
+      restAlertsEnabled: _readBoolWithDefault(json['restAlertsEnabled'], true),
+      bodyWeightAlertsEnabled: _readBoolWithDefault(
+        json['bodyWeightAlertsEnabled'],
+        true,
+      ),
+      localGalleryEnabled: _readBoolWithDefault(
+        json['localGalleryEnabled'],
+        false,
+      ),
+    );
+  }
+
+  LocalUserPreferences copyWith({
+    bool? restAlertsEnabled,
+    bool? bodyWeightAlertsEnabled,
+    bool? localGalleryEnabled,
+  }) {
+    return LocalUserPreferences(
+      restAlertsEnabled: restAlertsEnabled ?? this.restAlertsEnabled,
+      bodyWeightAlertsEnabled:
+          bodyWeightAlertsEnabled ?? this.bodyWeightAlertsEnabled,
+      localGalleryEnabled: localGalleryEnabled ?? this.localGalleryEnabled,
+    );
+  }
+}
+
 String? _optionalString(Object? value) {
   final text = value?.toString().trim();
   return text == null || text.isEmpty ? null : text;
@@ -230,6 +276,26 @@ class LocalWorkoutStore {
   Future<void> clearActiveDraft(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_activeDraftKey(userId));
+  }
+
+  Future<LocalUserPreferences> loadUserPreferences(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_preferencesKey(userId));
+    if (raw == null || raw.isEmpty) return const LocalUserPreferences();
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return const LocalUserPreferences();
+    return LocalUserPreferences.fromJson(decoded.cast<String, Object?>());
+  }
+
+  Future<void> saveUserPreferences({
+    required String userId,
+    required LocalUserPreferences preferences,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _preferencesKey(userId),
+      jsonEncode(preferences.toJson()),
+    );
   }
 
   Future<List<LocalWorkoutSession>> loadSessions(String userId) async {
@@ -694,6 +760,9 @@ class LocalWorkoutStore {
 
   String _customExercisesKey(String userId) =>
       'agujetas.localCustomExercises.v1.$userId';
+
+  String _preferencesKey(String userId) =>
+      'agujetas.localUserPreferences.v1.$userId';
 }
 
 List<T> _upsertById<T>(
@@ -722,4 +791,15 @@ int _readIntWithDefault(Object? value, int fallback) {
   if (value is int) return value;
   if (value is double) return value.round();
   return int.tryParse(value.toString()) ?? fallback;
+}
+
+bool _readBoolWithDefault(Object? value, bool fallback) {
+  if (value == null) return fallback;
+  if (value is bool) return value;
+  final normalized = value.toString().trim().toLowerCase();
+  return switch (normalized) {
+    'true' || '1' || 'yes' || 'si' || 'sí' => true,
+    'false' || '0' || 'no' => false,
+    _ => fallback,
+  };
 }
