@@ -16,6 +16,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - iOS bundle id: `com.pablopilaa.agujetas`.
 - Login con Google mediante Firebase Auth.
 - Persistencia local-first base con `shared_preferences` para borrador de sesion activa e historial local minimo.
+- Calendario mensual, progreso y tarjetas de entrenamiento conectados al historial local guardado en el dispositivo.
 - Roles:
   - `normal`: usuario autogestionado.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.
@@ -103,6 +104,8 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 ## Pendientes antes de test masivo
 
 - Instalar Android command-line tools localmente si el equipo no tiene `sdkmanager`.
+- Importar el historial real de `archivos_usuario` al modelo local-first Flutter.
+- Migrar rutinas y sesiones personalizadas de la app Expo legacy.
 - Ejecutar tests de reglas con Firebase Emulator Suite.
 - Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
 - Definir terminos, privacidad, consentimiento de datos y flujo de borrado de cuenta.

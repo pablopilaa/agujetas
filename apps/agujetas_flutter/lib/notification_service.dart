@@ -9,18 +9,24 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
+  static bool _disabled = false;
 
   static Future<void> initialize() async {
-    if (_initialized) return;
+    if (_initialized || _disabled) return;
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    await _plugin.initialize(
-      settings: const InitializationSettings(android: android, iOS: ios),
-    );
+    try {
+      await _plugin.initialize(
+        settings: const InitializationSettings(android: android, iOS: ios),
+      );
+    } catch (_) {
+      _disabled = true;
+      return;
+    }
     tz.initializeTimeZones();
     try {
       final timezone = await FlutterTimezone.getLocalTimezone();
@@ -43,6 +49,7 @@ class NotificationService {
 
   static Future<void> showSessionSaved() async {
     await initialize();
+    if (!_initialized) return;
     await _plugin.show(
       id: 101,
       title: 'Sesión guardada',
@@ -56,6 +63,7 @@ class NotificationService {
 
   static Future<void> scheduleRestFinished(Duration duration) async {
     await initialize();
+    if (!_initialized) return;
     final when = tz.TZDateTime.now(tz.local).add(duration);
     await _plugin.zonedSchedule(
       id: 201,
@@ -75,6 +83,7 @@ class NotificationService {
     required int minute,
   }) async {
     await initialize();
+    if (!_initialized) return;
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
       tz.local,

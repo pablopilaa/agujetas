@@ -2,6 +2,7 @@ import 'package:agujetas_flutter/main.dart';
 import 'package:agujetas_flutter/repositories.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets('demo user can switch to trainer dashboard', (tester) async {
@@ -145,10 +146,40 @@ void main() {
     expect(find.text('Calendario mensual'), findsOneWidget);
     expect(
       find.text(
-        'Tocá un día con marca para revisar lo que hiciste o lo planificado.',
+        'Tocá un día con marca para revisar entrenamientos guardados en este dispositivo.',
       ),
       findsOneWidget,
     );
     expect(find.text('Entrenos recientes'), findsOneWidget);
+    expect(find.text('Sin entrenos locales todavía'), findsOneWidget);
+  });
+
+  testWidgets('finalized session appears in local monthly calendar', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Entrenar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Finalizar'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Progreso'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Calendario'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Entrenos recientes'), findsOneWidget);
+    expect(find.textContaining('Fuerza · Press banca'), findsWidgets);
+    expect(find.text('Sin entrenos locales todavía'), findsNothing);
   });
 }

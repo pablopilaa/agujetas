@@ -323,6 +323,7 @@ class _HomeShellState extends State<HomeShell> {
   final _localStore = LocalWorkoutStore.instance;
   int _tab = 0;
   late List<WorkoutExercise> _workout;
+  List<LocalWorkoutSession> _localSessions = const [];
   String _sessionMode = 'Fuerza';
   bool _workoutDirty = false;
   int _sessionResetToken = 0;
@@ -333,6 +334,7 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _workout = seedWorkout();
+    unawaited(_loadLocalSessions());
     unawaited(_restoreActiveDraft());
   }
 
@@ -357,6 +359,7 @@ class _HomeShellState extends State<HomeShell> {
         sessionMode: _sessionMode,
         sessionResetToken: _sessionResetToken,
         exercises: _workout,
+        localSessions: _localSessions,
         hasEditedWorkout: _workoutDirty,
         onExercisesChanged: _updateWorkout,
         onSessionActivity: () {},
@@ -368,6 +371,7 @@ class _HomeShellState extends State<HomeShell> {
         user: widget.user,
         repository: widget.repository,
         exercises: _workout,
+        localSessions: _localSessions,
         onOpenCalendar: () => _openCalendar(context),
       ),
       LibraryScreen(
@@ -396,7 +400,7 @@ class _HomeShellState extends State<HomeShell> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (_) => const MonthlySessionCalendarSheet(),
+      builder: (_) => MonthlySessionCalendarSheet(sessions: _localSessions),
     );
   }
 
@@ -442,6 +446,12 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  Future<void> _loadLocalSessions() async {
+    final sessions = await _localStore.loadSessions(widget.user.uid);
+    if (!mounted) return;
+    setState(() => _localSessions = sessions);
+  }
+
   Future<void> _persistActiveDraft() {
     return _localStore.saveActiveDraft(
       userId: widget.user.uid,
@@ -454,7 +464,7 @@ class _HomeShellState extends State<HomeShell> {
     Duration totalElapsed,
     List<WorkoutExercise> exercises,
   ) async {
-    await _localStore.saveSession(
+    final savedSession = await _localStore.saveSession(
       userId: widget.user.uid,
       sessionMode: _sessionMode,
       exercises: exercises,
@@ -464,6 +474,10 @@ class _HomeShellState extends State<HomeShell> {
     if (!mounted) return;
     setState(() {
       _workout = seedWorkout();
+      _localSessions = [
+        savedSession,
+        ..._localSessions.where((session) => session.id != savedSession.id),
+      ].take(500).toList();
       _workoutDirty = false;
       _sessionResetToken++;
       _notice = 'Sesión guardada en el historial local.';
@@ -968,6 +982,7 @@ class TrainScreen extends StatefulWidget {
     required this.sessionMode,
     required this.sessionResetToken,
     required this.exercises,
+    required this.localSessions,
     required this.hasEditedWorkout,
     required this.onExercisesChanged,
     required this.onSessionActivity,
@@ -981,6 +996,7 @@ class TrainScreen extends StatefulWidget {
   final String sessionMode;
   final int sessionResetToken;
   final List<WorkoutExercise> exercises;
+  final List<LocalWorkoutSession> localSessions;
   final bool hasEditedWorkout;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final VoidCallback onSessionActivity;
@@ -1120,10 +1136,15 @@ class _TrainScreenState extends State<TrainScreen> {
           },
           itemBuilder: (context, index) {
             final exercise = widget.exercises[index];
+            final latestRecord = ExerciseHistoryRecord.findLatest(
+              widget.localSessions,
+              exercise,
+            );
             return ExerciseCard(
               key: ValueKey(exercise.id),
               index: index,
               exercise: exercise,
+              latestRecord: latestRecord,
               onChanged: (updated) {
                 final next = [...widget.exercises];
                 next[index] = updated;
@@ -1371,6 +1392,7 @@ class ExerciseCard extends StatelessWidget {
     super.key,
     required this.index,
     required this.exercise,
+    this.latestRecord,
     required this.onChanged,
     this.onMoveUp,
     this.onMoveDown,
@@ -1378,6 +1400,7 @@ class ExerciseCard extends StatelessWidget {
 
   final int index;
   final WorkoutExercise exercise;
+  final ExerciseHistoryRecord? latestRecord;
   final ValueChanged<WorkoutExercise> onChanged;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
@@ -1398,8 +1421,11 @@ class ExerciseCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 InkWell(
                   borderRadius: BorderRadius.circular(8),
-                  onTap: () =>
-                      showExerciseDetailSheet(context, exercise: exercise),
+                  onTap: () => showExerciseDetailSheet(
+                    context,
+                    exercise: exercise,
+                    latestRecord: latestRecord,
+                  ),
                   child: ExerciseImageBadge(
                     exerciseId: exercise.id,
                     name: exercise.name,
@@ -1421,6 +1447,16 @@ class ExerciseCard extends StatelessWidget {
                         exercise.muscleGroup,
                         style: TextStyle(color: colors.textSecondary),
                       ),
+                      if (latestRecord != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          latestRecord!.compactLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: colors.primaryStrong),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -1436,8 +1472,11 @@ class ExerciseCard extends StatelessWidget {
                 ),
                 IconButton(
                   tooltip: 'Detalle del ejercicio',
-                  onPressed: () =>
-                      showExerciseDetailSheet(context, exercise: exercise),
+                  onPressed: () => showExerciseDetailSheet(
+                    context,
+                    exercise: exercise,
+                    latestRecord: latestRecord,
+                  ),
                   icon: const Icon(Icons.info_outline),
                 ),
                 ReorderAccessibilityMenu(
@@ -1466,20 +1505,30 @@ class ExerciseCard extends StatelessWidget {
 Future<void> showExerciseDetailSheet(
   BuildContext context, {
   required WorkoutExercise exercise,
+  ExerciseHistoryRecord? latestRecord,
   VoidCallback? onAdd,
 }) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (_) => _ExerciseDetailSheet(exercise: exercise, onAdd: onAdd),
+    builder: (_) => _ExerciseDetailSheet(
+      exercise: exercise,
+      latestRecord: latestRecord,
+      onAdd: onAdd,
+    ),
   );
 }
 
 class _ExerciseDetailSheet extends StatelessWidget {
-  const _ExerciseDetailSheet({required this.exercise, this.onAdd});
+  const _ExerciseDetailSheet({
+    required this.exercise,
+    this.latestRecord,
+    this.onAdd,
+  });
 
   final WorkoutExercise exercise;
+  final ExerciseHistoryRecord? latestRecord;
   final VoidCallback? onAdd;
 
   @override
@@ -1515,7 +1564,9 @@ class _ExerciseDetailSheet extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'Ficha técnica, historial y acciones rápidas.',
+              latestRecord == null
+                  ? 'Ficha técnica, historial y acciones rápidas.'
+                  : latestRecord!.detailLabel,
               style: TextStyle(color: colors.textSecondary),
             ),
             const SizedBox(height: 14),
@@ -1594,9 +1645,16 @@ class _ExerciseDetailSheet extends StatelessWidget {
             DashboardCard(
               icon: Icons.history,
               title: 'Historial reciente',
-              subtitle:
-                  '${exercise.sets.length} series planificadas · último volumen estimado ${exercise.sets.length * 600} kg-reps',
-              child: const _ProgressBar(value: 0.64),
+              subtitle: latestRecord == null
+                  ? 'Todavía no hay registros locales para este ejercicio.'
+                  : '${latestRecord!.setSummary} · ${latestRecord!.sessionTitle}',
+              child: _ProgressBar(
+                value: latestRecord == null
+                    ? 0
+                    : (latestRecord!.setVolume / 2500)
+                          .clamp(0.08, 1)
+                          .toDouble(),
+              ),
             ),
           ],
         ),
@@ -2299,8 +2357,271 @@ class SessionCalendarSheet extends StatelessWidget {
   }
 }
 
+class ExerciseHistoryRecord {
+  const ExerciseHistoryRecord({
+    required this.session,
+    required this.exercise,
+    required this.set,
+  });
+
+  final LocalWorkoutSession session;
+  final WorkoutExercise exercise;
+  final WorkoutSet set;
+
+  double get setVolume => _setVolume(set);
+
+  String get setSummary =>
+      '${_formatKg(set.primaryWeightKg)} kg x ${set.totalReps}'
+      '${set.rir == null ? '' : ' · RIR ${set.rir}'}';
+
+  String get compactLabel =>
+      'Último: $setSummary · ${_shortDate(session.finishedAt.toLocal())}';
+
+  String get detailLabel =>
+      'Último registro local: $setSummary en ${_sessionTitle(session)}.';
+
+  String get sessionTitle => _sessionTitle(session);
+
+  static ExerciseHistoryRecord? findLatest(
+    List<LocalWorkoutSession> sessions,
+    WorkoutExercise target,
+  ) {
+    final ordered = [...sessions]
+      ..sort((a, b) => b.finishedAt.compareTo(a.finishedAt));
+    for (final session in ordered) {
+      for (final exercise in session.exercises) {
+        if (!_sameExercise(exercise, target)) continue;
+        final sets = exercise.sets
+            .where(
+              (set) =>
+                  set.setType != SetType.warmup &&
+                  set.totalReps > 0 &&
+                  set.primaryWeightKg > 0,
+            )
+            .toList();
+        if (sets.isEmpty) continue;
+        sets.sort((a, b) => _setVolume(b).compareTo(_setVolume(a)));
+        return ExerciseHistoryRecord(
+          session: session,
+          exercise: exercise,
+          set: sets.first,
+        );
+      }
+    }
+    return null;
+  }
+}
+
+class BestSetRecord {
+  const BestSetRecord({
+    required this.exerciseName,
+    required this.set,
+    required this.date,
+  });
+
+  final String exerciseName;
+  final WorkoutSet set;
+  final DateTime date;
+
+  double get volume => _setVolume(set);
+  double get weightKg => set.primaryWeightKg;
+
+  String get summary =>
+      '${_formatKg(weightKg)} kg x ${set.totalReps} · $exerciseName';
+
+  String get dateLabel => _shortDate(date.toLocal());
+
+  static BestSetRecord? bestWeight(List<LocalWorkoutSession> sessions) {
+    return _bestBy(sessions, (candidate) => candidate.weightKg);
+  }
+
+  static BestSetRecord? bestVolume(List<LocalWorkoutSession> sessions) {
+    return _bestBy(sessions, (candidate) => candidate.volume);
+  }
+
+  static BestSetRecord? _bestBy(
+    List<LocalWorkoutSession> sessions,
+    double Function(BestSetRecord candidate) score,
+  ) {
+    BestSetRecord? best;
+    var bestScore = -1.0;
+    for (final session in sessions) {
+      for (final exercise in session.exercises) {
+        for (final set in exercise.sets) {
+          if (set.setType == SetType.warmup ||
+              set.totalReps <= 0 ||
+              set.primaryWeightKg <= 0) {
+            continue;
+          }
+          final candidate = BestSetRecord(
+            exerciseName: exercise.name,
+            set: set,
+            date: session.finishedAt,
+          );
+          final candidateScore = score(candidate);
+          if (candidateScore > bestScore) {
+            best = candidate;
+            bestScore = candidateScore;
+          }
+        }
+      }
+    }
+    return best;
+  }
+}
+
+class WeeklyActivityDay {
+  const WeeklyActivityDay({required this.label, required this.hasSession});
+
+  final String label;
+  final bool hasSession;
+}
+
+bool _sameExercise(WorkoutExercise a, WorkoutExercise b) {
+  if (a.id.isNotEmpty && b.id.isNotEmpty && a.id == b.id) return true;
+  return _normalizeExerciseKey(a.name) == _normalizeExerciseKey(b.name);
+}
+
+String _normalizeExerciseKey(String value) =>
+    value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+List<LocalWorkoutSession> _sessionsSince(
+  List<LocalWorkoutSession> sessions,
+  DateTime since,
+) {
+  return sessions
+      .where((session) => session.finishedAt.toLocal().isAfter(since))
+      .toList();
+}
+
+List<WeeklyActivityDay> _weeklyActivity(List<LocalWorkoutSession> sessions) {
+  final today = DateTime.now();
+  final monday = DateTime(
+    today.year,
+    today.month,
+    today.day,
+  ).subtract(Duration(days: today.weekday - 1));
+  final sessionDays = sessions
+      .map((session) => _dateKey(session.finishedAt.toLocal()))
+      .toSet();
+  const labels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  return [
+    for (var i = 0; i < 7; i++)
+      WeeklyActivityDay(
+        label: labels[i],
+        hasSession: sessionDays.contains(
+          _dateKey(monday.add(Duration(days: i))),
+        ),
+      ),
+  ];
+}
+
+List<double> _weeklyVolumePoints(List<LocalWorkoutSession> sessions) {
+  final today = DateTime.now();
+  final monday = DateTime(
+    today.year,
+    today.month,
+    today.day,
+  ).subtract(Duration(days: today.weekday - 1));
+  final volumes = [
+    for (var i = 0; i < 7; i++)
+      sessions
+          .where(
+            (session) => _sameDay(
+              session.finishedAt.toLocal(),
+              monday.add(Duration(days: i)),
+            ),
+          )
+          .fold<double>(0, (sum, session) => sum + _sessionVolume(session)),
+  ];
+  final maxVolume = volumes.fold<double>(
+    0,
+    (max, volume) => volume > max ? volume : max,
+  );
+  if (maxVolume <= 0) return List<double>.filled(7, 0);
+  return volumes.map((volume) => volume / maxVolume).toList();
+}
+
+int _trainingStreakDays(List<LocalWorkoutSession> sessions) {
+  if (sessions.isEmpty) return 0;
+  final sessionDays = sessions
+      .map((session) => _dateOnly(session.finishedAt.toLocal()))
+      .toSet();
+  var cursor = sessionDays.reduce((a, b) => a.isAfter(b) ? a : b);
+  var streak = 0;
+  while (sessionDays.contains(cursor)) {
+    streak++;
+    cursor = cursor.subtract(const Duration(days: 1));
+  }
+  return streak;
+}
+
+DateTime _dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
+
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+double _sessionVolume(LocalWorkoutSession session) => session.exercises
+    .fold<double>(0, (sum, exercise) => sum + _exerciseVolume(exercise));
+
+double _workoutVolume(List<WorkoutExercise> exercises) => exercises
+    .fold<double>(0, (sum, exercise) => sum + _exerciseVolume(exercise));
+
+double _exerciseVolume(WorkoutExercise exercise) => exercise.sets
+    .where((set) => set.setType != SetType.warmup)
+    .fold<double>(0, (sum, set) => sum + _setVolume(set));
+
+double _setVolume(WorkoutSet set) => set.segments.fold<double>(
+  0,
+  (sum, segment) => sum + segment.weightKg * segment.reps,
+);
+
+String _sessionTitle(LocalWorkoutSession session) {
+  final firstExercise = session.exercises.isEmpty
+      ? 'Sesión'
+      : session.exercises.first.name;
+  return '${session.sessionMode} · $firstExercise';
+}
+
+String _sessionSubtitle(LocalWorkoutSession session) {
+  return '${session.exercises.length} ejercicios · '
+      '${_formatDuration(Duration(seconds: session.durationSeconds))} · '
+      '${_formatCompactVolume(_sessionVolume(session))}';
+}
+
+String _dateKey(DateTime value) =>
+    '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+String _shortDate(DateTime value) => '${value.day}/${value.month}';
+
+String _formatDuration(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  if (hours > 0) return '${hours}h ${minutes.toString().padLeft(2, '0')}m';
+  return '${minutes}min';
+}
+
+String _formatCompactVolume(double volume) => '${volume.round()} kg-reps';
+
+String _formatCompactVolumeValue(double volume) {
+  if (volume >= 1000) {
+    final compact = volume / 1000;
+    return compact >= 10
+        ? '${compact.round()}k'
+        : '${compact.toStringAsFixed(1)}k';
+  }
+  return '${volume.round()}';
+}
+
+String _formatKg(double value) => value == value.roundToDouble()
+    ? value.round().toString()
+    : value.toStringAsFixed(1);
+
 class MonthlySessionCalendarSheet extends StatelessWidget {
-  const MonthlySessionCalendarSheet({super.key});
+  const MonthlySessionCalendarSheet({super.key, required this.sessions});
+
+  final List<LocalWorkoutSession> sessions;
 
   @override
   Widget build(BuildContext context) {
@@ -2310,7 +2631,8 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
     final firstGridDay = monthStart.subtract(
       Duration(days: monthStart.weekday - 1),
     );
-    final sessions = _demoCalendarSessions(now);
+    final sessionsByDay = _sessionsByDay(sessions);
+    final recentSessions = sessions.take(8).toList();
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
       children: [
@@ -2331,7 +2653,7 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Tocá un día con marca para revisar lo que hiciste o lo planificado.',
+          'Tocá un día con marca para revisar entrenamientos guardados en este dispositivo.',
           style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 14),
@@ -2360,21 +2682,20 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
           ),
           itemBuilder: (context, index) {
             final day = firstGridDay.add(Duration(days: index));
-            final session = sessions[_dateKey(day)];
+            final daySessions = sessionsByDay[_dateKey(day)];
             final inMonth = day.month == now.month;
             final isToday = _isSameDay(day, now);
+            final hasSessions = daySessions != null && daySessions.isNotEmpty;
             return InkWell(
               borderRadius: BorderRadius.circular(8),
-              onTap: session == null
+              onTap: !hasSessions
                   ? null
-                  : () => _openSessionDetail(context, day, session),
+                  : () => _openDayDetail(context, day, daySessions),
               child: Container(
                 decoration: BoxDecoration(
-                  color: session == null
+                  color: !hasSessions
                       ? colors.raised.withValues(alpha: inMonth ? 1 : 0.35)
-                      : session.completed
-                      ? colors.primaryContainer
-                      : colors.amberContainer.withValues(alpha: 0.65),
+                      : colors.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isToday ? colors.primaryStrong : colors.divider,
@@ -2389,7 +2710,7 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
                       child: Text(
                         '${day.day}',
                         style: TextStyle(
-                          color: session?.completed == true
+                          color: hasSessions
                               ? Colors.white
                               : inMonth
                               ? colors.text
@@ -2398,18 +2719,26 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (session != null)
+                    if (hasSessions)
                       Positioned(
                         right: 5,
                         bottom: 5,
-                        child: Icon(
-                          session.completed
-                              ? Icons.check_circle
-                              : Icons.schedule,
-                          size: 14,
-                          color: session.completed
-                              ? Colors.white
-                              : colors.amber,
+                        child: Container(
+                          width: 18,
+                          height: 18,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${daySessions.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                       ),
                   ],
@@ -2424,56 +2753,44 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
-        for (final entry in sessions.entries.where(
-          (entry) => entry.value.completed,
-        ))
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.fitness_center),
-              title: Text(entry.value.title),
-              subtitle: Text(entry.value.exercises.join(', ')),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => _openSessionDetail(
-                context,
-                _dateFromKey(entry.key),
-                entry.value,
+        if (recentSessions.isEmpty)
+          DashboardCard(
+            icon: Icons.history,
+            title: 'Sin entrenos locales todavía',
+            subtitle:
+                'Cuando finalices una sesión, va a aparecer acá y en el calendario mensual.',
+          )
+        else
+          for (final session in recentSessions)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.fitness_center),
+                title: Text(_sessionTitle(session)),
+                subtitle: Text(_sessionSubtitle(session)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () =>
+                    _openSessionDetail(context, session.finishedAt, session),
               ),
             ),
-          ),
       ],
     );
   }
 
-  static Map<String, _CalendarSession> _demoCalendarSessions(DateTime now) {
-    final base = DateTime(now.year, now.month);
-    return {
-      _dateKey(base.add(const Duration(days: 1))): const _CalendarSession(
-        title: 'Empuje A',
-        completed: true,
-        exercises: ['Press banca', 'Press militar', 'Tríceps cuerda'],
-      ),
-      _dateKey(base.add(const Duration(days: 4))): const _CalendarSession(
-        title: 'Pull',
-        completed: true,
-        exercises: ['Dominadas', 'Remo mancuerna', 'Curl martillo'],
-      ),
-      _dateKey(DateTime(now.year, now.month, now.day)): const _CalendarSession(
-        title: 'Empuje A',
-        completed: false,
-        exercises: ['Pecho', 'hombros', 'tríceps'],
-      ),
-      _dateKey(base.add(const Duration(days: 18))): const _CalendarSession(
-        title: 'Piernas',
-        completed: false,
-        exercises: ['Sentadilla', 'Prensa', 'Curl femoral'],
-      ),
-    };
+  static Map<String, List<LocalWorkoutSession>> _sessionsByDay(
+    List<LocalWorkoutSession> sessions,
+  ) {
+    final grouped = <String, List<LocalWorkoutSession>>{};
+    for (final session in sessions) {
+      final key = _dateKey(session.finishedAt.toLocal());
+      grouped.putIfAbsent(key, () => []).add(session);
+    }
+    return grouped;
   }
 
-  static void _openSessionDetail(
+  static void _openDayDetail(
     BuildContext context,
     DateTime date,
-    _CalendarSession session,
+    List<LocalWorkoutSession> sessions,
   ) {
     showModalBottomSheet<void>(
       context: context,
@@ -2484,18 +2801,72 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(session.title, style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'Entrenos del ${date.day}/${date.month}/${date.year}',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(height: 4),
             Text(
-              '${date.day}/${date.month}/${date.year} · ${session.completed ? 'Completada' : 'Planificada'}',
+              '${sessions.length} sesión${sessions.length == 1 ? '' : 'es'} guardada${sessions.length == 1 ? '' : 's'}',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 12),
+            for (final session in sessions)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.fitness_center),
+                title: Text(_sessionTitle(session)),
+                subtitle: Text(_sessionSubtitle(session)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openSessionDetail(
+                  context,
+                  session.finishedAt.toLocal(),
+                  session,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static void _openSessionDetail(
+    BuildContext context,
+    DateTime date,
+    LocalWorkoutSession session,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Text(
+              _sessionTitle(session),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${date.day}/${date.month}/${date.year} · ${_formatDuration(Duration(seconds: session.durationSeconds))} · ${_formatCompactVolume(_sessionVolume(session))}',
               style: Theme.of(context).textTheme.labelMedium,
             ),
             const SizedBox(height: 12),
             for (final exercise in session.exercises)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.fitness_center),
-                title: Text(exercise),
+                leading: ExerciseImageBadge(
+                  exerciseId: exercise.id,
+                  name: exercise.name,
+                  muscleGroup: exercise.muscleGroup,
+                  imageUri: exercise.imageUri,
+                  size: 42,
+                ),
+                title: Text(exercise.name),
+                subtitle: Text(
+                  '${exercise.sets.length} series · ${_formatCompactVolume(_exerciseVolume(exercise))}',
+                ),
               ),
           ],
         ),
@@ -2505,11 +2876,6 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
 
   static String _dateKey(DateTime value) =>
       '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
-
-  static DateTime _dateFromKey(String value) {
-    final parts = value.split('-').map(int.parse).toList();
-    return DateTime(parts[0], parts[1], parts[2]);
-  }
 
   static bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
@@ -2530,48 +2896,49 @@ class MonthlySessionCalendarSheet extends StatelessWidget {
   ][month - 1];
 }
 
-class _CalendarSession {
-  const _CalendarSession({
-    required this.title,
-    required this.completed,
-    required this.exercises,
-  });
-
-  final String title;
-  final bool completed;
-  final List<String> exercises;
-}
-
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({
     super.key,
     required this.user,
     required this.repository,
     required this.exercises,
+    required this.localSessions,
     required this.onOpenCalendar,
   });
 
   final AppUser user;
   final AgujetasRepository repository;
   final List<WorkoutExercise> exercises;
+  final List<LocalWorkoutSession> localSessions;
   final VoidCallback onOpenCalendar;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final workingSets = exercises
-        .expand((exercise) => exercise.sets)
-        .where((set) => set.setType != SetType.warmup)
-        .toList();
-    final volume = workingSets.fold<double>(
-      0,
-      (sum, set) =>
-          sum +
-          set.segments.fold<double>(
-            0,
-            (subtotal, segment) => subtotal + segment.weightKg * segment.reps,
-          ),
+    final recentSessions = _sessionsSince(
+      localSessions,
+      DateTime.now().subtract(const Duration(days: 7)),
     );
+    final activeVolume = _workoutVolume(exercises);
+    final savedWeeklyVolume = recentSessions.fold<double>(
+      0,
+      (sum, session) => sum + _sessionVolume(session),
+    );
+    final volume = savedWeeklyVolume > 0 ? savedWeeklyVolume : activeVolume;
+    final workingSets = savedWeeklyVolume > 0
+        ? recentSessions
+              .expand((session) => session.exercises)
+              .expand((exercise) => exercise.sets)
+              .where((set) => set.setType != SetType.warmup)
+              .toList()
+        : exercises
+              .expand((exercise) => exercise.sets)
+              .where((set) => set.setType != SetType.warmup)
+              .toList();
+    final weeklyActivity = _weeklyActivity(localSessions);
+    final streak = _trainingStreakDays(localSessions);
+    final bestWeight = BestSetRecord.bestWeight(localSessions);
+    final bestVolume = BestSetRecord.bestVolume(localSessions);
     return AppScaffold(
       title: 'Progreso',
       user: user,
@@ -2600,8 +2967,8 @@ class ProgressScreen extends StatelessWidget {
               child: _ProgressMetricTile(
                 icon: Icons.local_fire_department_outlined,
                 label: 'Racha',
-                value: '12',
-                suffix: 'días',
+                value: '$streak',
+                suffix: streak == 1 ? 'día' : 'días',
                 color: colors.amber,
               ),
             ),
@@ -2610,42 +2977,50 @@ class ProgressScreen extends StatelessWidget {
               child: _ProgressMetricTile(
                 icon: Icons.scale_outlined,
                 label: 'Volumen',
-                value: '${(volume / 1000).round()}k',
+                value: _formatCompactVolumeValue(volume),
                 suffix: 'kg sem.',
                 color: colors.primaryStrong,
               ),
             ),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: _ProgressMetricTile(
                 icon: Icons.calendar_today_outlined,
                 label: 'Sesiones',
-                value: '48',
+                value: '${localSessions.length}',
                 suffix: 'totales',
               ),
             ),
           ],
         ),
         const _CompactSectionTitle('Actividad semanal'),
-        const _WeeklyActivityStrip(),
+        _WeeklyActivityStrip(days: weeklyActivity),
         DashboardCard(
           icon: Icons.show_chart,
           title: 'Volumen semanal',
-          subtitle: 'Tendencia estimada con tus series efectivas.',
-          child: _VolumeChartCard(volume: volume),
+          subtitle: savedWeeklyVolume > 0
+              ? 'Calculado desde sesiones guardadas localmente.'
+              : 'Todavía sin historial semanal; uso la sesión actual como vista previa.',
+          child: _VolumeChartCard(
+            volume: volume,
+            points: _weeklyVolumePoints(localSessions),
+          ),
         ),
         const _CompactSectionTitle('Marcas personales'),
         DashboardCard(
           icon: Icons.monitor_weight_outlined,
           title: 'Peso máximo',
-          subtitle: '120 kg · Press banca',
-          action: const _MiniValuePill('12 oct'),
+          subtitle: bestWeight?.summary ?? 'Sin registros locales todavía',
+          action: bestWeight == null
+              ? null
+              : _MiniValuePill(bestWeight.dateLabel),
         ),
         DashboardCard(
           icon: Icons.workspace_premium_outlined,
           title: 'Mejor serie',
-          subtitle: '8 reps · 100 kg · Peso muerto',
-          action: const _MiniValuePill('PR'),
+          subtitle:
+              bestVolume?.summary ?? 'Finalizá una sesión para calcularla',
+          action: bestVolume == null ? null : const _MiniValuePill('PR'),
         ),
         DashboardCard(
           icon: Icons.monitor_weight_outlined,
@@ -2654,17 +3029,17 @@ class ProgressScreen extends StatelessWidget {
           child: _ProgressBar(value: workingSets.isEmpty ? 0 : 0.68),
         ),
         const _CompactSectionTitle('Hitos recientes'),
-        const DashboardCard(
+        DashboardCard(
           icon: Icons.auto_awesome,
-          title: 'Nueva marca en sentadilla',
-          subtitle: '100kg x 5 reps. Excelente trabajo.',
-          action: _MiniValuePill('Hace 2d'),
-        ),
-        const DashboardCard(
-          icon: Icons.fitness_center,
-          title: 'Consistencia de hierro',
-          subtitle: 'Completaste 4 sesiones esta semana.',
-          action: _MiniValuePill('Hace 5d'),
+          title: recentSessions.isEmpty
+              ? 'Sin hitos semanales todavía'
+              : 'Semana activa',
+          subtitle: recentSessions.isEmpty
+              ? 'Guardá sesiones para que Agujetas detecte marcas y consistencia.'
+              : 'Completaste ${recentSessions.length} sesión${recentSessions.length == 1 ? '' : 'es'} en los últimos 7 días.',
+          action: recentSessions.isEmpty
+              ? null
+              : _MiniValuePill('${recentSessions.length}/7'),
         ),
         DashboardCard(
           icon: Icons.layers_outlined,
@@ -2738,20 +3113,13 @@ class _ProgressMetricTile extends StatelessWidget {
 }
 
 class _WeeklyActivityStrip extends StatelessWidget {
-  const _WeeklyActivityStrip();
+  const _WeeklyActivityStrip({required this.days});
+
+  final List<WeeklyActivityDay> days;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    const days = [
-      ('L', true),
-      ('M', false),
-      ('X', true),
-      ('J', true),
-      ('V', false),
-      ('S', false),
-      ('D', false),
-    ];
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -2766,17 +3134,19 @@ class _WeeklyActivityStrip extends StatelessWidget {
           for (final day in days)
             Column(
               children: [
-                Text(day.$1, style: Theme.of(context).textTheme.labelMedium),
+                Text(day.label, style: Theme.of(context).textTheme.labelMedium),
                 const SizedBox(height: 7),
                 Container(
                   width: 28,
                   height: 28,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: day.$2 ? colors.primaryContainer : colors.raised,
+                    color: day.hasSession
+                        ? colors.primaryContainer
+                        : colors.raised,
                     shape: BoxShape.circle,
                   ),
-                  child: day.$2
+                  child: day.hasSession
                       ? const Icon(Icons.check, size: 15, color: Colors.white)
                       : null,
                 ),
@@ -2789,14 +3159,14 @@ class _WeeklyActivityStrip extends StatelessWidget {
 }
 
 class _VolumeChartCard extends StatelessWidget {
-  const _VolumeChartCard({required this.volume});
+  const _VolumeChartCard({required this.volume, required this.points});
 
   final double volume;
+  final List<double> points;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    final points = [0.28, 0.42, 0.35, 0.62, 0.78, 0.82, 0.68];
     return Container(
       height: 132,
       padding: const EdgeInsets.all(12),

@@ -203,6 +203,16 @@ Primer bloque local-first implementado:
 
 Pendiente inmediato:
 
-- Exponer ese historial en UI.
-- Conectar calendario mensual a sesiones locales.
-- Mostrar último registro por ejercicio dentro de Entrenar/Detalle.
+- Importar historial JSON real del usuario.
+- Reconstruir índice completo por ejercicio.
+- Migrar rutinas y sesiones personalizadas.
+
+Segundo bloque local-first implementado:
+
+- `HomeShell` carga sesiones locales del dispositivo y las distribuye a Entrenar, Progreso y Calendario.
+- El calendario mensual deja de depender de datos demo: marca días con sesiones locales reales y permite abrir el detalle del día.
+- La sección de entrenos recientes muestra sesiones guardadas localmente.
+- Progreso calcula sesiones totales, racha, actividad semanal, volumen semanal, dropsets y mejores series a partir del historial local cuando existe.
+- Las tarjetas de ejercicio en Entrenar muestran el último registro local disponible.
+- El detalle de ejercicio muestra historial reciente real cuando existe, o estado vacío honesto cuando todavía no hay datos.
+- Las notificaciones locales hacen no-op defensivo si el canal nativo no existe en tests, sin romper el guardado de sesión.
