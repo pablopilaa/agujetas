@@ -2,6 +2,12 @@
 
 Nueva app comercial side-by-side. La app Expo previa queda como referencia legacy; el trabajo nuevo vive en `apps/agujetas_flutter`.
 
+## Regla de migracion
+
+La app Expo/React Native de la raiz del repo queda congelada como referencia funcional. No es la base de nuevos parches de producto. Para avanzar, leer la legacy, portar comportamiento y verificar paridad en Flutter.
+
+Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
+
 ## Alcance actual
 
 - Flutter Android/iOS/Web con Material 3, light/dark mode y logo SVG.
@@ -9,6 +15,7 @@ Nueva app comercial side-by-side. La app Expo previa queda como referencia legac
 - Android package: `com.pablopilaa.Agujetas`.
 - iOS bundle id: `com.pablopilaa.agujetas`.
 - Login con Google mediante Firebase Auth.
+- Persistencia local-first base con `shared_preferences` para borrador de sesion activa e historial local minimo.
 - Roles:
   - `normal`: usuario autogestionado.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.
@@ -64,8 +71,11 @@ node scripts/preview-server.mjs build/web 53627
 Android:
 
 ```powershell
+$env:JAVA_TOOL_OPTIONS='-Djavax.net.ssl.trustStoreType=Windows-ROOT'
 flutter build apk --debug
 ```
+
+El `JAVA_TOOL_OPTIONS` anterior es necesario en este equipo Windows si Gradle falla descargando dependencias Maven con `PKIX path building failed`. No se deja fijo en `gradle.properties` para no afectar CI/Linux.
 
 iOS queda source-ready, pero un build instalable/TestFlight requiere macOS, Xcode y Apple Developer Program.
 

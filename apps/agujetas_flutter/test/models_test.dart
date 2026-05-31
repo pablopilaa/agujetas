@@ -1,6 +1,8 @@
 import 'package:agujetas_flutter/exercise_image_resolver.dart';
+import 'package:agujetas_flutter/local_workout_store.dart';
 import 'package:agujetas_flutter/models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -122,6 +124,55 @@ void main() {
         resolved.assetPath,
         contains('assets/exercise_images/placeholders/'),
       );
+    },
+  );
+
+  test('local workout store restores active workout drafts', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+    final exercises = seedWorkout();
+
+    await store.saveActiveDraft(
+      userId: 'local-user',
+      sessionMode: 'Hipertrofia',
+      exercises: exercises,
+    );
+
+    final draft = await store.loadActiveDraft('local-user');
+
+    expect(draft, isNotNull);
+    expect(draft!.sessionMode, 'Hipertrofia');
+    expect(draft.exercises, hasLength(exercises.length));
+    expect(draft.exercises.first.name, exercises.first.name);
+  });
+
+  test(
+    'local workout store saves history and clears draft separately',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = LocalWorkoutStore.instance;
+      final exercises = seedWorkout();
+
+      await store.saveActiveDraft(
+        userId: 'history-user',
+        sessionMode: 'Fuerza',
+        exercises: exercises,
+      );
+      final session = await store.saveSession(
+        userId: 'history-user',
+        sessionMode: 'Fuerza',
+        exercises: exercises,
+        duration: const Duration(minutes: 42),
+      );
+      await store.clearActiveDraft('history-user');
+
+      final sessions = await store.loadSessions('history-user');
+      final draft = await store.loadActiveDraft('history-user');
+
+      expect(session.durationSeconds, 2520);
+      expect(sessions, hasLength(1));
+      expect(sessions.single.exercises.first.sets, isNotEmpty);
+      expect(draft, isNull);
     },
   );
 }

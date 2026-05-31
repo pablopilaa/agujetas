@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 import 'app_theme.dart';
 import 'exercise_image_resolver.dart';
 import 'firebase_options.dart';
+import 'local_workout_store.dart';
 import 'models.dart';
 import 'notification_service.dart';
 import 'repositories.dart';
@@ -319,6 +320,7 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
+  final _localStore = LocalWorkoutStore.instance;
   int _tab = 0;
   late List<WorkoutExercise> _workout;
   String _sessionMode = 'Fuerza';
@@ -331,6 +333,7 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _workout = seedWorkout();
+    unawaited(_restoreActiveDraft());
   }
 
   @override
@@ -355,12 +358,10 @@ class _HomeShellState extends State<HomeShell> {
         sessionResetToken: _sessionResetToken,
         exercises: _workout,
         hasEditedWorkout: _workoutDirty,
-        onExercisesChanged: (items) => setState(() {
-          _workout = items;
-          _workoutDirty = true;
-        }),
+        onExercisesChanged: _updateWorkout,
         onSessionActivity: () {},
         onSessionModeChanged: _changeTrainingMode,
+        onSessionSavedLocally: _saveSessionLocally,
         onOpenLibrary: () => setState(() => _tab = 3),
       ),
       ProgressScreen(
@@ -373,10 +374,7 @@ class _HomeShellState extends State<HomeShell> {
         user: widget.user,
         repository: widget.repository,
         exercises: _workout,
-        onExercisesChanged: (items) => setState(() {
-          _workout = items;
-          _workoutDirty = true;
-        }),
+        onExercisesChanged: _updateWorkout,
       ),
       ProfileScreen(
         user: widget.user,
@@ -411,6 +409,7 @@ class _HomeShellState extends State<HomeShell> {
       _sessionMode = mode;
       _tab = 1;
     });
+    unawaited(_persistActiveDraft());
   }
 
   void _changeTrainingMode(String mode) {
@@ -420,6 +419,54 @@ class _HomeShellState extends State<HomeShell> {
       _workoutDirty = false;
       _sessionResetToken++;
       _tab = 1;
+    });
+    unawaited(_persistActiveDraft());
+  }
+
+  void _updateWorkout(List<WorkoutExercise> items) {
+    setState(() {
+      _workout = items;
+      _workoutDirty = true;
+    });
+    unawaited(_persistActiveDraft());
+  }
+
+  Future<void> _restoreActiveDraft() async {
+    final draft = await _localStore.loadActiveDraft(widget.user.uid);
+    if (!mounted || draft == null) return;
+    setState(() {
+      _workout = draft.exercises;
+      _sessionMode = draft.sessionMode;
+      _workoutDirty = true;
+      _notice = 'Restauré tu sesión activa guardada en este dispositivo.';
+    });
+  }
+
+  Future<void> _persistActiveDraft() {
+    return _localStore.saveActiveDraft(
+      userId: widget.user.uid,
+      sessionMode: _sessionMode,
+      exercises: _workout,
+    );
+  }
+
+  Future<void> _saveSessionLocally(
+    Duration totalElapsed,
+    List<WorkoutExercise> exercises,
+  ) async {
+    await _localStore.saveSession(
+      userId: widget.user.uid,
+      sessionMode: _sessionMode,
+      exercises: exercises,
+      duration: totalElapsed,
+    );
+    await _localStore.clearActiveDraft(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _workout = seedWorkout();
+      _workoutDirty = false;
+      _sessionResetToken++;
+      _notice = 'Sesión guardada en el historial local.';
     });
   }
 }
@@ -925,6 +972,7 @@ class TrainScreen extends StatefulWidget {
     required this.onExercisesChanged,
     required this.onSessionActivity,
     required this.onSessionModeChanged,
+    required this.onSessionSavedLocally,
     required this.onOpenLibrary,
   });
 
@@ -937,6 +985,11 @@ class TrainScreen extends StatefulWidget {
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final VoidCallback onSessionActivity;
   final ValueChanged<String> onSessionModeChanged;
+  final Future<void> Function(
+    Duration totalElapsed,
+    List<WorkoutExercise> exercises,
+  )
+  onSessionSavedLocally;
   final VoidCallback onOpenLibrary;
 
   @override
@@ -1207,16 +1260,31 @@ class _TrainScreenState extends State<TrainScreen> {
   }
 
   Future<void> _saveSession() async {
-    await widget.repository.saveSession(
-      user: widget.user,
-      exercises: widget.exercises,
+    final exercisesSnapshot = List<WorkoutExercise>.unmodifiable(
+      widget.exercises,
     );
+    await widget.onSessionSavedLocally(_totalElapsed, exercisesSnapshot);
+    var synced = true;
+    try {
+      await widget.repository.saveSession(
+        user: widget.user,
+        exercises: exercisesSnapshot,
+      );
+    } catch (_) {
+      synced = false;
+    }
     if (!kIsWeb) {
       await NotificationService.showSessionSaved();
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sesión guardada en Firebase')),
+        SnackBar(
+          content: Text(
+            synced
+                ? 'Sesión guardada localmente y sincronizada'
+                : 'Sesión guardada localmente; sincronización pendiente',
+          ),
+        ),
       );
     }
   }
