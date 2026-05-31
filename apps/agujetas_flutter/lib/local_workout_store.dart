@@ -202,8 +202,49 @@ class LocalWorkoutStore {
         .whereType<Map>()
         .map((item) => RoutineTemplate.fromJson(item.cast<String, Object?>()))
         .where((routine) => routine.ownerId == userId)
-        .toList()
-      ..sort((a, b) => a.title.compareTo(b.title));
+        .toList();
+  }
+
+  Future<void> saveRoutineTemplateLocal({
+    required String userId,
+    required RoutineTemplate routine,
+  }) async {
+    final routines = await loadRoutineTemplates(userId);
+    final normalized = routine.copyWith(ownerId: userId);
+    final index = routines.indexWhere((item) => item.id == normalized.id);
+    final next = [...routines];
+    if (index == -1) {
+      next.insert(0, normalized);
+    } else {
+      next[index] = normalized;
+    }
+    await replaceRoutineTemplates(userId: userId, routines: next);
+  }
+
+  Future<void> deleteRoutineTemplate({
+    required String userId,
+    required String routineId,
+  }) async {
+    final routines = await loadRoutineTemplates(userId);
+    await replaceRoutineTemplates(
+      userId: userId,
+      routines: routines.where((routine) => routine.id != routineId).toList(),
+    );
+  }
+
+  Future<void> replaceRoutineTemplates({
+    required String userId,
+    required List<RoutineTemplate> routines,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = routines
+        .where((routine) => routine.exercises.isNotEmpty)
+        .map((routine) => routine.copyWith(ownerId: userId))
+        .toList();
+    await prefs.setString(
+      _routinesKey(userId),
+      jsonEncode(normalized.map((item) => item.toJson()).toList()),
+    );
   }
 
   Future<int> saveImportedRoutineTemplates({
@@ -231,11 +272,11 @@ class LocalWorkoutStore {
       );
     }
     if (imported.isEmpty) return 0;
-    final next = [...previous, ...imported]
-      ..sort((a, b) => a.title.compareTo(b.title));
     await prefs.setString(
       _routinesKey(userId),
-      jsonEncode(next.map((item) => item.toJson()).toList()),
+      jsonEncode(
+        [...previous, ...imported].map((item) => item.toJson()).toList(),
+      ),
     );
     return imported.length;
   }

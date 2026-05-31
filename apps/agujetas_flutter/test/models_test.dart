@@ -319,4 +319,50 @@ void main() {
       expect(routines, anyElement((routine) => routine.title == 'Push 2'));
     },
   );
+
+  test('local workout store preserves routine CRUD order', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+    final exercises = seedWorkout();
+    final first = RoutineTemplate(
+      id: 'routine-a',
+      ownerId: 'other-owner',
+      title: 'Piernas',
+      exercises: exercises.take(2).toList(),
+    );
+    final second = RoutineTemplate(
+      id: 'routine-b',
+      ownerId: 'other-owner',
+      title: 'Espalda',
+      exercises: exercises.skip(1).take(2).toList(),
+    );
+
+    await store.saveRoutineTemplateLocal(userId: 'crud-user', routine: first);
+    await store.saveRoutineTemplateLocal(userId: 'crud-user', routine: second);
+
+    final inserted = await store.loadRoutineTemplates('crud-user');
+    expect(inserted.map((routine) => routine.id), ['routine-b', 'routine-a']);
+    expect(inserted.every((routine) => routine.ownerId == 'crud-user'), true);
+
+    await store.replaceRoutineTemplates(
+      userId: 'crud-user',
+      routines: [inserted.last, inserted.first],
+    );
+    final reordered = await store.loadRoutineTemplates('crud-user');
+    expect(reordered.map((routine) => routine.id), ['routine-a', 'routine-b']);
+
+    await store.saveRoutineTemplateLocal(
+      userId: 'crud-user',
+      routine: reordered.first.copyWith(title: 'Piernas pesado'),
+    );
+    final renamed = await store.loadRoutineTemplates('crud-user');
+    expect(renamed.first.title, 'Piernas pesado');
+
+    await store.deleteRoutineTemplate(
+      userId: 'crud-user',
+      routineId: 'routine-a',
+    );
+    final remaining = await store.loadRoutineTemplates('crud-user');
+    expect(remaining.map((routine) => routine.id), ['routine-b']);
+  });
 }

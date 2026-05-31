@@ -390,6 +390,22 @@ class RoutineTemplate {
     'updatedAt': DateTime.now().toUtc().toIso8601String(),
   };
 
+  RoutineTemplate copyWith({
+    String? id,
+    String? ownerId,
+    String? title,
+    List<WorkoutExercise>? exercises,
+    String? assignedClientId,
+  }) {
+    return RoutineTemplate(
+      id: id ?? this.id,
+      ownerId: ownerId ?? this.ownerId,
+      title: title ?? this.title,
+      exercises: exercises ?? this.exercises,
+      assignedClientId: assignedClientId ?? this.assignedClientId,
+    );
+  }
+
   factory RoutineTemplate.fromJson(Map<String, Object?> json) {
     final exercises = (json['exercises'] as List<dynamic>? ?? const [])
         .whereType<Map>()

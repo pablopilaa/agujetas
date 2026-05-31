@@ -388,6 +388,10 @@ class _HomeShellState extends State<HomeShell> {
         routines: _localRoutines,
         onExercisesChanged: _updateWorkout,
         onStartRoutine: _startRoutine,
+        onSaveRoutine: _saveRoutine,
+        onDeleteRoutine: _deleteRoutine,
+        onDuplicateRoutine: _duplicateRoutine,
+        onMoveRoutine: _moveRoutine,
       ),
       ProfileScreen(
         user: widget.user,
@@ -434,6 +438,66 @@ class _HomeShellState extends State<HomeShell> {
       _tab = 1;
     });
     unawaited(_persistActiveDraft());
+  }
+
+  Future<void> _saveRoutine(RoutineTemplate routine) async {
+    await _localStore.saveRoutineTemplateLocal(
+      userId: widget.user.uid,
+      routine: routine,
+    );
+    final routines = await _localStore.loadRoutineTemplates(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localRoutines = routines;
+      _notice = 'Rutina "${routine.title}" guardada localmente.';
+    });
+  }
+
+  Future<void> _deleteRoutine(RoutineTemplate routine) async {
+    await _localStore.deleteRoutineTemplate(
+      userId: widget.user.uid,
+      routineId: routine.id,
+    );
+    final routines = await _localStore.loadRoutineTemplates(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localRoutines = routines;
+      _notice = 'Rutina "${routine.title}" eliminada.';
+    });
+  }
+
+  Future<void> _duplicateRoutine(RoutineTemplate routine) async {
+    final copy = routine.copyWith(
+      id: const Uuid().v4(),
+      ownerId: widget.user.uid,
+      title: '${routine.title} copia',
+      exercises: routine.exercises
+          .map((exercise) => WorkoutExercise.fromJson(exercise.toJson()))
+          .toList(),
+    );
+    await _saveRoutine(copy);
+  }
+
+  Future<void> _moveRoutine(int oldIndex, int newIndex) async {
+    if (oldIndex < 0 ||
+        oldIndex >= _localRoutines.length ||
+        newIndex < 0 ||
+        newIndex >= _localRoutines.length ||
+        oldIndex == newIndex) {
+      return;
+    }
+    final next = [..._localRoutines];
+    final routine = next.removeAt(oldIndex);
+    next.insert(newIndex, routine);
+    await _localStore.replaceRoutineTemplates(
+      userId: widget.user.uid,
+      routines: next,
+    );
+    if (!mounted) return;
+    setState(() {
+      _localRoutines = next;
+      _notice = 'Orden de rutinas actualizado.';
+    });
   }
 
   void _changeTrainingMode(String mode) {
@@ -3431,6 +3495,10 @@ class LibraryScreen extends StatefulWidget {
     required this.routines,
     required this.onExercisesChanged,
     required this.onStartRoutine,
+    required this.onSaveRoutine,
+    required this.onDeleteRoutine,
+    required this.onDuplicateRoutine,
+    required this.onMoveRoutine,
   });
 
   final AppUser user;
@@ -3439,6 +3507,10 @@ class LibraryScreen extends StatefulWidget {
   final List<RoutineTemplate> routines;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final ValueChanged<RoutineTemplate> onStartRoutine;
+  final Future<void> Function(RoutineTemplate routine) onSaveRoutine;
+  final Future<void> Function(RoutineTemplate routine) onDeleteRoutine;
+  final Future<void> Function(RoutineTemplate routine) onDuplicateRoutine;
+  final Future<void> Function(int oldIndex, int newIndex) onMoveRoutine;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -3550,13 +3622,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   title: 'Rutina base Agujetas',
                   exercises: widget.exercises,
                 );
-                await widget.repository.saveRoutineTemplate(
-                  owner: widget.user,
-                  routine: routine,
-                );
+                await widget.onSaveRoutine(routine);
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Rutina guardada')),
+                    const SnackBar(content: Text('Rutina guardada localmente')),
                   );
                 }
               },
@@ -3571,16 +3640,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   '${widget.routines.length} rutinas y sesiones personalizadas disponibles offline.',
               child: Column(
                 children: [
-                  for (final routine in widget.routines.take(8))
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.fitness_center),
-                      title: Text(routine.title),
-                      subtitle: Text('${routine.exercises.length} ejercicios'),
-                      trailing: FilledButton(
-                        onPressed: () => widget.onStartRoutine(routine),
-                        child: const Text('Iniciar'),
-                      ),
+                  for (var i = 0; i < widget.routines.length; i++)
+                    RoutineTemplateTile(
+                      routine: widget.routines[i],
+                      onStart: () => widget.onStartRoutine(widget.routines[i]),
+                      onRename: () => _renameRoutine(widget.routines[i]),
+                      onDuplicate: () =>
+                          widget.onDuplicateRoutine(widget.routines[i]),
+                      onDelete: () => _confirmDeleteRoutine(widget.routines[i]),
+                      onMoveUp: i == 0
+                          ? null
+                          : () => widget.onMoveRoutine(i, i - 1),
+                      onMoveDown: i == widget.routines.length - 1
+                          ? null
+                          : () => widget.onMoveRoutine(i, i + 1),
                     ),
                 ],
               ),
@@ -3695,6 +3768,71 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  Future<void> _renameRoutine(RoutineTemplate routine) async {
+    final controller = TextEditingController(text: routine.title);
+    final nextTitle = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Renombrar rutina'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(labelText: 'Nombre'),
+          onSubmitted: (value) => Navigator.of(context).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (nextTitle == null || nextTitle.isEmpty || nextTitle == routine.title) {
+      return;
+    }
+    await widget.onSaveRoutine(routine.copyWith(title: nextTitle));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Rutina renombrada a "$nextTitle"')));
+  }
+
+  Future<void> _confirmDeleteRoutine(RoutineTemplate routine) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borrar rutina'),
+        content: Text(
+          'Esto elimina "${routine.title}" de este dispositivo. '
+          'No borra tu historial de entrenamientos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.onDeleteRoutine(routine);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Rutina "${routine.title}" eliminada')),
+    );
+  }
+
   Future<void> _openCustomExerciseSheet() async {
     final exercise = await showModalBottomSheet<ExerciseCatalogEntry>(
       context: context,
@@ -3794,6 +3932,149 @@ class _CatalogTile extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class RoutineTemplateTile extends StatelessWidget {
+  const RoutineTemplateTile({
+    super.key,
+    required this.routine,
+    required this.onStart,
+    required this.onRename,
+    required this.onDuplicate,
+    required this.onDelete,
+    this.onMoveUp,
+    this.onMoveDown,
+  });
+
+  final RoutineTemplate routine;
+  final VoidCallback onStart;
+  final VoidCallback onRename;
+  final VoidCallback onDuplicate;
+  final VoidCallback onDelete;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveDown;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final preview = routine.exercises.take(3).toList();
+    final subtitle = routine.exercises
+        .take(4)
+        .map((exercise) => exercise.name)
+        .join(', ');
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 76,
+                  height: 44,
+                  child: Stack(
+                    children: [
+                      for (var i = 0; i < preview.length; i++)
+                        Positioned(
+                          left: i * 18,
+                          child: ExerciseImageBadge(
+                            exerciseId: preview[i].id,
+                            name: preview[i].name,
+                            muscleGroup: preview[i].muscleGroup,
+                            imageUri: preview[i].imageUri,
+                            size: 42,
+                          ),
+                        ),
+                      if (preview.isEmpty)
+                        const Icon(Icons.fitness_center_outlined, size: 32),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        routine.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${routine.exercises.length} ejercicios'
+                        '${subtitle.isEmpty ? '' : ' · $subtitle'}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'Opciones de rutina',
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'rename':
+                        onRename();
+                        break;
+                      case 'duplicate':
+                        onDuplicate();
+                        break;
+                      case 'moveUp':
+                        onMoveUp?.call();
+                        break;
+                      case 'moveDown':
+                        onMoveDown?.call();
+                        break;
+                      case 'delete':
+                        onDelete();
+                        break;
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'rename',
+                      child: Text('Renombrar'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'duplicate',
+                      child: Text('Duplicar'),
+                    ),
+                    PopupMenuItem(
+                      value: 'moveUp',
+                      enabled: onMoveUp != null,
+                      child: const Text('Subir'),
+                    ),
+                    PopupMenuItem(
+                      value: 'moveDown',
+                      enabled: onMoveDown != null,
+                      child: const Text('Bajar'),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(value: 'delete', child: Text('Borrar')),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: onStart,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Iniciar rutina'),
+              ),
+            ),
+          ],
         ),
       ),
     );

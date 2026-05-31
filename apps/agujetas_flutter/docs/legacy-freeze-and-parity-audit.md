@@ -205,7 +205,7 @@ Pendiente inmediato:
 
 - Reconstruir índice completo por ejercicio.
 - Convertir la importación histórica en flujo visible/configurable antes de distribuir una build comercial.
-- Agregar CRUD local-first completo para editar, borrar y reordenar rutinas importadas.
+- Completar editor profundo de rutinas para modificar ejercicios, series y defaults dentro de cada plantilla.
 
 Segundo bloque local-first implementado:
 
@@ -233,3 +233,12 @@ Cuarto bloque local-first implementado:
 - Home muestra “Rutinas importadas” y permite iniciar una rutina legacy.
 - Biblioteca, en “Mis ejercicios”, muestra las rutinas legacy importadas y permite iniciar una plantilla desde ahí.
 - Entrenar muestra el nombre de la rutina activa en el encabezado, en lugar de dejar fijo “Empuje A”.
+
+Quinto bloque local-first implementado:
+
+- `RoutineTemplate.copyWith` permite editar plantillas sin reconstruir manualmente el modelo.
+- `LocalWorkoutStore` preserva el orden de rutinas guardadas y agrega operaciones locales para guardar, borrar y reemplazar plantillas.
+- Biblioteca permite guardar la rutina base actual como plantilla local.
+- Biblioteca permite renombrar, duplicar, borrar y subir/bajar rutinas importadas o guardadas localmente.
+- Las rutinas se mantienen offline y no dependen de Firestore para operar en modo demo.
+- Tests unitarios cubren guardado, renombrado, reordenamiento y borrado local de rutinas.
