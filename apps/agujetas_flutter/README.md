@@ -19,6 +19,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Calendario mensual navegable, progreso y tarjetas de entrenamiento conectados al historial local guardado en el dispositivo, con detalle de sesión, series, segmentos y RIR.
 - El historial local permite repetir una sesión guardada como entrenamiento activo o guardarla como rutina local reutilizable.
 - La ficha de ejercicio muestra historial local profundo, mejores marcas y permite aplicar el último registro como defaults en Entrenar.
+- El historial local permite editar nombre/nota de una sesión guardada y borrar sesiones locales con confirmación.
 - Seguimiento de peso corporal local-first con recordatorio diario opcional y sync best-effort si hay backend disponible.
 - Importacion local del historico exportado desde la app Expo legacy incluido en `assets/user_data`.
 - Importacion local de rutinas y sesiones personalizadas legacy desde `assets/user_data/catalogo_ejercicios_2026-05-13.json`.

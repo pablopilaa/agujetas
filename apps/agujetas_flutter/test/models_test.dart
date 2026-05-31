@@ -177,6 +177,37 @@ void main() {
     },
   );
 
+  test('local workout store edits and deletes session metadata', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+    final session = await store.saveSession(
+      userId: 'session-edit-user',
+      sessionMode: 'Fuerza',
+      exercises: seedWorkout(),
+      duration: const Duration(minutes: 35),
+    );
+
+    await store.updateSessionLocal(
+      userId: 'session-edit-user',
+      session: session.copyWith(
+        title: 'Piernas corregido',
+        note: 'Subí RIR por molestia lumbar.',
+      ),
+    );
+
+    var sessions = await store.loadSessions('session-edit-user');
+    expect(sessions.single.title, 'Piernas corregido');
+    expect(sessions.single.note, 'Subí RIR por molestia lumbar.');
+
+    await store.deleteSessionLocal(
+      userId: 'session-edit-user',
+      sessionId: session.id,
+    );
+
+    sessions = await store.loadSessions('session-edit-user');
+    expect(sessions, isEmpty);
+  });
+
   test('local workout store persists body weight history by user', () async {
     SharedPreferences.setMockInitialValues({});
     final store = LocalWorkoutStore.instance;

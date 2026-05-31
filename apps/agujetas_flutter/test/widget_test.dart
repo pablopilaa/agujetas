@@ -768,6 +768,75 @@ void main() {
     expect(exercise.sets.first.totalReps, 4);
     expect(exercise.sets.first.rir, 1);
   });
+
+  testWidgets('monthly calendar edits and deletes local session metadata', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var savedSession = LocalWorkoutSession(
+      id: 'editable-session',
+      userId: 'calendar-edit-user',
+      sessionMode: 'Fuerza',
+      exercises: seedWorkout(),
+      startedAt: DateTime(2026, 5, 20, 10),
+      finishedAt: DateTime.now().toUtc(),
+      durationSeconds: 3600,
+    );
+    var deleted = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: MonthlySessionCalendarSheet(
+            sessions: [savedSession],
+            onUpdateSession: (session) async => savedSession = session,
+            onDeleteSession: (session) async => deleted = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Fuerza · Press banca').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Editar nota'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Nombre'),
+      'Push corregido',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Nota'),
+      'Bajé carga por técnica.',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Guardar'));
+    await tester.pumpAndSettle();
+
+    expect(savedSession.title, 'Push corregido');
+    expect(savedSession.note, 'Bajé carga por técnica.');
+    expect(find.text('Push corregido'), findsWidgets);
+
+    await tester.tap(find.text('Push corregido').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Bajé carga por técnica.'), findsOneWidget);
+
+    await tester.tap(find.text('Borrar').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Borrar sesión'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Borrar'));
+    await tester.pumpAndSettle();
+
+    expect(deleted, isTrue);
+    expect(find.text('Sin entrenos en este mes'), findsOneWidget);
+    expect(find.text('Push corregido'), findsNothing);
+  });
 }
 
 String _monthNameForTest(int month) => const [

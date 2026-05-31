@@ -442,6 +442,8 @@ class _HomeShellState extends State<HomeShell> {
         sessions: _localSessions,
         onRepeatSession: _repeatHistoricalSession,
         onSaveSessionAsRoutine: _saveHistoricalSessionAsRoutine,
+        onUpdateSession: _updateHistoricalSession,
+        onDeleteSession: _deleteHistoricalSession,
       ),
     );
   }
@@ -501,6 +503,32 @@ class _HomeShellState extends State<HomeShell> {
       exercises: _cloneWorkoutExercises(session.exercises),
     );
     await _saveRoutine(routine);
+  }
+
+  Future<void> _updateHistoricalSession(LocalWorkoutSession session) async {
+    await _localStore.updateSessionLocal(
+      userId: widget.user.uid,
+      session: session,
+    );
+    final sessions = await _localStore.loadSessions(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localSessions = sessions;
+      _notice = 'Sesión histórica actualizada localmente.';
+    });
+  }
+
+  Future<void> _deleteHistoricalSession(LocalWorkoutSession session) async {
+    await _localStore.deleteSessionLocal(
+      userId: widget.user.uid,
+      sessionId: session.id,
+    );
+    final sessions = await _localStore.loadSessions(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localSessions = sessions;
+      _notice = 'Sesión histórica eliminada de este dispositivo.';
+    });
   }
 
   void _editRoutine(RoutineTemplate routine) {
@@ -3462,6 +3490,8 @@ double _setVolume(WorkoutSet set) => set.segments.fold<double>(
 );
 
 String _sessionTitle(LocalWorkoutSession session) {
+  final title = session.title?.trim();
+  if (title != null && title.isNotEmpty) return title;
   final firstExercise = session.exercises.isEmpty
       ? 'Sesión'
       : session.exercises.first.name;
@@ -3508,12 +3538,16 @@ class MonthlySessionCalendarSheet extends StatefulWidget {
     required this.sessions,
     this.onRepeatSession,
     this.onSaveSessionAsRoutine,
+    this.onUpdateSession,
+    this.onDeleteSession,
   });
 
   final List<LocalWorkoutSession> sessions;
   final ValueChanged<LocalWorkoutSession>? onRepeatSession;
   final Future<void> Function(LocalWorkoutSession session)?
   onSaveSessionAsRoutine;
+  final Future<void> Function(LocalWorkoutSession session)? onUpdateSession;
+  final Future<void> Function(LocalWorkoutSession session)? onDeleteSession;
 
   @override
   State<MonthlySessionCalendarSheet> createState() =>
@@ -3523,12 +3557,14 @@ class MonthlySessionCalendarSheet extends StatefulWidget {
 class _MonthlySessionCalendarSheetState
     extends State<MonthlySessionCalendarSheet> {
   late DateTime _visibleMonth;
+  late List<LocalWorkoutSession> _sessions;
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _visibleMonth = DateTime(now.year, now.month);
+    _sessions = widget.sessions;
   }
 
   @override
@@ -3539,15 +3575,15 @@ class _MonthlySessionCalendarSheetState
     final firstGridDay = monthStart.subtract(
       Duration(days: monthStart.weekday - 1),
     );
-    final sessionsByDay = _sessionsByDay(widget.sessions);
-    final monthSessions = widget.sessions
+    final sessionsByDay = _sessionsByDay(_sessions);
+    final monthSessions = _sessions
         .where(
           (session) =>
               session.finishedAt.toLocal().year == _visibleMonth.year &&
               session.finishedAt.toLocal().month == _visibleMonth.month,
         )
         .toList();
-    final recentSessions = widget.sessions.take(6).toList();
+    final recentSessions = _sessions.take(6).toList();
     final monthVolume = monthSessions.fold<double>(
       0,
       (sum, session) => sum + _sessionVolume(session),
@@ -3834,6 +3870,13 @@ class _MonthlySessionCalendarSheetState
               '${date.day}/${date.month}/${date.year} · ${_formatDuration(Duration(seconds: session.durationSeconds))} · ${_formatCompactVolume(_sessionVolume(session))}',
               style: Theme.of(context).textTheme.labelMedium,
             ),
+            if (session.note != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                session.note!,
+                style: TextStyle(color: context.appColors.textSecondary),
+              ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [
@@ -3866,6 +3909,30 @@ class _MonthlySessionCalendarSheetState
                           },
                     icon: const Icon(Icons.playlist_add),
                     label: const Text('Guardar rutina'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: widget.onUpdateSession == null
+                        ? null
+                        : () => _editSessionMetadata(context, session),
+                    icon: const Icon(Icons.edit_note_outlined),
+                    label: const Text('Editar nota'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: widget.onDeleteSession == null
+                        ? null
+                        : () => _confirmDeleteSession(context, session),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Borrar'),
                   ),
                 ),
               ],
@@ -3933,6 +4000,59 @@ class _MonthlySessionCalendarSheetState
     );
   }
 
+  Future<void> _editSessionMetadata(
+    BuildContext context,
+    LocalWorkoutSession session,
+  ) async {
+    final updated = await showDialog<LocalWorkoutSession>(
+      context: context,
+      builder: (_) => _EditSessionMetadataDialog(session: session),
+    );
+    if (updated == null) return;
+    await widget.onUpdateSession?.call(updated);
+    if (!mounted) return;
+    setState(() {
+      _sessions = [
+        for (final item in _sessions)
+          if (item.id == updated.id) updated else item,
+      ]..sort((a, b) => b.finishedAt.compareTo(a.finishedAt));
+    });
+    if (context.mounted) Navigator.of(context).pop();
+  }
+
+  Future<void> _confirmDeleteSession(
+    BuildContext context,
+    LocalWorkoutSession session,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Borrar sesión'),
+        content: Text(
+          'Esto elimina "${_sessionTitle(session)}" del historial local de este dispositivo. No borra rutinas ni ejercicios.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.onDeleteSession?.call(session);
+    if (!mounted) return;
+    setState(
+      () =>
+          _sessions = _sessions.where((item) => item.id != session.id).toList(),
+    );
+    if (context.mounted) Navigator.of(context).pop();
+  }
+
   static String _dateKey(DateTime value) =>
       '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 
@@ -3953,6 +4073,78 @@ class _MonthlySessionCalendarSheetState
     'Noviembre',
     'Diciembre',
   ][month - 1];
+}
+
+class _EditSessionMetadataDialog extends StatefulWidget {
+  const _EditSessionMetadataDialog({required this.session});
+
+  final LocalWorkoutSession session;
+
+  @override
+  State<_EditSessionMetadataDialog> createState() =>
+      _EditSessionMetadataDialogState();
+}
+
+class _EditSessionMetadataDialogState
+    extends State<_EditSessionMetadataDialog> {
+  late final TextEditingController _titleController = TextEditingController(
+    text: _sessionTitle(widget.session),
+  );
+  late final TextEditingController _noteController = TextEditingController(
+    text: widget.session.note ?? '',
+  );
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Editar sesión'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _titleController,
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(labelText: 'Nombre'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _noteController,
+            minLines: 2,
+            maxLines: 4,
+            decoration: const InputDecoration(labelText: 'Nota'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final nextTitle = _titleController.text.trim();
+            final nextNote = _noteController.text.trim();
+            Navigator.of(context).pop(
+              widget.session.copyWith(
+                title: nextTitle.isEmpty ? null : nextTitle,
+                note: nextNote.isEmpty ? null : nextNote,
+                clearTitle: nextTitle.isEmpty,
+                clearNote: nextNote.isEmpty,
+              ),
+            );
+          },
+          child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
 }
 
 class _SessionSetHistoryRow extends StatelessWidget {

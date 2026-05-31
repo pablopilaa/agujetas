@@ -50,6 +50,8 @@ class LocalWorkoutSession {
     required this.startedAt,
     required this.finishedAt,
     required this.durationSeconds,
+    this.title,
+    this.note,
   });
 
   final String id;
@@ -59,6 +61,8 @@ class LocalWorkoutSession {
   final DateTime startedAt;
   final DateTime finishedAt;
   final int durationSeconds;
+  final String? title;
+  final String? note;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -68,6 +72,8 @@ class LocalWorkoutSession {
     'startedAt': startedAt.toUtc().toIso8601String(),
     'finishedAt': finishedAt.toUtc().toIso8601String(),
     'durationSeconds': durationSeconds,
+    'title': title,
+    'note': note,
     'schemaVersion': 1,
   };
 
@@ -90,6 +96,8 @@ class LocalWorkoutSession {
           finishedAt.subtract(Duration(seconds: durationSeconds)),
       finishedAt: finishedAt,
       durationSeconds: durationSeconds,
+      title: _optionalString(json['title']),
+      note: _optionalString(json['note']),
     );
   }
 
@@ -101,6 +109,10 @@ class LocalWorkoutSession {
     DateTime? startedAt,
     DateTime? finishedAt,
     int? durationSeconds,
+    String? title,
+    String? note,
+    bool clearTitle = false,
+    bool clearNote = false,
   }) {
     return LocalWorkoutSession(
       id: id ?? this.id,
@@ -110,8 +122,15 @@ class LocalWorkoutSession {
       startedAt: startedAt ?? this.startedAt,
       finishedAt: finishedAt ?? this.finishedAt,
       durationSeconds: durationSeconds ?? this.durationSeconds,
+      title: clearTitle ? null : title ?? this.title,
+      note: clearNote ? null : note ?? this.note,
     );
   }
+}
+
+String? _optionalString(Object? value) {
+  final text = value?.toString().trim();
+  return text == null || text.isEmpty ? null : text;
 }
 
 class LocalWorkoutStore {
@@ -190,6 +209,43 @@ class LocalWorkoutStore {
       jsonEncode(next.map((item) => item.toJson()).toList()),
     );
     return session;
+  }
+
+  Future<void> updateSessionLocal({
+    required String userId,
+    required LocalWorkoutSession session,
+  }) async {
+    final previous = await loadSessions(userId);
+    final normalized = session.copyWith(userId: userId);
+    final next = [
+      for (final item in previous)
+        if (item.id == normalized.id) normalized else item,
+    ]..sort((a, b) => b.finishedAt.compareTo(a.finishedAt));
+    await _replaceSessions(userId: userId, sessions: next);
+  }
+
+  Future<void> deleteSessionLocal({
+    required String userId,
+    required String sessionId,
+  }) async {
+    final previous = await loadSessions(userId);
+    final next = previous.where((item) => item.id != sessionId).toList();
+    await _replaceSessions(userId: userId, sessions: next);
+  }
+
+  Future<void> _replaceSessions({
+    required String userId,
+    required List<LocalWorkoutSession> sessions,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = sessions
+        .where((session) => session.userId == userId)
+        .take(500)
+        .toList();
+    await prefs.setString(
+      _sessionsKey(userId),
+      jsonEncode(normalized.map((item) => item.toJson()).toList()),
+    );
   }
 
   Future<List<BodyWeightEntry>> loadBodyWeights(String userId) async {

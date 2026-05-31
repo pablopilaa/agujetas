@@ -328,3 +328,11 @@ Decimosexto bloque local-first implementado:
 - Desde Entrenar, la ficha permite aplicar el último registro como defaults del ejercicio activo, copiando series, kg, reps, RIR, tipo de serie y segmentos.
 - Biblioteca y catálogo también pasan historial local a la ficha para consulta, sin depender de Firestore.
 - Tests de widget cubren que el detalle muestra historial y que `Usar último` actualiza los defaults del ejercicio activo.
+
+Decimoséptimo bloque local-first implementado:
+
+- `LocalWorkoutSession` ahora soporta `title` y `note` opcionales con lectura backwards-compatible.
+- `LocalWorkoutStore` puede actualizar metadata de una sesión local y borrar una sesión guardada del dispositivo.
+- El detalle de sesión histórica permite editar nombre/nota y borrar la sesión con confirmación.
+- El calendario actualiza su estado local después de editar o borrar sin depender de Firestore.
+- Tests unitarios cubren editar/borrar sesiones en el store; tests de widget cubren el flujo desde calendario.
