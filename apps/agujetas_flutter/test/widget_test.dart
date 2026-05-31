@@ -923,6 +923,7 @@ void main() {
                 availableRoutines: 16,
               );
             },
+            onDeleteLocalAccount: () async {},
           ),
         ),
       ),
@@ -1024,6 +1025,7 @@ void main() {
                     importedRoutines: 0,
                     availableRoutines: 0,
                   ),
+              onDeleteLocalAccount: () async {},
             ),
           ),
         ),
@@ -1045,6 +1047,75 @@ void main() {
     expect(preferences.localGalleryEnabled, isTrue);
     expect(preferences.restAlertsEnabled, isTrue);
     expect(preferences.bodyWeightAlertsEnabled, isTrue);
+  });
+
+  testWidgets('profile delete account confirms local data wipe', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var deleted = false;
+    const user = AppUser(
+      uid: 'profile-delete-user',
+      displayName: 'Demo',
+      email: 'demo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: ProfileScreen(
+            user: user,
+            repository: DemoAgujetasRepository(),
+            themeMode: ThemeMode.light,
+            preferences: const LocalUserPreferences(),
+            onThemeModeChanged: (_) {},
+            onPreferencesChanged: (_) {},
+            onExportLocalBackup: () async => '{}',
+            onImportLocalBackup: (_) async => const LocalBackupImportResult(
+              sessions: 0,
+              routines: 0,
+              bodyWeights: 0,
+              customExercises: 0,
+            ),
+            onImportBundledLegacyData: () async =>
+                const LegacyLocalImportResult(
+                  importedSessions: 0,
+                  availableSessions: 0,
+                  skippedHistoryRows: 0,
+                  importedRoutines: 0,
+                  availableRoutines: 0,
+                ),
+            onDeleteLocalAccount: () async => deleted = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final deleteAction = find.text('Eliminar cuenta');
+    await tester.ensureVisible(deleteAction);
+    await tester.tapAt(tester.getCenter(deleteAction));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Eliminar cuenta local'), findsOneWidget);
+    expect(
+      find.textContaining('No elimina todavía documentos remotos de Firestore'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Borrar datos locales'));
+    await tester.pumpAndSettle();
+
+    expect(deleted, isTrue);
   });
 }
 

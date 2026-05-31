@@ -298,6 +298,18 @@ class LocalWorkoutStore {
     );
   }
 
+  Future<void> clearAllLocalData(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await Future.wait([
+      prefs.remove(_activeDraftKey(userId)),
+      prefs.remove(_sessionsKey(userId)),
+      prefs.remove(_routinesKey(userId)),
+      prefs.remove(_bodyWeightsKey(userId)),
+      prefs.remove(_customExercisesKey(userId)),
+      prefs.remove(_preferencesKey(userId)),
+    ]);
+  }
+
   Future<List<LocalWorkoutSession>> loadSessions(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_sessionsKey(userId));

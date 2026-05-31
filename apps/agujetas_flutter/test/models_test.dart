@@ -195,6 +195,74 @@ void main() {
     expect(otherPreferences.localGalleryEnabled, isFalse);
   });
 
+  test('local workout store clears all local data for one user', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+    const userId = 'delete-local-user';
+
+    await store.saveActiveDraft(
+      userId: userId,
+      sessionMode: 'Fuerza',
+      exercises: seedWorkout(),
+    );
+    await store.saveSession(
+      userId: userId,
+      sessionMode: 'Fuerza',
+      exercises: seedWorkout(),
+      duration: const Duration(minutes: 30),
+    );
+    await store.saveRoutineTemplateLocal(
+      userId: userId,
+      routine: RoutineTemplate(
+        id: 'delete-routine',
+        ownerId: 'other',
+        title: 'Rutina local',
+        exercises: seedWorkout(),
+      ),
+    );
+    await store.saveBodyWeightLocal(
+      userId: userId,
+      entry: BodyWeightEntry(
+        id: 'delete-weight',
+        userId: 'other',
+        weightKg: 82,
+        recordedAt: DateTime.utc(2026, 5, 31),
+      ),
+    );
+    await store.saveCustomExerciseLocal(
+      userId: userId,
+      exercise: const ExerciseCatalogEntry(
+        id: 'delete-custom',
+        name: 'Custom delete',
+        muscleGroup: 'Pectoral',
+        isCustom: true,
+      ),
+    );
+    await store.saveUserPreferences(
+      userId: userId,
+      preferences: const LocalUserPreferences(localGalleryEnabled: true),
+    );
+    await store.saveSession(
+      userId: 'other-user',
+      sessionMode: 'Fuerza',
+      exercises: seedWorkout(),
+      duration: const Duration(minutes: 10),
+    );
+
+    await store.clearAllLocalData(userId);
+
+    expect(await store.loadActiveDraft(userId), isNull);
+    expect(await store.loadSessions(userId), isEmpty);
+    expect(await store.loadRoutineTemplates(userId), isEmpty);
+    expect(await store.loadBodyWeights(userId), isEmpty);
+    expect(await store.loadCustomExercises(userId), isEmpty);
+    expect(
+      (await store.loadUserPreferences(userId)).localGalleryEnabled,
+      isFalse,
+    );
+    expect(await store.loadSessions('other-user'), hasLength(1));
+  });
+
   test('active workout draft preserves timer state', () async {
     SharedPreferences.setMockInitialValues({});
     final store = LocalWorkoutStore.instance;

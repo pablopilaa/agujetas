@@ -438,6 +438,7 @@ class _HomeShellState extends State<HomeShell> {
         onExportLocalBackup: _exportLocalBackup,
         onImportLocalBackup: _importLocalBackup,
         onImportBundledLegacyData: _importBundledLegacyData,
+        onDeleteLocalAccount: _deleteLocalAccount,
       ),
     ];
     return Scaffold(
@@ -799,6 +800,11 @@ class _HomeShellState extends State<HomeShell> {
         preferences: preferences,
       ),
     );
+  }
+
+  Future<void> _deleteLocalAccount() async {
+    await _localStore.clearAllLocalData(widget.user.uid);
+    await widget.repository.signOut();
   }
 
   Future<void> _persistActiveDraft() {
@@ -6367,6 +6373,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onExportLocalBackup,
     required this.onImportLocalBackup,
     required this.onImportBundledLegacyData,
+    required this.onDeleteLocalAccount,
   });
 
   final AppUser user;
@@ -6379,6 +6386,7 @@ class ProfileScreen extends StatelessWidget {
   final Future<LocalBackupImportResult> Function(String rawJson)
   onImportLocalBackup;
   final Future<LegacyLocalImportResult> Function() onImportBundledLegacyData;
+  final Future<void> Function() onDeleteLocalAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -6482,9 +6490,9 @@ class ProfileScreen extends StatelessWidget {
               _ProfileActionRow(
                 icon: Icons.delete_outline,
                 title: 'Eliminar cuenta',
-                subtitle: 'Borra datos de usuario luego de confirmar.',
+                subtitle: 'Borra datos locales y cierra sesión.',
                 danger: true,
-                onTap: () {},
+                onTap: () => _deleteAccount(context),
               ),
             ],
           ),
@@ -6621,6 +6629,38 @@ class ProfileScreen extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('No se pudieron importar datos legacy: $error')),
+      );
+    }
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar cuenta local'),
+        content: const Text(
+          'Esto borra de este dispositivo sesiones, rutinas, peso corporal, ejercicios personalizados, preferencias y el entrenamiento activo. Luego cierra sesión. No elimina todavía documentos remotos de Firestore.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Borrar datos locales'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await onDeleteLocalAccount();
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo eliminar la cuenta local: $error')),
       );
     }
   }

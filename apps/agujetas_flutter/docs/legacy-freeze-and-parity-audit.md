@@ -374,3 +374,10 @@ Vigésimo segundo bloque local-first implementado:
 - `HomeShell` carga esas preferencias al iniciar y las vuelve a persistir cada vez que el usuario cambia un switch.
 - El diseño sigue offline-first y no requiere Firestore, Storage ni RevenueCat para conservar estas decisiones del usuario.
 - Tests unitarios cubren persistencia por usuario; tests de widget cubren que el switch de galería emite y refleja la preferencia actual.
+
+Vigésimo tercer bloque local-first implementado:
+
+- `Eliminar cuenta` en Perfil deja de ser una acción vacía y ahora abre una confirmación explícita.
+- La confirmación borra del dispositivo sesiones, rutinas, peso corporal, ejercicios personalizados, preferencias y entrenamiento activo del usuario actual, y luego cierra sesión.
+- El texto evita prometer borrado remoto: Firestore queda pendiente hasta conectar una operación server-side segura.
+- Tests unitarios cubren limpieza local por usuario sin afectar otros usuarios; tests de widget cubren el diálogo y la acción confirmada.
