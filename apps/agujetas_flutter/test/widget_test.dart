@@ -852,6 +852,7 @@ void main() {
 
     String? importedRawJson;
     var exported = false;
+    var legacyImported = false;
     const backupJson =
         '{"schema":"agujetas.localBackup","schemaVersion":1,"sessions":[]}';
     const user = AppUser(
@@ -884,6 +885,16 @@ void main() {
                 routines: 2,
                 bodyWeights: 3,
                 customExercises: 4,
+              );
+            },
+            onImportBundledLegacyData: () async {
+              legacyImported = true;
+              return const LegacyLocalImportResult(
+                importedSessions: 5,
+                availableSessions: 20,
+                skippedHistoryRows: 1,
+                importedRoutines: 6,
+                availableRoutines: 16,
               );
             },
           ),
@@ -919,6 +930,23 @@ void main() {
     expect(importedRawJson, backupJson);
     expect(
       find.textContaining('1 sesiones, 2 rutinas, 3 pesos'),
+      findsOneWidget,
+    );
+    await tester.pump(const Duration(seconds: 5));
+
+    final legacyAction = find.text('Importar datos legacy incluidos');
+    await tester.ensureVisible(legacyAction);
+    await tester.tapAt(tester.getCenter(legacyAction));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Importar datos legacy'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Importar'));
+    await tester.pumpAndSettle();
+
+    expect(legacyImported, isTrue);
+    await tester.pump(const Duration(seconds: 1));
+    expect(
+      find.textContaining('5 sesiones y 6 rutinas nuevas'),
       findsOneWidget,
     );
   });

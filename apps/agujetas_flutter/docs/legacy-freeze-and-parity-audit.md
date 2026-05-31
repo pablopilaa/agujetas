@@ -344,3 +344,11 @@ Decimoctavo bloque local-first implementado:
 - La importación fusiona por `id` para no pisar datos locales no relacionados y mantiene la app operativa sin Firestore ni Storage.
 - Perfil expone acciones visibles para exportar el JSON, copiarlo y pegar un respaldo para restaurarlo.
 - Tests unitarios cubren export/import y rechazo de JSON ajeno a Agujetas; tests de widget cubren el flujo visible desde Perfil.
+
+Decimonoveno bloque local-first implementado:
+
+- Perfil expone una acción explícita para reimportar los JSON legacy incluidos de Agujetas 1.x.
+- La acción lee histórico y rutinas legacy, guarda sólo sesiones/rutinas faltantes y deja la operación como idempotente.
+- `HomeShell` refresca calendario, progreso y biblioteca después de esa importación manual sin depender de Firestore.
+- El usuario ya no depende sólo de la autoimportación silenciosa de instalaciones limpias para recuperar datos legacy.
+- Tests de widget cubren el flujo visible con confirmación y resumen de sesiones/rutinas importadas.

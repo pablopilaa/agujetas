@@ -71,7 +71,8 @@ flowchart TD
   I["Perfil"] --> I1["Apariencia: sistema / claro / oscuro"]
   I --> I2["Exportar respaldo local JSON"]
   I --> I3["Importar respaldo local JSON"]
-  I --> I4["Cerrar sesión"]
+  I --> I4["Importar datos legacy incluidos"]
+  I --> I5["Cerrar sesión"]
 
   E["Panel entrenador"] --> E1["Crear código de invitación"]
   E --> E2["Entrenados activos"]
@@ -116,6 +117,7 @@ flowchart TD
 | Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado |
 | Perfil | Privacidad y datos | Exportar mis datos | Dialog con JSON local y acción de copiar |
 | Perfil | Privacidad y datos | Importar respaldo | Pegar JSON Agujetas y fusionar datos locales |
+| Perfil | Privacidad y datos | Importar datos legacy incluidos | Releer assets legacy incluidos y agregar sesiones/rutinas faltantes |
 | Perfil | Cerrar sesión | Sign out | Login |
 | Panel entrenador | Modo entrenador Pro | Crear código | Firestore `trainerInvites` |
 | Panel entrenador | Modo entrenador Pro | Ver entrenados activos | Lista desde `trainerClientLinks` |

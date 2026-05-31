@@ -425,6 +425,7 @@ class _HomeShellState extends State<HomeShell> {
         onThemeModeChanged: widget.onThemeModeChanged,
         onExportLocalBackup: _exportLocalBackup,
         onImportLocalBackup: _importLocalBackup,
+        onImportBundledLegacyData: _importBundledLegacyData,
       ),
     ];
     return Scaffold(
@@ -861,6 +862,69 @@ class _HomeShellState extends State<HomeShell> {
       _notice = 'Respaldo local importado: ${result.summary}.';
     });
     return result;
+  }
+
+  Future<LegacyLocalImportResult> _importBundledLegacyData() async {
+    final history = await LegacyHistoryImporter.loadBundled(
+      userId: widget.user.uid,
+    );
+    final importedSessions = await _localStore.saveImportedSessions(
+      userId: widget.user.uid,
+      sessions: history.sessions,
+    );
+    final routines = await LegacyHistoryImporter.loadBundledRoutines(
+      userId: widget.user.uid,
+    );
+    final importedRoutines = await _localStore.saveImportedRoutineTemplates(
+      userId: widget.user.uid,
+      routines: routines.routines,
+    );
+    final sessions = await _localStore.loadSessions(widget.user.uid);
+    final localRoutines = await _localStore.loadRoutineTemplates(
+      widget.user.uid,
+    );
+    final result = LegacyLocalImportResult(
+      importedSessions: importedSessions,
+      availableSessions: history.sessions.length,
+      skippedHistoryRows: history.skippedRows,
+      importedRoutines: importedRoutines,
+      availableRoutines: routines.routines.length,
+    );
+    if (!mounted) return result;
+    setState(() {
+      _localSessions = sessions;
+      _localRoutines = localRoutines;
+      _notice = result.summary;
+    });
+    return result;
+  }
+}
+
+class LegacyLocalImportResult {
+  const LegacyLocalImportResult({
+    required this.importedSessions,
+    required this.availableSessions,
+    required this.skippedHistoryRows,
+    required this.importedRoutines,
+    required this.availableRoutines,
+  });
+
+  final int importedSessions;
+  final int availableSessions;
+  final int skippedHistoryRows;
+  final int importedRoutines;
+  final int availableRoutines;
+
+  int get totalImported => importedSessions + importedRoutines;
+
+  String get summary {
+    final skippedText = skippedHistoryRows > 0
+        ? ' $skippedHistoryRows filas históricas quedaron fuera por formato.'
+        : '';
+    return totalImported == 0
+        ? 'Datos legacy revisados: no había sesiones ni rutinas nuevas.$skippedText'
+        : 'Datos legacy importados: $importedSessions sesiones y '
+              '$importedRoutines rutinas nuevas.$skippedText';
   }
 }
 
@@ -6193,6 +6257,7 @@ class ProfileScreen extends StatelessWidget {
     required this.onThemeModeChanged,
     required this.onExportLocalBackup,
     required this.onImportLocalBackup,
+    required this.onImportBundledLegacyData,
   });
 
   final AppUser user;
@@ -6202,6 +6267,7 @@ class ProfileScreen extends StatelessWidget {
   final Future<String> Function() onExportLocalBackup;
   final Future<LocalBackupImportResult> Function(String rawJson)
   onImportLocalBackup;
+  final Future<LegacyLocalImportResult> Function() onImportBundledLegacyData;
 
   @override
   Widget build(BuildContext context) {
@@ -6285,6 +6351,13 @@ class ProfileScreen extends StatelessWidget {
                 title: 'Importar respaldo',
                 subtitle: 'Pegar JSON local exportado desde Agujetas.',
                 onTap: () => _importBackup(context),
+              ),
+              _ProfileActionRow(
+                icon: Icons.history_edu_outlined,
+                title: 'Importar datos legacy incluidos',
+                subtitle:
+                    'Releer histórico y rutinas exportadas de Agujetas 1.x.',
+                onTap: () => _importLegacyData(context),
               ),
               _ProfileActionRow(
                 icon: Icons.delete_outline,
@@ -6394,6 +6467,41 @@ class ProfileScreen extends StatelessWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('No se pudo importar: $error')));
+    }
+  }
+
+  Future<void> _importLegacyData(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Importar datos legacy'),
+        content: const Text(
+          'Esto relee los JSON incluidos de Agujetas 1.x y agrega sólo sesiones o rutinas que todavía no estén en este dispositivo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Importar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final result = await onImportBundledLegacyData();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.summary)));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudieron importar datos legacy: $error')),
+      );
     }
   }
 }
