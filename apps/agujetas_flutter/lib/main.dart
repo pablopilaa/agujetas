@@ -328,6 +328,7 @@ class _HomeShellState extends State<HomeShell> {
   List<LocalWorkoutSession> _localSessions = const [];
   List<RoutineTemplate> _localRoutines = const [];
   List<BodyWeightEntry> _localBodyWeights = const [];
+  List<ExerciseCatalogEntry> _localCustomExercises = const [];
   String _sessionMode = 'Fuerza';
   String _activeRoutineTitle = 'Empuje A';
   String? _editingRoutineId;
@@ -344,6 +345,7 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_loadLocalSessions());
     unawaited(_loadLocalRoutines());
     unawaited(_loadLocalBodyWeights());
+    unawaited(_loadLocalCustomExercises());
     unawaited(_restoreActiveDraft());
   }
 
@@ -401,6 +403,7 @@ class _HomeShellState extends State<HomeShell> {
         routines: _localRoutines,
         editingRoutineId: _editingRoutineId,
         editingRoutineTitle: _editingRoutineTitle,
+        customExercises: _localCustomExercises,
         onExercisesChanged: onLibraryExercisesChanged,
         onStartRoutine: _startRoutine,
         onEditRoutine: _editRoutine,
@@ -410,6 +413,7 @@ class _HomeShellState extends State<HomeShell> {
         onDeleteRoutine: _deleteRoutine,
         onDuplicateRoutine: _duplicateRoutine,
         onMoveRoutine: _moveRoutine,
+        onSaveCustomExercise: _saveCustomExerciseLocally,
       ),
       ProfileScreen(
         user: widget.user,
@@ -669,6 +673,12 @@ class _HomeShellState extends State<HomeShell> {
     setState(() => _localBodyWeights = entries);
   }
 
+  Future<void> _loadLocalCustomExercises() async {
+    final exercises = await _localStore.loadCustomExercises(widget.user.uid);
+    if (!mounted) return;
+    setState(() => _localCustomExercises = exercises);
+  }
+
   Future<void> _persistActiveDraft() {
     return _localStore.saveActiveDraft(
       userId: widget.user.uid,
@@ -720,6 +730,25 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(
       widget.repository
           .saveBodyWeight(user: widget.user, entry: entry)
+          .catchError((_) {}),
+    );
+  }
+
+  Future<void> _saveCustomExerciseLocally(ExerciseCatalogEntry exercise) async {
+    await _localStore.saveCustomExerciseLocal(
+      userId: widget.user.uid,
+      exercise: exercise,
+    );
+    final exercises = await _localStore.loadCustomExercises(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localCustomExercises = exercises;
+      _notice =
+          'Ejercicio personalizado "${exercise.name}" guardado localmente.';
+    });
+    unawaited(
+      widget.repository
+          .saveCustomExercise(owner: widget.user, exercise: exercise)
           .catchError((_) {}),
     );
   }
@@ -3783,6 +3812,7 @@ class LibraryScreen extends StatefulWidget {
     required this.routines,
     required this.editingRoutineId,
     required this.editingRoutineTitle,
+    required this.customExercises,
     required this.onExercisesChanged,
     required this.onStartRoutine,
     required this.onEditRoutine,
@@ -3792,6 +3822,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onDeleteRoutine,
     required this.onDuplicateRoutine,
     required this.onMoveRoutine,
+    required this.onSaveCustomExercise,
   });
 
   final AppUser user;
@@ -3800,6 +3831,7 @@ class LibraryScreen extends StatefulWidget {
   final List<RoutineTemplate> routines;
   final String? editingRoutineId;
   final String? editingRoutineTitle;
+  final List<ExerciseCatalogEntry> customExercises;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final ValueChanged<RoutineTemplate> onStartRoutine;
   final ValueChanged<RoutineTemplate> onEditRoutine;
@@ -3809,6 +3841,8 @@ class LibraryScreen extends StatefulWidget {
   final Future<void> Function(RoutineTemplate routine) onDeleteRoutine;
   final Future<void> Function(RoutineTemplate routine) onDuplicateRoutine;
   final Future<void> Function(int oldIndex, int newIndex) onMoveRoutine;
+  final Future<void> Function(ExerciseCatalogEntry exercise)
+  onSaveCustomExercise;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -4004,42 +4038,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ],
               ),
             ),
-          StreamBuilder<List<ExerciseCatalogEntry>>(
-            stream: widget.repository.watchCustomExercises(widget.user.uid),
-            builder: (context, snapshot) {
-              final items = snapshot.data ?? const <ExerciseCatalogEntry>[];
-              if (items.isEmpty) {
-                return DashboardCard(
-                  icon: Icons.auto_awesome_motion_outlined,
-                  title: 'Tus ejercicios',
-                  subtitle:
-                      'Todavía no creaste ejercicios personalizados. Podés usar galería local o una imagen propia del repositorio.',
-                  action: FilledButton(
-                    onPressed: _openCustomExerciseSheet,
-                    child: const Text('Crear'),
-                  ),
-                );
-              }
-              return DashboardCard(
-                icon: Icons.auto_awesome_motion_outlined,
-                title: 'Tus ejercicios',
-                subtitle: '${items.length} ejercicios personalizados',
-                child: Column(
-                  children: [
-                    for (final item in items.take(8))
-                      _CatalogTile(
-                        item: item,
-                        onTap: () => showExerciseDetailSheet(
-                          context,
-                          exercise: item.toWorkoutExercise(),
-                          onAdd: () => _addExercise(item.toWorkoutExercise()),
-                        ),
-                        onAdd: () => _addExercise(item.toWorkoutExercise()),
-                      ),
-                  ],
-                ),
-              );
-            },
+          _CustomExercisesSection(
+            items: widget.customExercises,
+            onCreate: _openCustomExerciseSheet,
+            onAddExercise: _addExercise,
           ),
           const _CompactSectionTitle('Orden de rutina'),
           ReorderableListView.builder(
@@ -4210,10 +4212,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
       builder: (_) => CustomExerciseSheet(catalogFuture: _catalogFuture),
     );
     if (exercise == null) return;
-    await widget.repository.saveCustomExercise(
-      owner: widget.user,
-      exercise: exercise,
-    );
+    await widget.onSaveCustomExercise(exercise);
+    if (!mounted) return;
     _addExercise(exercise.toWorkoutExercise());
   }
 
@@ -4302,6 +4302,50 @@ class _CatalogTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CustomExercisesSection extends StatelessWidget {
+  const _CustomExercisesSection({
+    required this.items,
+    required this.onCreate,
+    required this.onAddExercise,
+  });
+
+  final List<ExerciseCatalogEntry> items;
+  final VoidCallback onCreate;
+  final ValueChanged<WorkoutExercise> onAddExercise;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return DashboardCard(
+        icon: Icons.auto_awesome_motion_outlined,
+        title: 'Tus ejercicios',
+        subtitle:
+            'Todavía no creaste ejercicios personalizados. Podés usar galería local o una imagen propia del repositorio.',
+        action: FilledButton(onPressed: onCreate, child: const Text('Crear')),
+      );
+    }
+    return DashboardCard(
+      icon: Icons.auto_awesome_motion_outlined,
+      title: 'Tus ejercicios',
+      subtitle: '${items.length} ejercicios personalizados locales',
+      child: Column(
+        children: [
+          for (final item in items.take(8))
+            _CatalogTile(
+              item: item,
+              onTap: () => showExerciseDetailSheet(
+                context,
+                exercise: item.toWorkoutExercise(),
+                onAdd: () => onAddExercise(item.toWorkoutExercise()),
+              ),
+              onAdd: () => onAddExercise(item.toWorkoutExercise()),
+            ),
+        ],
       ),
     );
   }

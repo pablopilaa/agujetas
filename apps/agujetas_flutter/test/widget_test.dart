@@ -228,6 +228,46 @@ void main() {
     expect(saved!.weightKg, 81.7);
   });
 
+  testWidgets('custom exercise sheet creates a local exercise with 3 sets', (
+    tester,
+  ) async {
+    ExerciseCatalogEntry? created;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () async {
+                  created = await showModalBottomSheet<ExerciseCatalogEntry>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => CustomExerciseSheet(
+                      catalogFuture: Future.value(const []),
+                    ),
+                  );
+                },
+                child: const Text('Abrir custom'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Abrir custom'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Press raro');
+    await tester.tap(find.text('Crear con 3 series'));
+    await tester.pumpAndSettle();
+
+    expect(created, isNotNull);
+    expect(created!.name, 'Press raro');
+    expect(created!.isCustom, isTrue);
+    expect(created!.toWorkoutExercise().sets, hasLength(3));
+  });
+
   testWidgets('training timers expose start, pause and reset controls', (
     tester,
   ) async {

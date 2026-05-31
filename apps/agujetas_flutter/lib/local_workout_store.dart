@@ -229,6 +229,55 @@ class LocalWorkoutStore {
     );
   }
 
+  Future<List<ExerciseCatalogEntry>> loadCustomExercises(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_customExercisesKey(userId));
+    if (raw == null || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map(
+          (item) => ExerciseCatalogEntry.fromJson(item.cast<String, Object?>()),
+        )
+        .where((entry) => entry.isCustom)
+        .toList()
+      ..sort((a, b) {
+        final lastUsed =
+            (b.lastUsedDate ?? DateTime.fromMillisecondsSinceEpoch(0))
+                .compareTo(
+                  a.lastUsedDate ?? DateTime.fromMillisecondsSinceEpoch(0),
+                );
+        if (lastUsed != 0) return lastUsed;
+        return a.name.compareTo(b.name);
+      });
+  }
+
+  Future<void> saveCustomExerciseLocal({
+    required String userId,
+    required ExerciseCatalogEntry exercise,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final previous = await loadCustomExercises(userId);
+    final normalized = ExerciseCatalogEntry(
+      id: exercise.id,
+      name: exercise.name,
+      muscleGroup: exercise.muscleGroup,
+      imageUri: exercise.imageUri,
+      usageCount: exercise.usageCount,
+      lastUsedDate: exercise.lastUsedDate ?? DateTime.now().toUtc(),
+      isCustom: true,
+    );
+    final next = [
+      normalized,
+      ...previous.where((item) => item.id != normalized.id),
+    ];
+    await prefs.setString(
+      _customExercisesKey(userId),
+      jsonEncode(next.take(1000).map((item) => item.toJson()).toList()),
+    );
+  }
+
   Future<List<RoutineTemplate>> loadRoutineTemplates(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_routinesKey(userId));
@@ -351,6 +400,9 @@ class LocalWorkoutStore {
 
   String _bodyWeightsKey(String userId) =>
       'agujetas.localBodyWeights.v1.$userId';
+
+  String _customExercisesKey(String userId) =>
+      'agujetas.localCustomExercises.v1.$userId';
 }
 
 int _readInt(Object? value) {

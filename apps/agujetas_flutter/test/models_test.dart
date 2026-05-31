@@ -212,6 +212,45 @@ void main() {
     expect(entries.first.weightKg, 81.9);
   });
 
+  test('local workout store persists custom exercises by user', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+    final older = ExerciseCatalogEntry(
+      id: 'custom-a',
+      name: 'Press propio',
+      muscleGroup: 'Pectoral',
+      imageUri: 'agujetas-image://ag_press',
+      lastUsedDate: DateTime.utc(2026, 5, 1),
+      isCustom: true,
+    );
+    final newer = ExerciseCatalogEntry(
+      id: 'custom-b',
+      name: 'Remo propio',
+      muscleGroup: 'Espalda',
+      imageUri: 'agujetas-image://ag_row',
+      lastUsedDate: DateTime.utc(2026, 5, 3),
+      isCustom: true,
+    );
+
+    await store.saveCustomExerciseLocal(userId: 'custom-user', exercise: older);
+    await store.saveCustomExerciseLocal(userId: 'custom-user', exercise: newer);
+    await store.saveCustomExerciseLocal(
+      userId: 'other-user',
+      exercise: const ExerciseCatalogEntry(
+        id: 'custom-other',
+        name: 'Otro',
+        muscleGroup: 'General',
+        isCustom: true,
+      ),
+    );
+
+    final items = await store.loadCustomExercises('custom-user');
+
+    expect(items.map((item) => item.id), ['custom-b', 'custom-a']);
+    expect(items.every((item) => item.isCustom), isTrue);
+    expect(items.first.imageUri, 'agujetas-image://ag_row');
+  });
+
   test(
     'legacy history importer groups exported rows into local sessions',
     () async {

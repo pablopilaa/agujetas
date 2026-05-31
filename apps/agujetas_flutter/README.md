@@ -22,6 +22,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Importacion local de rutinas y sesiones personalizadas legacy desde `assets/user_data/catalogo_ejercicios_2026-05-13.json`.
 - CRUD local-first basico de rutinas: guardar, renombrar, duplicar, borrar y reordenar plantillas sin depender de Firestore.
 - Editor local aislado de rutinas: abrir una plantilla importada, modificar su lista de ejercicios/orden/defaults de series, guardar cambios o guardar una copia sin tocar la sesion activa.
+- Ejercicios personalizados local-first: crear con 3 series por defecto, asociar imagen de galeria o asset interno propio, operar offline y sincronizar best-effort si hay backend disponible.
 - Roles:
   - `normal`: usuario autogestionado.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.

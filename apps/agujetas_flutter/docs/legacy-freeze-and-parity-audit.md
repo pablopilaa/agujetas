@@ -272,3 +272,12 @@ Noveno bloque local-first implementado:
 - `BodyWeightCard` guarda primero localmente y deja el sync con Firebase como intento secundario.
 - La UI mantiene la alerta diaria de peso corporal y muestra el último peso local más el delta contra el registro anterior.
 - Tests unitarios y de widget cubren persistencia local y guardado desde la tarjeta de peso corporal.
+
+Decimo bloque local-first implementado:
+
+- `LocalWorkoutStore` persiste ejercicios personalizados por usuario en `shared_preferences`.
+- `HomeShell` carga esos ejercicios al iniciar y los entrega a Biblioteca sin depender del stream de Firestore.
+- Biblioteca muestra `Tus ejercicios` desde estado local, incluso en demo/offline.
+- El modal de nuevo ejercicio guarda local-first, conserva 3 series por defecto y permite imagen de galeria o asset interno propio.
+- El sync a Firebase queda como intento secundario best-effort cuando hay backend disponible.
+- Tests unitarios y de widget cubren persistencia local y creacion de ejercicio personalizado.
