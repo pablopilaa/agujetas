@@ -391,6 +391,7 @@ class _HomeShellState extends State<HomeShell> {
         initialRestRemaining: _restRemaining,
         initialTotalRunning: _totalRunning,
         initialRestRunning: _restRunning,
+        restAlertsEnabled: _preferences.restAlertsEnabled,
         onExercisesChanged: _updateWorkout,
         onSaveCustomExercise: _saveCustomExerciseLocally,
         onTimerStateChanged: _updateTimerDraft,
@@ -1579,6 +1580,7 @@ class TrainScreen extends StatefulWidget {
     required this.initialRestRemaining,
     required this.initialTotalRunning,
     required this.initialRestRunning,
+    required this.restAlertsEnabled,
     required this.onExercisesChanged,
     required this.onSaveCustomExercise,
     required this.onTimerStateChanged,
@@ -1599,6 +1601,7 @@ class TrainScreen extends StatefulWidget {
   final Duration initialRestRemaining;
   final bool initialTotalRunning;
   final bool initialRestRunning;
+  final bool restAlertsEnabled;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final Future<void> Function(ExerciseCatalogEntry exercise)
   onSaveCustomExercise;
@@ -1728,15 +1731,21 @@ class _TrainScreenState extends State<TrainScreen> {
           exercise: widget.exercises.isEmpty ? null : widget.exercises.first,
           onRestTimer: () async {
             _startRestTimer(const Duration(seconds: 90));
-            if (!kIsWeb) {
+            final shouldScheduleNotification =
+                widget.restAlertsEnabled && !kIsWeb;
+            if (shouldScheduleNotification) {
               await NotificationService.scheduleRestFinished(
                 const Duration(seconds: 90),
               );
             }
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Alerta de descanso programada en 01:30'),
+                SnackBar(
+                  content: Text(
+                    widget.restAlertsEnabled
+                        ? 'Alerta de descanso programada en 01:30'
+                        : 'Descanso iniciado sin alerta: activala desde Perfil',
+                  ),
                 ),
               );
             }

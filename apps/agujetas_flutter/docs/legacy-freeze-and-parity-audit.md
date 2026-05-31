@@ -381,3 +381,10 @@ Vigésimo tercer bloque local-first implementado:
 - La confirmación borra del dispositivo sesiones, rutinas, peso corporal, ejercicios personalizados, preferencias y entrenamiento activo del usuario actual, y luego cierra sesión.
 - El texto evita prometer borrado remoto: Firestore queda pendiente hasta conectar una operación server-side segura.
 - Tests unitarios cubren limpieza local por usuario sin afectar otros usuarios; tests de widget cubren el diálogo y la acción confirmada.
+
+Vigésimo cuarto bloque local-first implementado:
+
+- La preferencia `Alertas de descanso` deja de ser sólo persistencia visual y ahora controla el comportamiento de Entrenar.
+- El botón rápido de descanso siempre inicia el countdown local de 90 segundos, pero sólo programa una notificación nativa si la preferencia está activa.
+- Si el usuario desactivó alertas, la app muestra un mensaje explícito: el descanso corre sin aviso y puede reactivarse desde Perfil.
+- Test de widget cubre desactivar la preferencia desde Perfil, ir a Entrenar y arrancar descanso sin alerta.

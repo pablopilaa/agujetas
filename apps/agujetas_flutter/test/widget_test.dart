@@ -490,6 +490,52 @@ void main() {
     expect(find.text('00:00'), findsOneWidget);
   });
 
+  testWidgets(
+    'disabled rest alerts still start countdown without notification',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        AgujetasApp(repository: DemoAgujetasRepository()),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Perfil'));
+      await tester.pumpAndSettle();
+
+      final restAlertsSetting = find.text('Alertas de descanso');
+      await tester.ensureVisible(restAlertsSetting);
+      final restAlertsSwitch = find.descendant(
+        of: find.ancestor(
+          of: restAlertsSetting,
+          matching: find.byType(ListTile),
+        ),
+        matching: find.byType(Switch),
+      );
+      await tester.tap(restAlertsSwitch);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Entrenar').last);
+      await tester.pumpAndSettle();
+
+      final restButton = find.descendant(
+        of: find.byType(CurrentSetLogger),
+        matching: find.byIcon(Icons.timer_outlined),
+      );
+      await tester.tap(restButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('01:30'), findsOneWidget);
+      expect(
+        find.text('Descanso iniciado sin alerta: activala desde Perfil'),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('active workout draft restores timer values in training', (
     tester,
   ) async {
