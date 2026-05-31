@@ -185,6 +185,7 @@ void main() {
               onMoveRoutine: (_, _) async {},
               onSaveCustomExercise: (_) async {},
               onDeleteCustomExercise: (_) async {},
+              localGalleryEnabled: true,
             ),
           ),
         ),
@@ -386,6 +387,47 @@ void main() {
     expect(edited!.id, 'custom-edit');
     expect(edited!.name, 'Press nuevo');
     expect(edited!.imageUri, 'agujetas-image://ag_press');
+  });
+
+  testWidgets('custom exercise sheet respects local gallery preference', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () async {
+                  await showModalBottomSheet<ExerciseCatalogEntry>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => CustomExerciseSheet(
+                      catalogFuture: Future.value(const []),
+                      allowLocalGallery: false,
+                    ),
+                  );
+                },
+                child: const Text('Abrir custom'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Abrir custom'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Galería'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Activá Galería local desde Perfil para usar imágenes del dispositivo.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('training flow edits a custom exercise already in session', (

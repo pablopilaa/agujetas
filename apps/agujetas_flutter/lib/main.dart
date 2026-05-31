@@ -392,6 +392,7 @@ class _HomeShellState extends State<HomeShell> {
         initialTotalRunning: _totalRunning,
         initialRestRunning: _restRunning,
         restAlertsEnabled: _preferences.restAlertsEnabled,
+        localGalleryEnabled: _preferences.localGalleryEnabled,
         onExercisesChanged: _updateWorkout,
         onSaveCustomExercise: _saveCustomExerciseLocally,
         onTimerStateChanged: _updateTimerDraft,
@@ -428,6 +429,7 @@ class _HomeShellState extends State<HomeShell> {
         onMoveRoutine: _moveRoutine,
         onSaveCustomExercise: _saveCustomExerciseLocally,
         onDeleteCustomExercise: _deleteCustomExerciseLocally,
+        localGalleryEnabled: _preferences.localGalleryEnabled,
       ),
       ProfileScreen(
         user: widget.user,
@@ -1581,6 +1583,7 @@ class TrainScreen extends StatefulWidget {
     required this.initialTotalRunning,
     required this.initialRestRunning,
     required this.restAlertsEnabled,
+    required this.localGalleryEnabled,
     required this.onExercisesChanged,
     required this.onSaveCustomExercise,
     required this.onTimerStateChanged,
@@ -1602,6 +1605,7 @@ class TrainScreen extends StatefulWidget {
   final bool initialTotalRunning;
   final bool initialRestRunning;
   final bool restAlertsEnabled;
+  final bool localGalleryEnabled;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final Future<void> Function(ExerciseCatalogEntry exercise)
   onSaveCustomExercise;
@@ -1866,6 +1870,7 @@ class _TrainScreenState extends State<TrainScreen> {
           imageUri: exercise.imageUri,
           isCustom: true,
         ),
+        allowLocalGallery: widget.localGalleryEnabled,
       ),
     );
     if (updated == null) return;
@@ -4837,6 +4842,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onMoveRoutine,
     required this.onSaveCustomExercise,
     required this.onDeleteCustomExercise,
+    required this.localGalleryEnabled,
   });
 
   final AppUser user;
@@ -4860,6 +4866,7 @@ class LibraryScreen extends StatefulWidget {
   onSaveCustomExercise;
   final Future<void> Function(ExerciseCatalogEntry exercise)
   onDeleteCustomExercise;
+  final bool localGalleryEnabled;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -5287,6 +5294,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       builder: (_) => CustomExerciseSheet(
         catalogFuture: _catalogFuture,
         initialExercise: initialExercise,
+        allowLocalGallery: widget.localGalleryEnabled,
       ),
     );
     if (exercise == null) return;
@@ -6123,10 +6131,12 @@ class CustomExerciseSheet extends StatefulWidget {
     super.key,
     required this.catalogFuture,
     this.initialExercise,
+    this.allowLocalGallery = true,
   });
 
   final Future<List<ExerciseCatalogEntry>> catalogFuture;
   final ExerciseCatalogEntry? initialExercise;
+  final bool allowLocalGallery;
 
   @override
   State<CustomExerciseSheet> createState() => _CustomExerciseSheetState();
@@ -6210,7 +6220,11 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _pickGalleryImage,
-                  icon: const Icon(Icons.photo_library_outlined),
+                  icon: Icon(
+                    widget.allowLocalGallery
+                        ? Icons.photo_library_outlined
+                        : Icons.lock_outline,
+                  ),
                   label: const Text('Galería'),
                 ),
               ),
@@ -6236,6 +6250,16 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
   }
 
   Future<void> _pickGalleryImage() async {
+    if (!widget.allowLocalGallery) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Activá Galería local desde Perfil para usar imágenes del dispositivo.',
+          ),
+        ),
+      );
+      return;
+    }
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked == null) return;
     setState(() => _imageUri = picked.path);

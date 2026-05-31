@@ -388,3 +388,11 @@ Vigésimo cuarto bloque local-first implementado:
 - El botón rápido de descanso siempre inicia el countdown local de 90 segundos, pero sólo programa una notificación nativa si la preferencia está activa.
 - Si el usuario desactivó alertas, la app muestra un mensaje explícito: el descanso corre sin aviso y puede reactivarse desde Perfil.
 - Test de widget cubre desactivar la preferencia desde Perfil, ir a Entrenar y arrancar descanso sin alerta.
+
+Vigésimo quinto bloque local-first implementado:
+
+- La preferencia `Galería local` deja de ser sólo persistencia visual y ahora controla el selector de imagen del dispositivo para ejercicios personalizados.
+- Entrenar y Biblioteca pasan la preferencia vigente al flujo de creación/edición de ejercicios, manteniendo una sola fuente de verdad en Perfil.
+- Si la galería local está desactivada, el botón sigue visible pero muestra un mensaje explícito para activarla desde Perfil en vez de abrir el picker nativo.
+- La asociación con imágenes propias del repositorio interno sigue disponible aunque la galería local esté apagada.
+- Test de widget cubre que el sheet de ejercicio personalizado respeta la preferencia y bloquea el acceso a galería con feedback visible.
