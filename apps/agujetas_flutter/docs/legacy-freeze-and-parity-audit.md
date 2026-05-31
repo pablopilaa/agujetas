@@ -281,3 +281,11 @@ Decimo bloque local-first implementado:
 - El modal de nuevo ejercicio guarda local-first, conserva 3 series por defecto y permite imagen de galeria o asset interno propio.
 - El sync a Firebase queda como intento secundario best-effort cuando hay backend disponible.
 - Tests unitarios y de widget cubren persistencia local y creacion de ejercicio personalizado.
+
+Onceavo bloque local-first implementado:
+
+- Los ejercicios personalizados locales pueden editarse sin cambiar su `id`, preservando historial futuro y referencias.
+- Los ejercicios personalizados locales pueden borrarse del dispositivo sin borrar sesiones historicas donde ya fueron usados.
+- La pestaña `Mis ejercicios` filtra `Tus ejercicios` con la misma busqueda de Biblioteca.
+- El modal `CustomExerciseSheet` soporta modo crear y modo editar, con campos precargados e imagen asociada preservada.
+- Tests cubren edicion/borrado en `LocalWorkoutStore` y edicion desde la hoja de ejercicio personalizado.

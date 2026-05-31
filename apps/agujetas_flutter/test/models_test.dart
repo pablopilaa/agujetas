@@ -249,6 +249,21 @@ void main() {
     expect(items.map((item) => item.id), ['custom-b', 'custom-a']);
     expect(items.every((item) => item.isCustom), isTrue);
     expect(items.first.imageUri, 'agujetas-image://ag_row');
+
+    await store.saveCustomExerciseLocal(
+      userId: 'custom-user',
+      exercise: newer.copyWith(name: 'Remo propio editado'),
+    );
+    final edited = await store.loadCustomExercises('custom-user');
+    expect(edited.first.name, 'Remo propio editado');
+    expect(edited, hasLength(2));
+
+    await store.deleteCustomExerciseLocal(
+      userId: 'custom-user',
+      exerciseId: 'custom-b',
+    );
+    final remaining = await store.loadCustomExercises('custom-user');
+    expect(remaining.map((item) => item.id), ['custom-a']);
   });
 
   test(

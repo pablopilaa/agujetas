@@ -268,6 +268,58 @@ void main() {
     expect(created!.toWorkoutExercise().sets, hasLength(3));
   });
 
+  testWidgets('custom exercise sheet edits an existing local exercise', (
+    tester,
+  ) async {
+    ExerciseCatalogEntry? edited;
+    const initial = ExerciseCatalogEntry(
+      id: 'custom-edit',
+      name: 'Press viejo',
+      muscleGroup: 'Pectoral',
+      imageUri: 'agujetas-image://ag_press',
+      isCustom: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () async {
+                  edited = await showModalBottomSheet<ExerciseCatalogEntry>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (_) => CustomExerciseSheet(
+                      catalogFuture: Future.value(const []),
+                      initialExercise: initial,
+                    ),
+                  );
+                },
+                child: const Text('Editar custom'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Editar custom'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar ejercicio'), findsOneWidget);
+    expect(find.text('Guardar cambios'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).first, 'Press nuevo');
+    await tester.tap(find.text('Guardar cambios'));
+    await tester.pumpAndSettle();
+
+    expect(edited, isNotNull);
+    expect(edited!.id, 'custom-edit');
+    expect(edited!.name, 'Press nuevo');
+    expect(edited!.imageUri, 'agujetas-image://ag_press');
+  });
+
   testWidgets('training timers expose start, pause and reset controls', (
     tester,
   ) async {

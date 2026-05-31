@@ -278,6 +278,19 @@ class LocalWorkoutStore {
     );
   }
 
+  Future<void> deleteCustomExerciseLocal({
+    required String userId,
+    required String exerciseId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final previous = await loadCustomExercises(userId);
+    final next = previous.where((item) => item.id != exerciseId).toList();
+    await prefs.setString(
+      _customExercisesKey(userId),
+      jsonEncode(next.map((item) => item.toJson()).toList()),
+    );
+  }
+
   Future<List<RoutineTemplate>> loadRoutineTemplates(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_routinesKey(userId));

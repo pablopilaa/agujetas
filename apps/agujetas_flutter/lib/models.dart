@@ -328,6 +328,25 @@ class ExerciseCatalogEntry {
       isCustom: json['isCustom'] == true || json['inCustomSession'] == true,
     );
   }
+
+  ExerciseCatalogEntry copyWith({
+    String? name,
+    String? muscleGroup,
+    String? imageUri,
+    int? usageCount,
+    DateTime? lastUsedDate,
+    bool? isCustom,
+  }) {
+    return ExerciseCatalogEntry(
+      id: id,
+      name: name ?? this.name,
+      muscleGroup: muscleGroup ?? this.muscleGroup,
+      imageUri: imageUri ?? this.imageUri,
+      usageCount: usageCount ?? this.usageCount,
+      lastUsedDate: lastUsedDate ?? this.lastUsedDate,
+      isCustom: isCustom ?? this.isCustom,
+    );
+  }
 }
 
 class BodyWeightEntry {

@@ -414,6 +414,7 @@ class _HomeShellState extends State<HomeShell> {
         onDuplicateRoutine: _duplicateRoutine,
         onMoveRoutine: _moveRoutine,
         onSaveCustomExercise: _saveCustomExerciseLocally,
+        onDeleteCustomExercise: _deleteCustomExerciseLocally,
       ),
       ProfileScreen(
         user: widget.user,
@@ -751,6 +752,21 @@ class _HomeShellState extends State<HomeShell> {
           .saveCustomExercise(owner: widget.user, exercise: exercise)
           .catchError((_) {}),
     );
+  }
+
+  Future<void> _deleteCustomExerciseLocally(
+    ExerciseCatalogEntry exercise,
+  ) async {
+    await _localStore.deleteCustomExerciseLocal(
+      userId: widget.user.uid,
+      exerciseId: exercise.id,
+    );
+    final exercises = await _localStore.loadCustomExercises(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localCustomExercises = exercises;
+      _notice = 'Ejercicio personalizado "${exercise.name}" eliminado.';
+    });
   }
 }
 
@@ -3823,6 +3839,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onDuplicateRoutine,
     required this.onMoveRoutine,
     required this.onSaveCustomExercise,
+    required this.onDeleteCustomExercise,
   });
 
   final AppUser user;
@@ -3843,6 +3860,8 @@ class LibraryScreen extends StatefulWidget {
   final Future<void> Function(int oldIndex, int newIndex) onMoveRoutine;
   final Future<void> Function(ExerciseCatalogEntry exercise)
   onSaveCustomExercise;
+  final Future<void> Function(ExerciseCatalogEntry exercise)
+  onDeleteCustomExercise;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -3864,11 +3883,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       user: widget.user,
       trailing: IconButton(
         tooltip: 'Crear ejercicio',
-        onPressed: _openCustomExerciseSheet,
+        onPressed: () => _openCustomExerciseSheet(),
         icon: const Icon(Icons.add_circle_outline),
       ),
       bottomAction: FilledButton.icon(
-        onPressed: _openCustomExerciseSheet,
+        onPressed: () => _openCustomExerciseSheet(),
         icon: const Icon(Icons.add),
         label: const Text('Crear ejercicio personalizado'),
       ),
@@ -3935,7 +3954,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       subtitle:
                           'Probá buscar por nombre, músculo o agregá un ejercicio propio.',
                       action: FilledButton(
-                        onPressed: _openCustomExerciseSheet,
+                        onPressed: () => _openCustomExerciseSheet(),
                         child: const Text('Crear'),
                       ),
                     ),
@@ -4040,8 +4059,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
           _CustomExercisesSection(
             items: widget.customExercises,
-            onCreate: _openCustomExerciseSheet,
+            query: _query,
+            onCreate: () => _openCustomExerciseSheet(),
             onAddExercise: _addExercise,
+            onEditExercise: _editCustomExercise,
+            onDeleteExercise: _confirmDeleteCustomExercise,
           ),
           const _CompactSectionTitle('Orden de rutina'),
           ReorderableListView.builder(
@@ -4204,17 +4226,67 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Future<void> _openCustomExerciseSheet() async {
+  Future<void> _openCustomExerciseSheet({
+    ExerciseCatalogEntry? initialExercise,
+    bool addToRoutine = true,
+  }) async {
     final exercise = await showModalBottomSheet<ExerciseCatalogEntry>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => CustomExerciseSheet(catalogFuture: _catalogFuture),
+      builder: (_) => CustomExerciseSheet(
+        catalogFuture: _catalogFuture,
+        initialExercise: initialExercise,
+      ),
     );
     if (exercise == null) return;
     await widget.onSaveCustomExercise(exercise);
     if (!mounted) return;
-    _addExercise(exercise.toWorkoutExercise());
+    if (addToRoutine) {
+      _addExercise(exercise.toWorkoutExercise());
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${exercise.name} actualizado localmente')),
+      );
+    }
+  }
+
+  Future<void> _editCustomExercise(ExerciseCatalogEntry exercise) {
+    return _openCustomExerciseSheet(
+      initialExercise: exercise,
+      addToRoutine: false,
+    );
+  }
+
+  Future<void> _confirmDeleteCustomExercise(
+    ExerciseCatalogEntry exercise,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borrar ejercicio'),
+        content: Text(
+          'Esto elimina "${exercise.name}" de tus ejercicios personalizados. '
+          'No borra sesiones históricas donde ya lo usaste.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Borrar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.onDeleteCustomExercise(exercise);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${exercise.name} eliminado localmente')),
+    );
   }
 
   static Future<List<ExerciseCatalogEntry>> _loadCatalogSnapshot() async {
@@ -4310,16 +4382,33 @@ class _CatalogTile extends StatelessWidget {
 class _CustomExercisesSection extends StatelessWidget {
   const _CustomExercisesSection({
     required this.items,
+    required this.query,
     required this.onCreate,
     required this.onAddExercise,
+    required this.onEditExercise,
+    required this.onDeleteExercise,
   });
 
   final List<ExerciseCatalogEntry> items;
+  final String query;
   final VoidCallback onCreate;
   final ValueChanged<WorkoutExercise> onAddExercise;
+  final ValueChanged<ExerciseCatalogEntry> onEditExercise;
+  final ValueChanged<ExerciseCatalogEntry> onDeleteExercise;
 
   @override
   Widget build(BuildContext context) {
+    final normalizedQuery = query.toLowerCase();
+    final filtered = normalizedQuery.isEmpty
+        ? items
+        : items
+              .where(
+                (item) =>
+                    item.name.toLowerCase().contains(normalizedQuery) ||
+                    item.muscleGroup.toLowerCase().contains(normalizedQuery),
+              )
+              .toList();
+
     if (items.isEmpty) {
       return DashboardCard(
         icon: Icons.auto_awesome_motion_outlined,
@@ -4332,11 +4421,39 @@ class _CustomExercisesSection extends StatelessWidget {
     return DashboardCard(
       icon: Icons.auto_awesome_motion_outlined,
       title: 'Tus ejercicios',
-      subtitle: '${items.length} ejercicios personalizados locales',
+      subtitle: query.isEmpty
+          ? '${items.length} ejercicios personalizados locales'
+          : '${filtered.length} resultados en tus ejercicios',
       child: Column(
         children: [
-          for (final item in items.take(8))
-            _CatalogTile(
+          if (filtered.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: context.appColors.raised,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Sin resultados propios',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Podés crear un ejercicio nuevo o limpiar la búsqueda para ver todo tu catálogo local.',
+                    style: TextStyle(color: context.appColors.textSecondary),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton(onPressed: onCreate, child: const Text('Crear')),
+                ],
+              ),
+            ),
+          for (final item in filtered.take(12))
+            _CustomExerciseTile(
               item: item,
               onTap: () => showExerciseDetailSheet(
                 context,
@@ -4344,8 +4461,96 @@ class _CustomExercisesSection extends StatelessWidget {
                 onAdd: () => onAddExercise(item.toWorkoutExercise()),
               ),
               onAdd: () => onAddExercise(item.toWorkoutExercise()),
+              onEdit: () => onEditExercise(item),
+              onDelete: () => onDeleteExercise(item),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _CustomExerciseTile extends StatelessWidget {
+  const _CustomExerciseTile({
+    required this.item,
+    required this.onTap,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final ExerciseCatalogEntry item;
+  final VoidCallback onTap;
+  final VoidCallback onAdd;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Row(
+            children: [
+              ExerciseImageBadge(
+                exerciseId: item.id,
+                name: item.name,
+                muscleGroup: item.muscleGroup,
+                imageUri: item.imageUri,
+                size: 52,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${item.muscleGroup} · personalizado local',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: colors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'Opciones del ejercicio',
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      onEdit();
+                      break;
+                    case 'delete':
+                      onDelete();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Editar')),
+                  PopupMenuDivider(),
+                  PopupMenuItem(value: 'delete', child: Text('Borrar')),
+                ],
+              ),
+              IconButton.filledTonal(
+                tooltip: 'Agregar',
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -4848,9 +5053,14 @@ class ExerciseImageBadge extends StatelessWidget {
 }
 
 class CustomExerciseSheet extends StatefulWidget {
-  const CustomExerciseSheet({super.key, required this.catalogFuture});
+  const CustomExerciseSheet({
+    super.key,
+    required this.catalogFuture,
+    this.initialExercise,
+  });
 
   final Future<List<ExerciseCatalogEntry>> catalogFuture;
+  final ExerciseCatalogEntry? initialExercise;
 
   @override
   State<CustomExerciseSheet> createState() => _CustomExerciseSheetState();
@@ -4862,8 +5072,26 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
   String? _imageUri;
 
   @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialExercise;
+    if (initial == null) return;
+    _nameController.text = initial.name;
+    _muscleController.text = initial.muscleGroup;
+    _imageUri = initial.imageUri;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _muscleController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final isEditing = widget.initialExercise != null;
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
       child: Column(
@@ -4871,17 +5099,19 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Nuevo ejercicio',
+            isEditing ? 'Editar ejercicio' : 'Nuevo ejercicio',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _nameController,
+            onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(labelText: 'Nombre'),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _muscleController,
+            onChanged: (_) => setState(() {}),
             decoration: const InputDecoration(labelText: 'Músculo'),
           ),
           const SizedBox(height: 12),
@@ -4932,7 +5162,7 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
           FilledButton.icon(
             onPressed: _save,
             icon: const Icon(Icons.check),
-            label: const Text('Crear con 3 series'),
+            label: Text(isEditing ? 'Guardar cambios' : 'Crear con 3 series'),
           ),
         ],
       ),
@@ -4961,12 +5191,14 @@ class _CustomExerciseSheetState extends State<CustomExerciseSheet> {
     if (name.isEmpty) return;
     Navigator.of(context).pop(
       ExerciseCatalogEntry(
-        id: 'custom_${const Uuid().v4()}',
+        id: widget.initialExercise?.id ?? 'custom_${const Uuid().v4()}',
         name: name,
         muscleGroup: _muscleController.text.trim().isEmpty
             ? 'General'
             : _muscleController.text.trim(),
         imageUri: _imageUri,
+        usageCount: widget.initialExercise?.usageCount ?? 0,
+        lastUsedDate: widget.initialExercise?.lastUsedDate,
         isCustom: true,
       ),
     );
