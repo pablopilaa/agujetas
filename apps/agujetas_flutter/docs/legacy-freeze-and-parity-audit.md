@@ -336,3 +336,11 @@ Decimoséptimo bloque local-first implementado:
 - El detalle de sesión histórica permite editar nombre/nota y borrar la sesión con confirmación.
 - El calendario actualiza su estado local después de editar o borrar sin depender de Firestore.
 - Tests unitarios cubren editar/borrar sesiones en el store; tests de widget cubren el flujo desde calendario.
+
+Decimoctavo bloque local-first implementado:
+
+- `LocalWorkoutStore` exporta un respaldo JSON versionado con sesiones, rutinas, peso corporal y ejercicios personalizados.
+- `LocalWorkoutStore` importa ese respaldo y normaliza la pertenencia al usuario/dispositivo que lo restaura.
+- La importación fusiona por `id` para no pisar datos locales no relacionados y mantiene la app operativa sin Firestore ni Storage.
+- Perfil expone acciones visibles para exportar el JSON, copiarlo y pegar un respaldo para restaurarlo.
+- Tests unitarios cubren export/import y rechazo de JSON ajeno a Agujetas; tests de widget cubren el flujo visible desde Perfil.

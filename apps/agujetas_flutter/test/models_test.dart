@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:agujetas_flutter/exercise_image_resolver.dart';
 import 'package:agujetas_flutter/legacy_history_importer.dart';
 import 'package:agujetas_flutter/local_workout_store.dart';
@@ -484,5 +486,92 @@ void main() {
     );
     final remaining = await store.loadRoutineTemplates('crud-user');
     expect(remaining.map((routine) => routine.id), ['routine-b']);
+  });
+
+  test('local backup exports and imports all local-first data', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+    final session = await store.saveSession(
+      userId: 'backup-source',
+      sessionMode: 'Fuerza',
+      exercises: seedWorkout(),
+      duration: const Duration(minutes: 45),
+    );
+    await store.updateSessionLocal(
+      userId: 'backup-source',
+      session: session.copyWith(title: 'Push pesado', note: 'Buen control.'),
+    );
+    await store.saveRoutineTemplateLocal(
+      userId: 'backup-source',
+      routine: RoutineTemplate(
+        id: 'backup-routine',
+        ownerId: 'other-owner',
+        title: 'Rutina backup',
+        exercises: seedWorkout(),
+      ),
+    );
+    await store.saveBodyWeightLocal(
+      userId: 'backup-source',
+      entry: BodyWeightEntry(
+        id: 'backup-weight',
+        userId: 'other-owner',
+        weightKg: 82.5,
+        recordedAt: DateTime.utc(2026, 5, 31),
+      ),
+    );
+    await store.saveCustomExerciseLocal(
+      userId: 'backup-source',
+      exercise: const ExerciseCatalogEntry(
+        id: 'backup-custom',
+        name: 'Remo propio backup',
+        muscleGroup: 'Espalda',
+        imageUri: 'agujetas-image://ag_backup_row',
+        isCustom: true,
+      ),
+    );
+
+    final rawJson = await store.exportBackupJson('backup-source');
+    final decoded = jsonDecode(rawJson) as Map<String, Object?>;
+
+    expect(decoded['schema'], 'agujetas.localBackup');
+    expect(decoded['schemaVersion'], 1);
+    expect(decoded['sessions'], isA<List<dynamic>>());
+
+    SharedPreferences.setMockInitialValues({});
+    final result = await store.importBackupJson(
+      userId: 'backup-target',
+      rawJson: rawJson,
+    );
+
+    expect(result.sessions, 1);
+    expect(result.routines, 1);
+    expect(result.bodyWeights, 1);
+    expect(result.customExercises, 1);
+    expect(result.total, 4);
+
+    final sessions = await store.loadSessions('backup-target');
+    final routines = await store.loadRoutineTemplates('backup-target');
+    final bodyWeights = await store.loadBodyWeights('backup-target');
+    final customExercises = await store.loadCustomExercises('backup-target');
+
+    expect(sessions.single.userId, 'backup-target');
+    expect(sessions.single.title, 'Push pesado');
+    expect(routines.single.ownerId, 'backup-target');
+    expect(bodyWeights.single.userId, 'backup-target');
+    expect(customExercises.single.isCustom, isTrue);
+    expect(customExercises.single.imageUri, 'agujetas-image://ag_backup_row');
+  });
+
+  test('local backup rejects non Agujetas JSON', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+
+    expect(
+      () => store.importBackupJson(
+        userId: 'backup-target',
+        rawJson: '{"schema":"otra.app"}',
+      ),
+      throwsA(isA<FormatException>()),
+    );
   });
 }

@@ -423,6 +423,8 @@ class _HomeShellState extends State<HomeShell> {
         repository: widget.repository,
         themeMode: widget.themeMode,
         onThemeModeChanged: widget.onThemeModeChanged,
+        onExportLocalBackup: _exportLocalBackup,
+        onImportLocalBackup: _importLocalBackup,
       ),
     ];
     return Scaffold(
@@ -833,6 +835,32 @@ class _HomeShellState extends State<HomeShell> {
       _localCustomExercises = exercises;
       _notice = 'Ejercicio personalizado "${exercise.name}" eliminado.';
     });
+  }
+
+  Future<String> _exportLocalBackup() {
+    return _localStore.exportBackupJson(widget.user.uid);
+  }
+
+  Future<LocalBackupImportResult> _importLocalBackup(String rawJson) async {
+    final result = await _localStore.importBackupJson(
+      userId: widget.user.uid,
+      rawJson: rawJson,
+    );
+    final sessions = await _localStore.loadSessions(widget.user.uid);
+    final routines = await _localStore.loadRoutineTemplates(widget.user.uid);
+    final bodyWeights = await _localStore.loadBodyWeights(widget.user.uid);
+    final customExercises = await _localStore.loadCustomExercises(
+      widget.user.uid,
+    );
+    if (!mounted) return result;
+    setState(() {
+      _localSessions = sessions;
+      _localRoutines = routines;
+      _localBodyWeights = bodyWeights;
+      _localCustomExercises = customExercises;
+      _notice = 'Respaldo local importado: ${result.summary}.';
+    });
+    return result;
   }
 }
 
@@ -6163,12 +6191,17 @@ class ProfileScreen extends StatelessWidget {
     required this.repository,
     required this.themeMode,
     required this.onThemeModeChanged,
+    required this.onExportLocalBackup,
+    required this.onImportLocalBackup,
   });
 
   final AppUser user;
   final AgujetasRepository repository;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
+  final Future<String> Function() onExportLocalBackup;
+  final Future<LocalBackupImportResult> Function(String rawJson)
+  onImportLocalBackup;
 
   @override
   Widget build(BuildContext context) {
@@ -6245,7 +6278,13 @@ class ProfileScreen extends StatelessWidget {
                 icon: Icons.download_outlined,
                 title: 'Exportar mis datos',
                 subtitle: 'Sesiones, rutinas, peso corporal y progreso.',
-                onTap: () {},
+                onTap: () => _exportBackup(context),
+              ),
+              _ProfileActionRow(
+                icon: Icons.upload_file_outlined,
+                title: 'Importar respaldo',
+                subtitle: 'Pegar JSON local exportado desde Agujetas.',
+                onTap: () => _importBackup(context),
               ),
               _ProfileActionRow(
                 icon: Icons.delete_outline,
@@ -6277,6 +6316,129 @@ class ProfileScreen extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _exportBackup(BuildContext context) async {
+    try {
+      final rawJson = await onExportLocalBackup();
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Respaldo local exportado'),
+          content: SizedBox(
+            width: 520,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Copiá el JSON y guardalo fuera del dispositivo. Este respaldo permite restaurar sesiones, rutinas, peso corporal y ejercicios propios.',
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 280,
+                  child: SingleChildScrollView(child: SelectableText(rawJson)),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cerrar'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                try {
+                  await Clipboard.setData(ClipboardData(text: rawJson));
+                } catch (_) {}
+                if (context.mounted) Navigator.of(context).pop();
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('Copiar'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se pudo exportar: $error')));
+    }
+  }
+
+  Future<void> _importBackup(BuildContext context) async {
+    final rawJson = await showDialog<String>(
+      context: context,
+      builder: (_) => const _ImportLocalBackupDialog(),
+    );
+    if (rawJson == null || rawJson.trim().isEmpty) return;
+    try {
+      final result = await onImportLocalBackup(rawJson);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Respaldo importado: ${result.summary}.')),
+      );
+    } on FormatException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('No se pudo importar: $error')));
+    }
+  }
+}
+
+class _ImportLocalBackupDialog extends StatefulWidget {
+  const _ImportLocalBackupDialog();
+
+  @override
+  State<_ImportLocalBackupDialog> createState() =>
+      _ImportLocalBackupDialogState();
+}
+
+class _ImportLocalBackupDialogState extends State<_ImportLocalBackupDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Importar respaldo'),
+      content: SizedBox(
+        width: 520,
+        child: TextField(
+          controller: _controller,
+          minLines: 6,
+          maxLines: 10,
+          decoration: const InputDecoration(
+            labelText: 'JSON de respaldo',
+            hintText: '{ "schema": "agujetas.localBackup", ... }',
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          child: const Text('Importar'),
         ),
       ],
     );

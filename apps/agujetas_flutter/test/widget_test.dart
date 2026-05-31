@@ -542,6 +542,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Sesiones de'), findsOneWidget);
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -900));
+    await tester.pumpAndSettle();
     expect(find.textContaining('Push-Pull-Piernas'), findsWidgets);
     expect(find.text('Sin entrenos locales todavía'), findsNothing);
   });
@@ -638,6 +640,8 @@ void main() {
     await tester.tap(find.text('Ver mes'));
     await tester.pumpAndSettle();
 
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -900));
+    await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Push-Pull-Piernas').first);
     await tester.pumpAndSettle();
 
@@ -665,6 +669,8 @@ void main() {
     await tester.tap(find.text('Ver mes'));
     await tester.pumpAndSettle();
 
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -900));
+    await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Push-Pull-Piernas').first);
     await tester.pumpAndSettle();
 
@@ -836,6 +842,85 @@ void main() {
     expect(deleted, isTrue);
     expect(find.text('Sin entrenos en este mes'), findsOneWidget);
     expect(find.text('Push corregido'), findsNothing);
+  });
+
+  testWidgets('profile exports and imports local backup JSON', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    String? importedRawJson;
+    var exported = false;
+    const backupJson =
+        '{"schema":"agujetas.localBackup","schemaVersion":1,"sessions":[]}';
+    const user = AppUser(
+      uid: 'profile-backup-user',
+      displayName: 'Demo',
+      email: 'demo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: ProfileScreen(
+            user: user,
+            repository: DemoAgujetasRepository(),
+            themeMode: ThemeMode.light,
+            onThemeModeChanged: (_) {},
+            onExportLocalBackup: () async {
+              exported = true;
+              return backupJson;
+            },
+            onImportLocalBackup: (rawJson) async {
+              importedRawJson = rawJson;
+              return const LocalBackupImportResult(
+                sessions: 1,
+                routines: 2,
+                bodyWeights: 3,
+                customExercises: 4,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final exportAction = find.text('Exportar mis datos');
+    await tester.ensureVisible(exportAction);
+    await tester.tapAt(tester.getCenter(exportAction));
+    await tester.pumpAndSettle();
+
+    expect(exported, isTrue);
+    expect(find.text('Respaldo local exportado'), findsOneWidget);
+    expect(find.text(backupJson), findsOneWidget);
+
+    await tester.tap(find.text('Cerrar'));
+    await tester.pumpAndSettle();
+
+    final importAction = find.text('Importar respaldo');
+    await tester.ensureVisible(importAction);
+    await tester.tapAt(tester.getCenter(importAction));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'JSON de respaldo'),
+      backupJson,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Importar'));
+    await tester.pumpAndSettle();
+
+    expect(importedRawJson, backupJson);
+    expect(
+      find.textContaining('1 sesiones, 2 rutinas, 3 pesos'),
+      findsOneWidget,
+    );
   });
 }
 

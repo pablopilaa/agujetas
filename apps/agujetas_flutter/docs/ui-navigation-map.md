@@ -69,7 +69,9 @@ flowchart TD
   H --> H6["Reordenar rutina con six-dot grip"]
 
   I["Perfil"] --> I1["Apariencia: sistema / claro / oscuro"]
-  I --> I2["Cerrar sesión"]
+  I --> I2["Exportar respaldo local JSON"]
+  I --> I3["Importar respaldo local JSON"]
+  I --> I4["Cerrar sesión"]
 
   E["Panel entrenador"] --> E1["Crear código de invitación"]
   E --> E2["Entrenados activos"]
@@ -112,6 +114,8 @@ flowchart TD
 | Biblioteca | Agregar ejercicio | Agregar a rutina activa | Entrenamiento actual actualizado |
 | Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado |
 | Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado |
+| Perfil | Privacidad y datos | Exportar mis datos | Dialog con JSON local y acción de copiar |
+| Perfil | Privacidad y datos | Importar respaldo | Pegar JSON Agujetas y fusionar datos locales |
 | Perfil | Cerrar sesión | Sign out | Login |
 | Panel entrenador | Modo entrenador Pro | Crear código | Firestore `trainerInvites` |
 | Panel entrenador | Modo entrenador Pro | Ver entrenados activos | Lista desde `trainerClientLinks` |

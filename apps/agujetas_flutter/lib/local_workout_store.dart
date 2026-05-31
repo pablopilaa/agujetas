@@ -128,6 +128,26 @@ class LocalWorkoutSession {
   }
 }
 
+class LocalBackupImportResult {
+  const LocalBackupImportResult({
+    required this.sessions,
+    required this.routines,
+    required this.bodyWeights,
+    required this.customExercises,
+  });
+
+  final int sessions;
+  final int routines;
+  final int bodyWeights;
+  final int customExercises;
+
+  int get total => sessions + routines + bodyWeights + customExercises;
+
+  String get summary =>
+      '$sessions sesiones, $routines rutinas, $bodyWeights pesos y '
+      '$customExercises ejercicios propios';
+}
+
 String? _optionalString(Object? value) {
   final text = value?.toString().trim();
   return text == null || text.isEmpty ? null : text;
@@ -460,6 +480,165 @@ class LocalWorkoutStore {
     return imported.length;
   }
 
+  Future<String> exportBackupJson(String userId) async {
+    final snapshot = {
+      'schema': 'agujetas.localBackup',
+      'schemaVersion': 1,
+      'userId': userId,
+      'exportedAt': DateTime.now().toUtc().toIso8601String(),
+      'sessions': (await loadSessions(
+        userId,
+      )).map((session) => session.toJson()).toList(),
+      'routines': (await loadRoutineTemplates(
+        userId,
+      )).map((routine) => routine.toJson()).toList(),
+      'bodyWeights': (await loadBodyWeights(
+        userId,
+      )).map((entry) => entry.toJson()).toList(),
+      'customExercises': (await loadCustomExercises(
+        userId,
+      )).map((entry) => entry.toJson()).toList(),
+    };
+    return const JsonEncoder.withIndent('  ').convert(snapshot);
+  }
+
+  Future<LocalBackupImportResult> importBackupJson({
+    required String userId,
+    required String rawJson,
+  }) async {
+    final decoded = jsonDecode(rawJson);
+    if (decoded is! Map) {
+      throw const FormatException('El respaldo debe ser un objeto JSON.');
+    }
+    final json = decoded.cast<String, Object?>();
+    if (json['schema'] != 'agujetas.localBackup') {
+      throw const FormatException('El respaldo no pertenece a Agujetas.');
+    }
+
+    final importedSessions = (json['sessions'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((raw) => LocalWorkoutSession.fromJson(raw.cast<String, Object?>()))
+        .where((session) => session.id.isNotEmpty)
+        .map((session) => session.copyWith(userId: userId))
+        .toList();
+    final importedRoutines = (json['routines'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((raw) => RoutineTemplate.fromJson(raw.cast<String, Object?>()))
+        .where(
+          (routine) => routine.id.isNotEmpty && routine.exercises.isNotEmpty,
+        )
+        .map((routine) => routine.copyWith(ownerId: userId))
+        .toList();
+    final importedBodyWeights =
+        (json['bodyWeights'] as List<dynamic>? ?? const [])
+            .whereType<Map>()
+            .map((raw) => BodyWeightEntry.fromJson(raw.cast<String, Object?>()))
+            .where((entry) => entry.id.isNotEmpty)
+            .map(
+              (entry) => BodyWeightEntry(
+                id: entry.id,
+                userId: userId,
+                weightKg: entry.weightKg,
+                recordedAt: entry.recordedAt,
+                note: entry.note,
+              ),
+            )
+            .toList();
+    final importedCustomExercises =
+        (json['customExercises'] as List<dynamic>? ?? const [])
+            .whereType<Map>()
+            .map(
+              (raw) =>
+                  ExerciseCatalogEntry.fromJson(raw.cast<String, Object?>()),
+            )
+            .where((entry) => entry.id.isNotEmpty)
+            .map((entry) => entry.copyWith(isCustom: true))
+            .toList();
+
+    final previousSessions = await loadSessions(userId);
+    final previousRoutines = await loadRoutineTemplates(userId);
+    final previousBodyWeights = await loadBodyWeights(userId);
+    final previousCustomExercises = await loadCustomExercises(userId);
+
+    await _replaceSessions(
+      userId: userId,
+      sessions: _upsertById(
+        previousSessions,
+        importedSessions,
+        (item) => item.id,
+      )..sort((a, b) => b.finishedAt.compareTo(a.finishedAt)),
+    );
+    await replaceRoutineTemplates(
+      userId: userId,
+      routines: _upsertById(
+        previousRoutines,
+        importedRoutines,
+        (item) => item.id,
+      ),
+    );
+    await _replaceBodyWeights(
+      userId: userId,
+      entries: _upsertById(
+        previousBodyWeights,
+        importedBodyWeights,
+        (item) => item.id,
+      )..sort((a, b) => b.recordedAt.compareTo(a.recordedAt)),
+    );
+    await _replaceCustomExercises(
+      userId: userId,
+      exercises: _upsertById(
+        previousCustomExercises,
+        importedCustomExercises,
+        (item) => item.id,
+      ),
+    );
+
+    return LocalBackupImportResult(
+      sessions: importedSessions.length,
+      routines: importedRoutines.length,
+      bodyWeights: importedBodyWeights.length,
+      customExercises: importedCustomExercises.length,
+    );
+  }
+
+  Future<void> _replaceBodyWeights({
+    required String userId,
+    required List<BodyWeightEntry> entries,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = entries
+        .map(
+          (entry) => BodyWeightEntry(
+            id: entry.id,
+            userId: userId,
+            weightKg: entry.weightKg,
+            recordedAt: entry.recordedAt,
+            note: entry.note,
+          ),
+        )
+        .take(1000)
+        .toList();
+    await prefs.setString(
+      _bodyWeightsKey(userId),
+      jsonEncode(normalized.map((item) => item.toJson()).toList()),
+    );
+  }
+
+  Future<void> _replaceCustomExercises({
+    required String userId,
+    required List<ExerciseCatalogEntry> exercises,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized = exercises
+        .map((exercise) => exercise.copyWith(isCustom: true))
+        .take(1000)
+        .toList();
+    await prefs.setString(
+      _customExercisesKey(userId),
+      jsonEncode(normalized.map((item) => item.toJson()).toList()),
+    );
+  }
+
   String _activeDraftKey(String userId) =>
       'agujetas.activeWorkoutDraft.v1.$userId';
 
@@ -472,6 +651,21 @@ class LocalWorkoutStore {
 
   String _customExercisesKey(String userId) =>
       'agujetas.localCustomExercises.v1.$userId';
+}
+
+List<T> _upsertById<T>(
+  List<T> previous,
+  List<T> imported,
+  String Function(T item) idOf,
+) {
+  final byId = <String, T>{};
+  for (final item in previous) {
+    byId[idOf(item)] = item;
+  }
+  for (final item in imported) {
+    byId[idOf(item)] = item;
+  }
+  return byId.values.toList();
 }
 
 int _readInt(Object? value) {
