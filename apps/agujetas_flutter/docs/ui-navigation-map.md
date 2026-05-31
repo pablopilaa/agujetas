@@ -40,6 +40,8 @@ flowchart TD
   C1 --> C5["Editar series: kg / reps / RIR"]
   C1 --> C6["Tipo de serie: normal / calentamiento / dropset"]
   C1 --> C7["Reordenar con six-dot grip"]
+  C1 --> C10["Detalle de ejercicio e historial local"]
+  C10 --> C11["Usar último registro como defaults"]
   C --> C8["Guardar sesión"]
   C --> C9["Timer descanso / notificación"]
 
@@ -87,6 +89,8 @@ flowchart TD
 | Entrenar | Bottom nav, CTA inicio | Editar kg / reps / RIR | Misma pantalla, estado actualizado |
 | Entrenar | Grip six dots | Reordenar ejercicios | Misma pantalla, orden actualizado |
 | Entrenar | Menú mover | Mover arriba / abajo | Misma pantalla, orden actualizado |
+| Entrenar | Detalle de ejercicio | Ver historial local | Ficha con mejores marcas y registros recientes |
+| Entrenar | Usar último | Copiar último registro | Defaults de series del ejercicio activo actualizados |
 | Entrenar | Guardar | Persistir sesión | Firestore `sessions` y snackbar |
 | Entrenar | Timer descanso | Programar alerta | Notificación local |
 | Progreso | Bottom nav | Registrar peso | Bottom sheet de peso |

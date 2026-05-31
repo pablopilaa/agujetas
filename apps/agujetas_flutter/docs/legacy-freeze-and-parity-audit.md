@@ -320,3 +320,11 @@ Decimoquinto bloque local-first implementado:
 - El detalle de sesión histórica permite guardar esa sesión como una rutina local reutilizable.
 - La rutina creada desde historial queda persistida en `shared_preferences` junto con las demás plantillas offline.
 - Tests de widget cubren repetir una sesión histórica y guardarla como rutina local visible desde Biblioteca.
+
+Decimosexto bloque local-first implementado:
+
+- La ficha de ejercicio ahora puede leer todo el historial local del ejercicio, no solo el último registro.
+- El detalle muestra cantidad de registros, mejor peso, mejor volumen y registros recientes con fecha y sesión.
+- Desde Entrenar, la ficha permite aplicar el último registro como defaults del ejercicio activo, copiando series, kg, reps, RIR, tipo de serie y segmentos.
+- Biblioteca y catálogo también pasan historial local a la ficha para consulta, sin depender de Firestore.
+- Tests de widget cubren que el detalle muestra historial y que `Usar último` actualiza los defaults del ejercicio activo.

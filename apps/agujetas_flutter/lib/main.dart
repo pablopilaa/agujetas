@@ -401,6 +401,7 @@ class _HomeShellState extends State<HomeShell> {
         user: widget.user,
         repository: widget.repository,
         exercises: libraryExercises,
+        localSessions: _localSessions,
         routines: _localRoutines,
         editingRoutineId: _editingRoutineId,
         editingRoutineTitle: _editingRoutineTitle,
@@ -1533,14 +1534,18 @@ class _TrainScreenState extends State<TrainScreen> {
           },
           itemBuilder: (context, index) {
             final exercise = widget.exercises[index];
-            final latestRecord = ExerciseHistoryRecord.findLatest(
+            final historyRecords = ExerciseHistoryRecord.findAll(
               widget.localSessions,
               exercise,
             );
+            final latestRecord = historyRecords.isEmpty
+                ? null
+                : historyRecords.first;
             return ExerciseCard(
               key: ValueKey(exercise.id),
               index: index,
               exercise: exercise,
+              historyRecords: historyRecords,
               latestRecord: latestRecord,
               onChanged: (updated) {
                 final next = [...widget.exercises];
@@ -1861,6 +1866,7 @@ class ExerciseCard extends StatelessWidget {
     super.key,
     required this.index,
     required this.exercise,
+    required this.historyRecords,
     this.latestRecord,
     required this.onChanged,
     this.onEditCustomExercise,
@@ -1871,6 +1877,7 @@ class ExerciseCard extends StatelessWidget {
 
   final int index;
   final WorkoutExercise exercise;
+  final List<ExerciseHistoryRecord> historyRecords;
   final ExerciseHistoryRecord? latestRecord;
   final ValueChanged<WorkoutExercise> onChanged;
   final VoidCallback? onEditCustomExercise;
@@ -1897,7 +1904,11 @@ class ExerciseCard extends StatelessWidget {
                   onTap: () => showExerciseDetailSheet(
                     context,
                     exercise: exercise,
+                    historyRecords: historyRecords,
                     latestRecord: latestRecord,
+                    onApplyLatestRecord: latestRecord == null
+                        ? null
+                        : _applyLatestRecordDefaults,
                   ),
                   child: ExerciseImageBadge(
                     exerciseId: exercise.id,
@@ -1951,7 +1962,11 @@ class ExerciseCard extends StatelessWidget {
                         showExerciseDetailSheet(
                           context,
                           exercise: exercise,
+                          historyRecords: historyRecords,
                           latestRecord: latestRecord,
+                          onApplyLatestRecord: latestRecord == null
+                              ? null
+                              : _applyLatestRecordDefaults,
                         );
                         break;
                       case 'editCustom':
@@ -2000,21 +2015,41 @@ class ExerciseCard extends StatelessWidget {
       ),
     );
   }
+
+  void _applyLatestRecordDefaults(ExerciseHistoryRecord record) {
+    onChanged(
+      exercise.copyWith(
+        isUnilateral: record.exercise.isUnilateral,
+        sets: record.exercise.sets
+            .map((set) => WorkoutSet.fromJson(set.toJson()))
+            .toList(),
+      ),
+    );
+  }
 }
 
 Future<void> showExerciseDetailSheet(
   BuildContext context, {
   required WorkoutExercise exercise,
+  List<ExerciseHistoryRecord> historyRecords = const [],
   ExerciseHistoryRecord? latestRecord,
+  ValueChanged<ExerciseHistoryRecord>? onApplyLatestRecord,
   VoidCallback? onAdd,
 }) {
+  final effectiveRecords = historyRecords.isEmpty && latestRecord != null
+      ? [latestRecord]
+      : historyRecords;
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (_) => _ExerciseDetailSheet(
       exercise: exercise,
-      latestRecord: latestRecord,
+      historyRecords: effectiveRecords,
+      latestRecord:
+          latestRecord ??
+          (effectiveRecords.isEmpty ? null : effectiveRecords.first),
+      onApplyLatestRecord: onApplyLatestRecord,
       onAdd: onAdd,
     ),
   );
@@ -2178,18 +2213,24 @@ class _RoutineExerciseDefaultsSheetState
 class _ExerciseDetailSheet extends StatelessWidget {
   const _ExerciseDetailSheet({
     required this.exercise,
+    required this.historyRecords,
     this.latestRecord,
+    this.onApplyLatestRecord,
     this.onAdd,
   });
 
   final WorkoutExercise exercise;
+  final List<ExerciseHistoryRecord> historyRecords;
   final ExerciseHistoryRecord? latestRecord;
+  final ValueChanged<ExerciseHistoryRecord>? onApplyLatestRecord;
   final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final bestWeight = ExerciseHistoryRecord.bestWeight(historyRecords);
+    final bestVolume = ExerciseHistoryRecord.bestVolume(historyRecords);
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 18),
@@ -2271,14 +2312,63 @@ class _ExerciseDetailSheet extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {},
+                    onPressed:
+                        latestRecord == null || onApplyLatestRecord == null
+                        ? null
+                        : () {
+                            onApplyLatestRecord!(latestRecord!);
+                            Navigator.of(context).pop();
+                          },
                     icon: const Icon(Icons.show_chart),
-                    label: const Text('Ver progreso'),
+                    label: const Text('Usar último'),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
+            DashboardCard(
+              icon: Icons.query_stats,
+              title: 'Progreso del ejercicio',
+              subtitle: historyRecords.isEmpty
+                  ? 'Sin registros locales todavía.'
+                  : '${historyRecords.length} registro${historyRecords.length == 1 ? '' : 's'} guardado${historyRecords.length == 1 ? '' : 's'}',
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ExercisePrTile(
+                          label: 'Mejor peso',
+                          value: bestWeight?.setSummary ?? '-',
+                          caption: bestWeight?.dateLabel ?? 'Sin marca',
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _ExercisePrTile(
+                          label: 'Mejor volumen',
+                          value: bestVolume?.volumeSummary ?? '-',
+                          caption: bestVolume?.dateLabel ?? 'Sin marca',
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (historyRecords.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Registros recientes',
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    for (final record in historyRecords.take(5))
+                      _ExerciseHistoryTile(record: record),
+                  ],
+                ],
+              ),
+            ),
             _DetailSection(
               title: 'Instrucciones',
               icon: Icons.format_list_numbered,
@@ -2313,6 +2403,87 @@ class _ExerciseDetailSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ExercisePrTile extends StatelessWidget {
+  const _ExercisePrTile({
+    required this.label,
+    required this.value,
+    required this.caption,
+  });
+
+  final String label;
+  final String value;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 2),
+          Text(caption, style: TextStyle(color: colors.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseHistoryTile extends StatelessWidget {
+  const _ExerciseHistoryTile({required this.record});
+
+  final ExerciseHistoryRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.history, size: 18, color: colors.primaryStrong),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(record.setSummary),
+                Text(
+                  record.sessionTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          _MiniValuePill(record.dateLabel),
+        ],
       ),
     );
   }
@@ -3040,9 +3211,13 @@ class ExerciseHistoryRecord {
 
   double get setVolume => _setVolume(set);
 
+  String get dateLabel => _shortDate(session.finishedAt.toLocal());
+
   String get setSummary =>
       '${_formatKg(set.primaryWeightKg)} kg x ${set.totalReps}'
       '${set.rir == null ? '' : ' · RIR ${set.rir}'}';
+
+  String get volumeSummary => _formatCompactVolume(setVolume);
 
   String get compactLabel =>
       'Último: $setSummary · ${_shortDate(session.finishedAt.toLocal())}';
@@ -3056,6 +3231,15 @@ class ExerciseHistoryRecord {
     List<LocalWorkoutSession> sessions,
     WorkoutExercise target,
   ) {
+    final records = findAll(sessions, target);
+    return records.isEmpty ? null : records.first;
+  }
+
+  static List<ExerciseHistoryRecord> findAll(
+    List<LocalWorkoutSession> sessions,
+    WorkoutExercise target,
+  ) {
+    final records = <ExerciseHistoryRecord>[];
     final ordered = [...sessions]
       ..sort((a, b) => b.finishedAt.compareTo(a.finishedAt));
     for (final session in ordered) {
@@ -3071,14 +3255,44 @@ class ExerciseHistoryRecord {
             .toList();
         if (sets.isEmpty) continue;
         sets.sort((a, b) => _setVolume(b).compareTo(_setVolume(a)));
-        return ExerciseHistoryRecord(
-          session: session,
-          exercise: exercise,
-          set: sets.first,
+        records.add(
+          ExerciseHistoryRecord(
+            session: session,
+            exercise: exercise,
+            set: sets.first,
+          ),
         );
       }
     }
-    return null;
+    return records;
+  }
+
+  static ExerciseHistoryRecord? bestWeight(
+    List<ExerciseHistoryRecord> records,
+  ) {
+    return _bestBy(records, (record) => record.set.primaryWeightKg);
+  }
+
+  static ExerciseHistoryRecord? bestVolume(
+    List<ExerciseHistoryRecord> records,
+  ) {
+    return _bestBy(records, (record) => record.setVolume);
+  }
+
+  static ExerciseHistoryRecord? _bestBy(
+    List<ExerciseHistoryRecord> records,
+    double Function(ExerciseHistoryRecord record) score,
+  ) {
+    ExerciseHistoryRecord? best;
+    var bestScore = -1.0;
+    for (final record in records) {
+      final candidateScore = score(record);
+      if (candidateScore > bestScore) {
+        best = record;
+        bestScore = candidateScore;
+      }
+    }
+    return best;
   }
 }
 
@@ -4201,6 +4415,7 @@ class LibraryScreen extends StatefulWidget {
     required this.user,
     required this.repository,
     required this.exercises,
+    required this.localSessions,
     required this.routines,
     required this.editingRoutineId,
     required this.editingRoutineTitle,
@@ -4221,6 +4436,7 @@ class LibraryScreen extends StatefulWidget {
   final AppUser user;
   final AgujetasRepository repository;
   final List<WorkoutExercise> exercises;
+  final List<LocalWorkoutSession> localSessions;
   final List<RoutineTemplate> routines;
   final String? editingRoutineId;
   final String? editingRoutineTitle;
@@ -4316,11 +4532,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   for (final item in filtered)
                     _CatalogTile(
                       item: item,
-                      onTap: () => showExerciseDetailSheet(
-                        context,
-                        exercise: item.toWorkoutExercise(),
-                        onAdd: () => _addExercise(item.toWorkoutExercise()),
-                      ),
+                      onTap: () {
+                        final exercise = item.toWorkoutExercise();
+                        showExerciseDetailSheet(
+                          context,
+                          exercise: exercise,
+                          historyRecords: ExerciseHistoryRecord.findAll(
+                            widget.localSessions,
+                            exercise,
+                          ),
+                          onAdd: () => _addExercise(exercise),
+                        );
+                      },
                       onAdd: () => _addExercise(item.toWorkoutExercise()),
                     ),
                   if (filtered.isEmpty)
@@ -4436,6 +4659,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           _CustomExercisesSection(
             items: widget.customExercises,
             query: _query,
+            localSessions: widget.localSessions,
             onCreate: () => _openCustomExerciseSheet(),
             onAddExercise: _addExercise,
             onEditExercise: _editCustomExercise,
@@ -4466,7 +4690,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 isEditingRoutine: isEditingRoutine,
                 onTap: () => isEditingRoutine
                     ? _editRoutineExerciseDefaults(index, exercise)
-                    : showExerciseDetailSheet(context, exercise: exercise),
+                    : showExerciseDetailSheet(
+                        context,
+                        exercise: exercise,
+                        historyRecords: ExerciseHistoryRecord.findAll(
+                          widget.localSessions,
+                          exercise,
+                        ),
+                      ),
                 onEditDefaults: isEditingRoutine
                     ? () => _editRoutineExerciseDefaults(index, exercise)
                     : null,
@@ -4796,6 +5027,7 @@ class _CustomExercisesSection extends StatelessWidget {
   const _CustomExercisesSection({
     required this.items,
     required this.query,
+    required this.localSessions,
     required this.onCreate,
     required this.onAddExercise,
     required this.onEditExercise,
@@ -4804,6 +5036,7 @@ class _CustomExercisesSection extends StatelessWidget {
 
   final List<ExerciseCatalogEntry> items;
   final String query;
+  final List<LocalWorkoutSession> localSessions;
   final VoidCallback onCreate;
   final ValueChanged<WorkoutExercise> onAddExercise;
   final ValueChanged<ExerciseCatalogEntry> onEditExercise;
@@ -4868,11 +5101,18 @@ class _CustomExercisesSection extends StatelessWidget {
           for (final item in filtered.take(12))
             _CustomExerciseTile(
               item: item,
-              onTap: () => showExerciseDetailSheet(
-                context,
-                exercise: item.toWorkoutExercise(),
-                onAdd: () => onAddExercise(item.toWorkoutExercise()),
-              ),
+              onTap: () {
+                final exercise = item.toWorkoutExercise();
+                showExerciseDetailSheet(
+                  context,
+                  exercise: exercise,
+                  historyRecords: ExerciseHistoryRecord.findAll(
+                    localSessions,
+                    exercise,
+                  ),
+                  onAdd: () => onAddExercise(exercise),
+                );
+              },
               onAdd: () => onAddExercise(item.toWorkoutExercise()),
               onEdit: () => onEditExercise(item),
               onDelete: () => onDeleteExercise(item),

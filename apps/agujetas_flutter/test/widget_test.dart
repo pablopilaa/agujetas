@@ -169,6 +169,7 @@ void main() {
               user: user,
               repository: DemoAgujetasRepository(),
               exercises: exercises,
+              localSessions: const [],
               routines: const [],
               editingRoutineId: 'routine-edit',
               editingRoutineTitle: 'Rutina editable',
@@ -680,6 +681,92 @@ void main() {
       find.textContaining('rutinas y sesiones personalizadas'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('exercise detail shows history and applies last defaults', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var exercise = seedWorkout().first.copyWith(
+      sets: const [
+        WorkoutSet(
+          order: 1,
+          setType: SetType.normal,
+          segments: [WeightSegment(weightKg: 20, reps: 6)],
+          rir: 3,
+        ),
+      ],
+    );
+    final historicalExercise = exercise.copyWith(
+      sets: const [
+        WorkoutSet(
+          order: 1,
+          setType: SetType.normal,
+          segments: [WeightSegment(weightKg: 123, reps: 4)],
+          rir: 1,
+        ),
+      ],
+    );
+    final session = LocalWorkoutSession(
+      id: 'exercise-history-session',
+      userId: 'exercise-history-user',
+      sessionMode: 'Fuerza',
+      exercises: [historicalExercise],
+      startedAt: DateTime(2026, 5, 20, 10),
+      finishedAt: DateTime(2026, 5, 20, 11),
+      durationSeconds: 3600,
+    );
+    final historyRecords = ExerciseHistoryRecord.findAll([session], exercise);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => SizedBox(
+              height: 900,
+              child: ReorderableListView(
+                buildDefaultDragHandles: false,
+                onReorder: (_, _) {},
+                children: [
+                  ExerciseCard(
+                    key: const ValueKey('history-card'),
+                    index: 0,
+                    exercise: exercise,
+                    historyRecords: historyRecords,
+                    latestRecord: historyRecords.first,
+                    onChanged: (updated) => setState(() => exercise = updated),
+                    onRemove: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Opciones del ejercicio'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Detalle'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Progreso del ejercicio'), findsOneWidget);
+    expect(find.text('Mejor peso'), findsOneWidget);
+    expect(find.text('Registros recientes'), findsOneWidget);
+    expect(find.textContaining('123 kg x 4'), findsWidgets);
+
+    await tester.tap(find.text('Usar último'));
+    await tester.pumpAndSettle();
+
+    expect(exercise.sets.first.primaryWeightKg, 123);
+    expect(exercise.sets.first.totalReps, 4);
+    expect(exercise.sets.first.rir, 1);
   });
 }
 
