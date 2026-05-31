@@ -192,6 +192,42 @@ void main() {
     expect(saved!.sets, hasLength(4));
   });
 
+  testWidgets('body weight card saves through local-first callback', (
+    tester,
+  ) async {
+    BodyWeightEntry? saved;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: BodyWeightCard(
+            user: const AppUser(
+              uid: 'weight-user',
+              displayName: 'Demo',
+              email: 'demo@agujetas.app',
+              photoUrl: null,
+              roles: {AppRole.normal},
+              activeRole: AppRole.normal,
+              plan: AppPlan.free,
+            ),
+            entries: const [],
+            onSaved: (entry) async => saved = entry,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Registrar'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '81,7');
+    await tester.tap(find.text('Guardar peso'));
+    await tester.pumpAndSettle();
+
+    expect(saved, isNotNull);
+    expect(saved!.userId, 'weight-user');
+    expect(saved!.weightKg, 81.7);
+  });
+
   testWidgets('training timers expose start, pause and reset controls', (
     tester,
   ) async {

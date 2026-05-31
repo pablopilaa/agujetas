@@ -192,6 +192,43 @@ class LocalWorkoutStore {
     return session;
   }
 
+  Future<List<BodyWeightEntry>> loadBodyWeights(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_bodyWeightsKey(userId));
+    if (raw == null || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((item) => BodyWeightEntry.fromJson(item.cast<String, Object?>()))
+        .where((entry) => entry.userId == userId)
+        .toList()
+      ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+  }
+
+  Future<void> saveBodyWeightLocal({
+    required String userId,
+    required BodyWeightEntry entry,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final previous = await loadBodyWeights(userId);
+    final normalized = BodyWeightEntry(
+      id: entry.id,
+      userId: userId,
+      weightKg: entry.weightKg,
+      recordedAt: entry.recordedAt,
+      note: entry.note,
+    );
+    final next = [
+      normalized,
+      ...previous.where((item) => item.id != normalized.id),
+    ]..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    await prefs.setString(
+      _bodyWeightsKey(userId),
+      jsonEncode(next.take(1000).map((item) => item.toJson()).toList()),
+    );
+  }
+
   Future<List<RoutineTemplate>> loadRoutineTemplates(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_routinesKey(userId));
@@ -311,6 +348,9 @@ class LocalWorkoutStore {
   String _sessionsKey(String userId) => 'agujetas.localSessions.v1.$userId';
 
   String _routinesKey(String userId) => 'agujetas.localRoutines.v1.$userId';
+
+  String _bodyWeightsKey(String userId) =>
+      'agujetas.localBodyWeights.v1.$userId';
 }
 
 int _readInt(Object? value) {

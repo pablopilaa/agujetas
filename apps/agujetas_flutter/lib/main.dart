@@ -327,6 +327,7 @@ class _HomeShellState extends State<HomeShell> {
   List<WorkoutExercise> _routineEditorExercises = const [];
   List<LocalWorkoutSession> _localSessions = const [];
   List<RoutineTemplate> _localRoutines = const [];
+  List<BodyWeightEntry> _localBodyWeights = const [];
   String _sessionMode = 'Fuerza';
   String _activeRoutineTitle = 'Empuje A';
   String? _editingRoutineId;
@@ -342,6 +343,7 @@ class _HomeShellState extends State<HomeShell> {
     _workout = seedWorkout();
     unawaited(_loadLocalSessions());
     unawaited(_loadLocalRoutines());
+    unawaited(_loadLocalBodyWeights());
     unawaited(_restoreActiveDraft());
   }
 
@@ -388,7 +390,9 @@ class _HomeShellState extends State<HomeShell> {
         repository: widget.repository,
         exercises: _workout,
         localSessions: _localSessions,
+        bodyWeights: _localBodyWeights,
         onOpenCalendar: () => _openCalendar(context),
+        onBodyWeightSaved: _saveBodyWeightLocally,
       ),
       LibraryScreen(
         user: widget.user,
@@ -659,6 +663,12 @@ class _HomeShellState extends State<HomeShell> {
     setState(() => _localRoutines = routines);
   }
 
+  Future<void> _loadLocalBodyWeights() async {
+    final entries = await _localStore.loadBodyWeights(widget.user.uid);
+    if (!mounted) return;
+    setState(() => _localBodyWeights = entries);
+  }
+
   Future<void> _persistActiveDraft() {
     return _localStore.saveActiveDraft(
       userId: widget.user.uid,
@@ -693,6 +703,25 @@ class _HomeShellState extends State<HomeShell> {
       _sessionResetToken++;
       _notice = 'Sesión guardada en el historial local.';
     });
+  }
+
+  Future<void> _saveBodyWeightLocally(BodyWeightEntry entry) async {
+    await _localStore.saveBodyWeightLocal(
+      userId: widget.user.uid,
+      entry: entry,
+    );
+    final entries = await _localStore.loadBodyWeights(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localBodyWeights = entries;
+      _notice =
+          'Peso corporal ${entry.weightKg.toStringAsFixed(1)} kg guardado localmente.';
+    });
+    unawaited(
+      widget.repository
+          .saveBodyWeight(user: widget.user, entry: entry)
+          .catchError((_) {}),
+    );
   }
 }
 
@@ -2639,63 +2668,65 @@ class BodyWeightCard extends StatelessWidget {
   const BodyWeightCard({
     super.key,
     required this.user,
-    required this.repository,
+    required this.entries,
+    required this.onSaved,
   });
 
   final AppUser user;
-  final AgujetasRepository repository;
+  final List<BodyWeightEntry> entries;
+  final Future<void> Function(BodyWeightEntry entry) onSaved;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<BodyWeightEntry>>(
-      stream: repository.watchBodyWeights(user.uid),
-      builder: (context, snapshot) {
-        final entries = snapshot.data ?? const <BodyWeightEntry>[];
-        final latest = entries.isEmpty ? null : entries.first;
-        return DashboardCard(
-          icon: Icons.monitor_weight_outlined,
-          title: 'Peso corporal',
-          subtitle: latest == null
-              ? 'Sin registros todavía. Activa alertas y carga tu primer peso.'
-              : '${latest.weightKg.toStringAsFixed(1)} kg registrados recientemente',
-          action: FilledButton(
-            onPressed: () => _openWeightSheet(context),
-            child: const Text('Registrar'),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (entries.length >= 2)
-                _ProgressBar(
-                  value: (entries.first.weightKg / entries[1].weightKg).clamp(
-                    0.75,
-                    1.25,
-                  ),
-                ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  if (!kIsWeb) {
-                    await NotificationService.scheduleBodyWeightReminder(
-                      hour: 9,
-                      minute: 0,
-                    );
-                  }
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Alerta diaria de peso programada 09:00'),
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.notifications_active_outlined),
-                label: const Text('Alertarme cada mañana'),
+    final latest = entries.isEmpty ? null : entries.first;
+    return DashboardCard(
+      icon: Icons.monitor_weight_outlined,
+      title: 'Peso corporal',
+      subtitle: latest == null
+          ? 'Sin registros todavía. Activá alertas y cargá tu primer peso.'
+          : '${latest.weightKg.toStringAsFixed(1)} kg registrados localmente',
+      action: FilledButton(
+        onPressed: () => _openWeightSheet(context),
+        child: const Text('Registrar'),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (entries.length >= 2) ...[
+            _ProgressBar(
+              value: (entries.first.weightKg / entries[1].weightKg).clamp(
+                0.75,
+                1.25,
               ),
-            ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _weightDeltaLabel(entries[0], entries[1]),
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () async {
+              if (!kIsWeb) {
+                await NotificationService.scheduleBodyWeightReminder(
+                  hour: 9,
+                  minute: 0,
+                );
+              }
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Alerta diaria de peso programada 09:00'),
+                  ),
+                );
+              }
+            },
+            icon: const Icon(Icons.notifications_active_outlined),
+            label: const Text('Alertarme cada mañana'),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -2740,15 +2771,21 @@ class BodyWeightCard extends StatelessWidget {
       },
     );
     if (weight == null || weight <= 0) return;
-    await repository.saveBodyWeight(
-      user: user,
-      entry: BodyWeightEntry(
+    await onSaved(
+      BodyWeightEntry(
         id: const Uuid().v4(),
         userId: user.uid,
         weightKg: weight,
         recordedAt: DateTime.now(),
       ),
     );
+  }
+
+  String _weightDeltaLabel(BodyWeightEntry latest, BodyWeightEntry previous) {
+    final delta = latest.weightKg - previous.weightKg;
+    if (delta == 0) return 'Sin cambio respecto del registro anterior.';
+    final sign = delta > 0 ? '+' : '';
+    return '$sign${delta.toStringAsFixed(1)} kg respecto del registro anterior.';
   }
 }
 
@@ -3346,14 +3383,18 @@ class ProgressScreen extends StatelessWidget {
     required this.repository,
     required this.exercises,
     required this.localSessions,
+    required this.bodyWeights,
     required this.onOpenCalendar,
+    required this.onBodyWeightSaved,
   });
 
   final AppUser user;
   final AgujetasRepository repository;
   final List<WorkoutExercise> exercises;
   final List<LocalWorkoutSession> localSessions;
+  final List<BodyWeightEntry> bodyWeights;
   final VoidCallback onOpenCalendar;
+  final Future<void> Function(BodyWeightEntry entry) onBodyWeightSaved;
 
   @override
   Widget build(BuildContext context) {
@@ -3491,7 +3532,11 @@ class ProgressScreen extends StatelessWidget {
               '${workingSets.where((set) => set.setType == SetType.dropset).length} series con reducción de peso',
           child: const _ProgressBar(value: 0.42),
         ),
-        BodyWeightCard(user: user, repository: repository),
+        BodyWeightCard(
+          user: user,
+          entries: bodyWeights,
+          onSaved: onBodyWeightSaved,
+        ),
         DashboardCard(
           icon: Icons.calendar_month_outlined,
           title: 'Calendario',

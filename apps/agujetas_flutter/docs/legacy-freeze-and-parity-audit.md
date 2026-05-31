@@ -264,3 +264,11 @@ Octavo bloque local-first implementado:
 - Esa hoja edita unilateralidad, `setType`, `kg`, `reps`, `RIR` y segundo peso/backoff por serie usando el mismo modelo que Entrenar.
 - Se pueden agregar series predeterminadas a la plantilla sin iniciar ni modificar la sesión activa.
 - Tests de widget cubren la apertura del editor de defaults y la incorporación de una cuarta serie antes de guardar.
+
+Noveno bloque local-first implementado:
+
+- `LocalWorkoutStore` persiste historial de peso corporal por usuario en `shared_preferences`.
+- `HomeShell` carga esos registros al iniciar y actualiza Progreso sin depender de Firestore ni del repositorio demo.
+- `BodyWeightCard` guarda primero localmente y deja el sync con Firebase como intento secundario.
+- La UI mantiene la alerta diaria de peso corporal y muestra el último peso local más el delta contra el registro anterior.
+- Tests unitarios y de widget cubren persistencia local y guardado desde la tarjeta de peso corporal.

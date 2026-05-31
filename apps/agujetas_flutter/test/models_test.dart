@@ -177,6 +177,41 @@ void main() {
     },
   );
 
+  test('local workout store persists body weight history by user', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+    final older = BodyWeightEntry(
+      id: 'weight-old',
+      userId: 'weight-user',
+      weightKg: 82.4,
+      recordedAt: DateTime.utc(2026, 5, 1),
+    );
+    final newer = BodyWeightEntry(
+      id: 'weight-new',
+      userId: 'weight-user',
+      weightKg: 81.9,
+      recordedAt: DateTime.utc(2026, 5, 3),
+    );
+
+    await store.saveBodyWeightLocal(userId: 'weight-user', entry: older);
+    await store.saveBodyWeightLocal(userId: 'weight-user', entry: newer);
+    await store.saveBodyWeightLocal(
+      userId: 'other-user',
+      entry: BodyWeightEntry(
+        id: 'weight-other',
+        userId: 'other-user',
+        weightKg: 90,
+        recordedAt: DateTime.utc(2026, 5, 4),
+      ),
+    );
+
+    final entries = await store.loadBodyWeights('weight-user');
+
+    expect(entries.map((entry) => entry.id), ['weight-new', 'weight-old']);
+    expect(entries.map((entry) => entry.userId).toSet(), {'weight-user'});
+    expect(entries.first.weightKg, 81.9);
+  });
+
   test(
     'legacy history importer groups exported rows into local sessions',
     () async {
