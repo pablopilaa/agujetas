@@ -54,6 +54,8 @@ flowchart TD
   D --> D2["Día con sesiones"]
   D2 --> D3["Detalle de sesión histórica"]
   D3 --> D4["Ejercicios, series, kg, reps, RIR y segmentos"]
+  D3 --> D5["Repetir sesión como entrenamiento activo"]
+  D3 --> D6["Guardar sesión como rutina local"]
 
   H["Biblioteca"] --> H1["Buscar catálogo"]
   H --> H2["Crear ejercicio personalizado"]
@@ -93,6 +95,8 @@ flowchart TD
 | Calendario mensual | Flechas mes anterior/siguiente | Cambiar mes visible | Misma pantalla con resumen mensual actualizado |
 | Calendario mensual | Día con sesiones | Revisar entrenos del día | Hoja con sesiones de esa fecha |
 | Calendario mensual | Sesión histórica | Ver detalle completo | Hoja con ejercicios, series, kg, reps, RIR y segmentos |
+| Detalle de sesión histórica | Repetir sesión | Cargar entrenamiento activo | Entrenar con ejercicios históricos |
+| Detalle de sesión histórica | Guardar rutina | Crear plantilla local | Biblioteca / Mis ejercicios |
 | Biblioteca | Bottom nav | Buscar catálogo | Lista filtrada |
 | Biblioteca | Crear ejercicio personalizado | Formulario de ejercicio | Nuevo ejercicio en rutina y Firestore |
 | Biblioteca | Elegir imagen de galería | Selector nativo | `imageUri` local asociado |

@@ -620,6 +620,67 @@ void main() {
       expect(find.textContaining('kg x'), findsWidgets);
     },
   );
+
+  testWidgets('session history can be repeated as active workout', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ver mes'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Push-Pull-Piernas').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Repetir sesión'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Finalizar'), findsOneWidget);
+    expect(find.textContaining('Entrenar · Libre'), findsOneWidget);
+    expect(find.textContaining('Repetir Push-Pull-Piernas'), findsOneWidget);
+  });
+
+  testWidgets('session history can be saved as a local routine', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ver mes'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Push-Pull-Piernas').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Guardar rutina'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Biblioteca'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mis ejercicios'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Rutina desde'), findsOneWidget);
+    expect(
+      find.textContaining('rutinas y sesiones personalizadas'),
+      findsOneWidget,
+    );
+  });
 }
 
 String _monthNameForTest(int month) => const [

@@ -312,3 +312,11 @@ Decimocuarto bloque local-first implementado:
 - El detalle de sesión histórica muestra ejercicios, miniatura local, unilateralidad, series registradas, tipo de serie, pesos/reps por segmento y RIR.
 - Esto acerca la paridad con el calendario mensual heredado de Agujetas legacy sin depender de Firestore ni cloud.
 - Tests de widget cubren navegación de meses y apertura de detalle histórico completo.
+
+Decimoquinto bloque local-first implementado:
+
+- El detalle de sesión histórica permite repetir una sesión guardada cargándola como entrenamiento activo.
+- Si la sesión legacy trae un modo que no existe en el selector actual, se carga como `Libre` para no romper el dropdown, conservando el nombre histórico en el título de rutina activa.
+- El detalle de sesión histórica permite guardar esa sesión como una rutina local reutilizable.
+- La rutina creada desde historial queda persistida en `shared_preferences` junto con las demás plantillas offline.
+- Tests de widget cubren repetir una sesión histórica y guardarla como rutina local visible desde Biblioteca.

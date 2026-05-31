@@ -437,7 +437,11 @@ class _HomeShellState extends State<HomeShell> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (_) => MonthlySessionCalendarSheet(sessions: _localSessions),
+      builder: (_) => MonthlySessionCalendarSheet(
+        sessions: _localSessions,
+        onRepeatSession: _repeatHistoricalSession,
+        onSaveSessionAsRoutine: _saveHistoricalSessionAsRoutine,
+      ),
     );
   }
 
@@ -464,6 +468,38 @@ class _HomeShellState extends State<HomeShell> {
       _tab = 1;
     });
     unawaited(_persistActiveDraft());
+  }
+
+  void _repeatHistoricalSession(LocalWorkoutSession session) {
+    setState(() {
+      _sessionMode = _sessionModeForHistoricalRepeat(session.sessionMode);
+      _workout = _cloneWorkoutExercises(session.exercises);
+      _activeRoutineTitle = 'Repetir ${_sessionTitle(session)}';
+      _workoutDirty = true;
+      _editingRoutineId = null;
+      _editingRoutineTitle = null;
+      _routineEditorExercises = const [];
+      _tab = 1;
+      _notice = 'Sesión histórica cargada como entrenamiento activo.';
+    });
+    unawaited(_persistActiveDraft());
+  }
+
+  String _sessionModeForHistoricalRepeat(String rawMode) {
+    const supportedModes = {'Fuerza', 'Hipertrofia', 'Técnica', 'Libre'};
+    return supportedModes.contains(rawMode) ? rawMode : 'Libre';
+  }
+
+  Future<void> _saveHistoricalSessionAsRoutine(
+    LocalWorkoutSession session,
+  ) async {
+    final routine = RoutineTemplate(
+      id: const Uuid().v4(),
+      ownerId: widget.user.uid,
+      title: 'Rutina desde ${_shortDate(session.finishedAt.toLocal())}',
+      exercises: _cloneWorkoutExercises(session.exercises),
+    );
+    await _saveRoutine(routine);
   }
 
   void _editRoutine(RoutineTemplate routine) {
@@ -3253,9 +3289,17 @@ String _formatKg(double value) => value == value.roundToDouble()
     : value.toStringAsFixed(1);
 
 class MonthlySessionCalendarSheet extends StatefulWidget {
-  const MonthlySessionCalendarSheet({super.key, required this.sessions});
+  const MonthlySessionCalendarSheet({
+    super.key,
+    required this.sessions,
+    this.onRepeatSession,
+    this.onSaveSessionAsRoutine,
+  });
 
   final List<LocalWorkoutSession> sessions;
+  final ValueChanged<LocalWorkoutSession>? onRepeatSession;
+  final Future<void> Function(LocalWorkoutSession session)?
+  onSaveSessionAsRoutine;
 
   @override
   State<MonthlySessionCalendarSheet> createState() =>
@@ -3511,7 +3555,7 @@ class _MonthlySessionCalendarSheetState
     return grouped;
   }
 
-  static void _openDayDetail(
+  void _openDayDetail(
     BuildContext context,
     DateTime date,
     List<LocalWorkoutSession> sessions,
@@ -3554,7 +3598,7 @@ class _MonthlySessionCalendarSheetState
     );
   }
 
-  static void _openSessionDetail(
+  void _openSessionDetail(
     BuildContext context,
     DateTime date,
     LocalWorkoutSession session,
@@ -3575,6 +3619,42 @@ class _MonthlySessionCalendarSheetState
             Text(
               '${date.day}/${date.month}/${date.year} · ${_formatDuration(Duration(seconds: session.durationSeconds))} · ${_formatCompactVolume(_sessionVolume(session))}',
               style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: widget.onRepeatSession == null
+                        ? null
+                        : () {
+                            Navigator.of(
+                              context,
+                            ).popUntil((route) => route.isFirst);
+                            widget.onRepeatSession!(session);
+                          },
+                    icon: const Icon(Icons.replay),
+                    label: const Text('Repetir sesión'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: widget.onSaveSessionAsRoutine == null
+                        ? null
+                        : () async {
+                            await widget.onSaveSessionAsRoutine!(session);
+                            if (context.mounted) {
+                              Navigator.of(
+                                context,
+                              ).popUntil((route) => route.isFirst);
+                            }
+                          },
+                    icon: const Icon(Icons.playlist_add),
+                    label: const Text('Guardar rutina'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             for (final exercise in session.exercises)
