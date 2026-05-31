@@ -81,6 +81,30 @@ void main() {
     expect(find.text('Modo Hipertrofia'), findsOneWidget);
   });
 
+  testWidgets('home exposes imported legacy routines and can start one', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rutinas importadas'), findsOneWidget);
+
+    final startButton = find.widgetWithText(FilledButton, 'Iniciar').first;
+    await tester.ensureVisible(startButton);
+    await tester.tap(startButton);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Entrenar · Fuerza'), findsOneWidget);
+    expect(find.textContaining('Empuje A'), findsNothing);
+  });
+
   testWidgets('training timers expose start, pause and reset controls', (
     tester,
   ) async {

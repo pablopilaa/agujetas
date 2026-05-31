@@ -15,11 +15,23 @@ class LegacyHistoryImportResult {
   final int skippedRows;
 }
 
+class LegacyRoutineImportResult {
+  const LegacyRoutineImportResult({
+    required this.routines,
+    required this.skippedItems,
+  });
+
+  final List<RoutineTemplate> routines;
+  final int skippedItems;
+}
+
 class LegacyHistoryImporter {
   const LegacyHistoryImporter._();
 
   static const bundledHistoryAsset =
       'assets/user_data/historico_2025-12-31_a_2026-05-13.json';
+  static const bundledCatalogAsset =
+      'assets/user_data/catalogo_ejercicios_2026-05-13.json';
 
   static Future<LegacyHistoryImportResult> loadBundled({
     required String userId,
@@ -30,6 +42,17 @@ class LegacyHistoryImporter {
       data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
     );
     return parseJson(userId: userId, rawJson: raw);
+  }
+
+  static Future<LegacyRoutineImportResult> loadBundledRoutines({
+    required String userId,
+    AssetBundle? bundle,
+  }) async {
+    final data = await (bundle ?? rootBundle).load(bundledCatalogAsset);
+    final raw = utf8.decode(
+      data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+    );
+    return parseCatalogJson(userId: userId, rawJson: raw);
   }
 
   static LegacyHistoryImportResult parseJson({
@@ -45,6 +68,65 @@ class LegacyHistoryImporter {
       return const LegacyHistoryImportResult(sessions: [], skippedRows: 0);
     }
     return parseRows(userId: userId, rows: rows);
+  }
+
+  static LegacyRoutineImportResult parseCatalogJson({
+    required String userId,
+    required String rawJson,
+  }) {
+    final decoded = jsonDecode(rawJson);
+    if (decoded is! Map) {
+      return const LegacyRoutineImportResult(routines: [], skippedItems: 0);
+    }
+    return parseCatalog(
+      userId: userId,
+      catalog: decoded.cast<String, Object?>(),
+    );
+  }
+
+  static LegacyRoutineImportResult parseCatalog({
+    required String userId,
+    required Map<String, Object?> catalog,
+  }) {
+    final customSessions =
+        (catalog['customSessions'] as List<dynamic>? ?? const [])
+            .whereType<Map>()
+            .map((raw) => raw.cast<String, Object?>())
+            .toList();
+    final customById = <String, RoutineTemplate>{};
+    var skipped = 0;
+
+    for (final raw in customSessions) {
+      final routine = _routineFromCustomSession(userId: userId, raw: raw);
+      if (routine == null) {
+        skipped++;
+        continue;
+      }
+      customById[routine.id.replaceFirst('legacy_custom_', '')] = routine;
+    }
+
+    final imported = <String, RoutineTemplate>{
+      for (final routine in customById.values) routine.id: routine,
+    };
+    final legacyRoutines = (catalog['routines'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((raw) => raw.cast<String, Object?>());
+    for (final raw in legacyRoutines) {
+      final routine = _routineFromRoutineRefs(
+        userId: userId,
+        raw: raw,
+        customById: customById,
+      );
+      if (routine == null) {
+        skipped++;
+        continue;
+      }
+      imported[routine.id] = routine;
+    }
+
+    final routines = imported.values.toList()
+      ..sort((a, b) => a.title.compareTo(b.title));
+    return LegacyRoutineImportResult(routines: routines, skippedItems: skipped);
   }
 
   static LegacyHistoryImportResult parseRows({
@@ -141,8 +223,9 @@ class LegacyHistoryImporter {
   }
 
   static WorkoutSet? _parseSet(Map<String, Object?> row, int order) {
-    final repsValue = _readString(row['repeticiones']);
-    final weightValue = _readString(row['peso_kg']);
+    final repsValue =
+        _readString(row['repeticiones']) ?? _readString(row['reps']);
+    final weightValue = _readString(row['peso_kg']) ?? _readString(row['kg']);
     final rir = _readInt(row['rir']);
     final hasAnyValue =
         (repsValue != null && repsValue.isNotEmpty) ||
@@ -162,6 +245,84 @@ class LegacyHistoryImporter {
       rir: rir,
       done: true,
     );
+  }
+
+  static RoutineTemplate? _routineFromCustomSession({
+    required String userId,
+    required Map<String, Object?> raw,
+  }) {
+    final id = _readString(raw['id']);
+    final title = _readString(raw['name']);
+    final rawExercises = raw['exercises'];
+    if (id == null || title == null || rawExercises is! List) return null;
+    final exercises = _parseLegacyExercises(rawExercises);
+    if (exercises.isEmpty) return null;
+    return RoutineTemplate(
+      id: 'legacy_custom_$id',
+      ownerId: userId,
+      title: title,
+      exercises: exercises,
+    );
+  }
+
+  static RoutineTemplate? _routineFromRoutineRefs({
+    required String userId,
+    required Map<String, Object?> raw,
+    required Map<String, RoutineTemplate> customById,
+  }) {
+    final id = _readString(raw['id']);
+    final title = _readString(raw['name']);
+    final refs = raw['sessionRefs'];
+    if (id == null || title == null || refs is! List) return null;
+    final exercises = <WorkoutExercise>[];
+    final seen = <String>{};
+    for (final ref in refs.whereType<Map>()) {
+      if (ref['type']?.toString() != 'custom') continue;
+      final custom = customById[ref['key']?.toString()];
+      if (custom == null) continue;
+      for (final exercise in custom.exercises) {
+        final key = _normalizeExerciseKey(exercise.name);
+        if (seen.add(key)) exercises.add(exercise);
+      }
+    }
+    if (exercises.isEmpty) return null;
+    return RoutineTemplate(
+      id: 'legacy_routine_$id',
+      ownerId: userId,
+      title: title,
+      exercises: exercises,
+    );
+  }
+
+  static List<WorkoutExercise> _parseLegacyExercises(
+    List<dynamic> rawExercises,
+  ) {
+    final exercises = <WorkoutExercise>[];
+    for (final rawExercise in rawExercises.whereType<Map>()) {
+      final row = rawExercise.cast<String, Object?>();
+      final name = _readString(row['ejercicio']) ?? _readString(row['name']);
+      if (name == null || name.isEmpty) continue;
+      final rawSeries = row['series'];
+      final sets = <WorkoutSet>[];
+      if (rawSeries is List) {
+        for (var i = 0; i < rawSeries.length; i++) {
+          final rawSet = rawSeries[i];
+          if (rawSet is! Map) continue;
+          final set = _parseSet(rawSet.cast<String, Object?>(), i + 1);
+          if (set != null) sets.add(set);
+        }
+      }
+      exercises.add(
+        WorkoutExercise(
+          id: _normalizeExerciseKey(name),
+          name: name,
+          muscleGroup: _readString(row['musculo']) ?? 'General',
+          isUnilateral: row['isUnilateral'] == true,
+          sets: sets.isEmpty ? defaultWorkoutSets() : sets,
+        ),
+      );
+    }
+    return exercises;
   }
 
   static List<WeightSegment> _buildSegments({

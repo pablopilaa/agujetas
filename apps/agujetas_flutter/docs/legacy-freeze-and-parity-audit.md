@@ -204,8 +204,8 @@ Primer bloque local-first implementado:
 Pendiente inmediato:
 
 - Reconstruir índice completo por ejercicio.
-- Migrar rutinas y sesiones personalizadas.
 - Convertir la importación histórica en flujo visible/configurable antes de distribuir una build comercial.
+- Agregar CRUD local-first completo para editar, borrar y reordenar rutinas importadas.
 
 Segundo bloque local-first implementado:
 
@@ -224,3 +224,12 @@ Tercer bloque local-first implementado:
 - Las filas con pesos tipo `25-15` se importan como `segments`, preservando el segundo peso/backoff sin inventar reps que no estaban en el CSV/JSON original.
 - `LocalWorkoutStore.saveImportedSessions` deduplica por id estable para no duplicar sesiones al reabrir la app.
 - En una instalación local sin historial previo, `HomeShell` importa el histórico incluido como asset y lo deja disponible para calendario, progreso y últimos registros por ejercicio.
+
+Cuarto bloque local-first implementado:
+
+- `LegacyHistoryImporter.loadBundledRoutines` lee el catálogo exportado legacy y recupera sesiones personalizadas como `RoutineTemplate`.
+- Las rutinas legacy con referencias a sesiones custom se importan como plantillas compuestas, deduplicando ejercicios por nombre.
+- `LocalWorkoutStore` persiste rutinas importadas con deduplicación por id estable.
+- Home muestra “Rutinas importadas” y permite iniciar una rutina legacy.
+- Biblioteca, en “Mis ejercicios”, muestra las rutinas legacy importadas y permite iniciar una plantilla desde ahí.
+- Entrenar muestra el nombre de la rutina activa en el encabezado, en lugar de dejar fijo “Empuje A”.

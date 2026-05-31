@@ -192,6 +192,54 @@ class LocalWorkoutStore {
     return session;
   }
 
+  Future<List<RoutineTemplate>> loadRoutineTemplates(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_routinesKey(userId));
+    if (raw == null || raw.isEmpty) return const [];
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return decoded
+        .whereType<Map>()
+        .map((item) => RoutineTemplate.fromJson(item.cast<String, Object?>()))
+        .where((routine) => routine.ownerId == userId)
+        .toList()
+      ..sort((a, b) => a.title.compareTo(b.title));
+  }
+
+  Future<int> saveImportedRoutineTemplates({
+    required String userId,
+    required List<RoutineTemplate> routines,
+  }) async {
+    if (routines.isEmpty) return 0;
+    final prefs = await SharedPreferences.getInstance();
+    final previous = await loadRoutineTemplates(userId);
+    final existingIds = previous.map((routine) => routine.id).toSet();
+    final imported = <RoutineTemplate>[];
+    for (final routine in routines) {
+      if (existingIds.contains(routine.id) || routine.exercises.isEmpty) {
+        continue;
+      }
+      existingIds.add(routine.id);
+      imported.add(
+        RoutineTemplate(
+          id: routine.id,
+          ownerId: userId,
+          title: routine.title,
+          exercises: routine.exercises,
+          assignedClientId: routine.assignedClientId,
+        ),
+      );
+    }
+    if (imported.isEmpty) return 0;
+    final next = [...previous, ...imported]
+      ..sort((a, b) => a.title.compareTo(b.title));
+    await prefs.setString(
+      _routinesKey(userId),
+      jsonEncode(next.map((item) => item.toJson()).toList()),
+    );
+    return imported.length;
+  }
+
   Future<int> saveImportedSessions({
     required String userId,
     required List<LocalWorkoutSession> sessions,
@@ -220,6 +268,8 @@ class LocalWorkoutStore {
       'agujetas.activeWorkoutDraft.v1.$userId';
 
   String _sessionsKey(String userId) => 'agujetas.localSessions.v1.$userId';
+
+  String _routinesKey(String userId) => 'agujetas.localRoutines.v1.$userId';
 }
 
 int _readInt(Object? value) {

@@ -325,7 +325,9 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   late List<WorkoutExercise> _workout;
   List<LocalWorkoutSession> _localSessions = const [];
+  List<RoutineTemplate> _localRoutines = const [];
   String _sessionMode = 'Fuerza';
+  String _activeRoutineTitle = 'Empuje A';
   bool _workoutDirty = false;
   int _sessionResetToken = 0;
   String? _lastInviteCode;
@@ -336,6 +338,7 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     _workout = seedWorkout();
     unawaited(_loadLocalSessions());
+    unawaited(_loadLocalRoutines());
     unawaited(_restoreActiveDraft());
   }
 
@@ -350,14 +353,17 @@ class _HomeShellState extends State<HomeShell> {
         onInviteCreated: (code) => setState(() => _lastInviteCode = code),
         onNotice: (notice) => setState(() => _notice = notice),
         selectedSessionMode: _sessionMode,
+        routines: _localRoutines,
         onSessionModeSelected: _selectSessionMode,
         onStartWorkout: () => _startWorkout(_sessionMode),
+        onStartRoutine: _startRoutine,
         onOpenCalendar: () => _openCalendar(context),
       ),
       TrainScreen(
         user: widget.user,
         repository: widget.repository,
         sessionMode: _sessionMode,
+        routineTitle: _activeRoutineTitle,
         sessionResetToken: _sessionResetToken,
         exercises: _workout,
         localSessions: _localSessions,
@@ -379,7 +385,9 @@ class _HomeShellState extends State<HomeShell> {
         user: widget.user,
         repository: widget.repository,
         exercises: _workout,
+        routines: _localRoutines,
         onExercisesChanged: _updateWorkout,
+        onStartRoutine: _startRoutine,
       ),
       ProfileScreen(
         user: widget.user,
@@ -412,6 +420,17 @@ class _HomeShellState extends State<HomeShell> {
   void _startWorkout(String mode) {
     setState(() {
       _sessionMode = mode;
+      _activeRoutineTitle = 'Empuje A';
+      _tab = 1;
+    });
+    unawaited(_persistActiveDraft());
+  }
+
+  void _startRoutine(RoutineTemplate routine) {
+    setState(() {
+      _workout = routine.exercises;
+      _activeRoutineTitle = routine.title;
+      _workoutDirty = true;
       _tab = 1;
     });
     unawaited(_persistActiveDraft());
@@ -421,6 +440,7 @@ class _HomeShellState extends State<HomeShell> {
     setState(() {
       _sessionMode = mode;
       _workout = seedWorkout();
+      _activeRoutineTitle = 'Empuje A';
       _workoutDirty = false;
       _sessionResetToken++;
       _tab = 1;
@@ -475,6 +495,34 @@ class _HomeShellState extends State<HomeShell> {
     setState(() => _localSessions = sessions);
   }
 
+  Future<void> _loadLocalRoutines() async {
+    var routines = await _localStore.loadRoutineTemplates(widget.user.uid);
+    if (routines.isEmpty) {
+      try {
+        final result = await LegacyHistoryImporter.loadBundledRoutines(
+          userId: widget.user.uid,
+        );
+        final imported = await _localStore.saveImportedRoutineTemplates(
+          userId: widget.user.uid,
+          routines: result.routines,
+        );
+        if (imported > 0) {
+          routines = await _localStore.loadRoutineTemplates(widget.user.uid);
+          if (mounted) {
+            setState(
+              () => _notice =
+                  'Importé $imported rutinas y sesiones personalizadas locales.',
+            );
+          }
+        }
+      } catch (_) {
+        // La app debe seguir usable aunque el asset de catálogo no exista.
+      }
+    }
+    if (!mounted) return;
+    setState(() => _localRoutines = routines);
+  }
+
   Future<void> _persistActiveDraft() {
     return _localStore.saveActiveDraft(
       userId: widget.user.uid,
@@ -497,6 +545,7 @@ class _HomeShellState extends State<HomeShell> {
     if (!mounted) return;
     setState(() {
       _workout = seedWorkout();
+      _activeRoutineTitle = 'Empuje A';
       _localSessions = [
         savedSession,
         ..._localSessions.where((session) => session.id != savedSession.id),
@@ -518,8 +567,10 @@ class HomeDashboard extends StatefulWidget {
     required this.onInviteCreated,
     required this.onNotice,
     required this.selectedSessionMode,
+    required this.routines,
     required this.onSessionModeSelected,
     required this.onStartWorkout,
+    required this.onStartRoutine,
     required this.onOpenCalendar,
   });
 
@@ -530,8 +581,10 @@ class HomeDashboard extends StatefulWidget {
   final ValueChanged<String> onInviteCreated;
   final ValueChanged<String> onNotice;
   final String selectedSessionMode;
+  final List<RoutineTemplate> routines;
   final ValueChanged<String> onSessionModeSelected;
   final VoidCallback onStartWorkout;
+  final ValueChanged<RoutineTemplate> onStartRoutine;
   final VoidCallback onOpenCalendar;
 
   @override
@@ -585,7 +638,17 @@ class _HomeDashboardState extends State<HomeDashboard> {
             onSelected: widget.onSessionModeSelected,
           ),
           const _CompactSectionTitle('Próximo Entrenamiento'),
-          RecommendedWorkoutCard(onStart: widget.onStartWorkout),
+          RecommendedWorkoutCard(
+            routine: widget.routines.isEmpty ? null : widget.routines.first,
+            onStart: widget.routines.isEmpty
+                ? widget.onStartWorkout
+                : () => widget.onStartRoutine(widget.routines.first),
+          ),
+          if (widget.routines.isNotEmpty)
+            ImportedRoutinesCard(
+              routines: widget.routines,
+              onStartRoutine: widget.onStartRoutine,
+            ),
           DashboardCard(
             icon: Icons.calendar_month_outlined,
             title: 'Calendario de sesiones',
@@ -909,17 +972,29 @@ class _CompactSectionTitle extends StatelessWidget {
 }
 
 class RecommendedWorkoutCard extends StatelessWidget {
-  const RecommendedWorkoutCard({super.key, required this.onStart});
+  const RecommendedWorkoutCard({
+    super.key,
+    required this.onStart,
+    this.routine,
+  });
 
   final VoidCallback onStart;
+  final RoutineTemplate? routine;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
+    final activeRoutine = routine;
     return DashboardCard(
       icon: Icons.fitness_center,
-      title: 'Empuje A',
-      subtitle: 'Pecho, hombro y tríceps',
+      title: activeRoutine?.title ?? 'Empuje A',
+      subtitle: activeRoutine == null
+          ? 'Pecho, hombro y tríceps'
+          : activeRoutine.exercises
+                .take(3)
+                .map((exercise) => exercise.muscleGroup)
+                .toSet()
+                .join(', '),
       onTap: onStart,
       action: _SoftChip(
         label: 'Recomendado hoy',
@@ -934,7 +1009,7 @@ class RecommendedWorkoutCard extends StatelessWidget {
               Expanded(
                 child: _InlineMeta(
                   icon: Icons.view_list_outlined,
-                  label: '6 ejercicios',
+                  label: '${activeRoutine?.exercises.length ?? 6} ejercicios',
                 ),
               ),
               Expanded(
@@ -942,6 +1017,42 @@ class RecommendedWorkoutCard extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class ImportedRoutinesCard extends StatelessWidget {
+  const ImportedRoutinesCard({
+    super.key,
+    required this.routines,
+    required this.onStartRoutine,
+  });
+
+  final List<RoutineTemplate> routines;
+  final ValueChanged<RoutineTemplate> onStartRoutine;
+
+  @override
+  Widget build(BuildContext context) {
+    return DashboardCard(
+      icon: Icons.bookmarks_outlined,
+      title: 'Rutinas importadas',
+      subtitle:
+          '${routines.length} plantillas recuperadas desde tu app anterior.',
+      child: Column(
+        children: [
+          for (final routine in routines.take(4))
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.fitness_center),
+              title: Text(routine.title),
+              subtitle: Text('${routine.exercises.length} ejercicios'),
+              trailing: FilledButton(
+                onPressed: () => onStartRoutine(routine),
+                child: const Text('Iniciar'),
+              ),
+            ),
         ],
       ),
     );
@@ -1003,6 +1114,7 @@ class TrainScreen extends StatefulWidget {
     required this.user,
     required this.repository,
     required this.sessionMode,
+    required this.routineTitle,
     required this.sessionResetToken,
     required this.exercises,
     required this.localSessions,
@@ -1017,6 +1129,7 @@ class TrainScreen extends StatefulWidget {
   final AppUser user;
   final AgujetasRepository repository;
   final String sessionMode;
+  final String routineTitle;
   final int sessionResetToken;
   final List<WorkoutExercise> exercises;
   final List<LocalWorkoutSession> localSessions;
@@ -1066,7 +1179,7 @@ class _TrainScreenState extends State<TrainScreen> {
   Widget build(BuildContext context) {
     return AppScaffold(
       title:
-          'Entrenar · ${widget.sessionMode}\nEmpuje A • ${_formatSessionDuration(_totalElapsed)}',
+          'Entrenar · ${widget.sessionMode}\n${widget.routineTitle} • ${_formatSessionDuration(_totalElapsed)}',
       user: widget.user,
       menuActions: [
         AppMenuAction(
@@ -3315,13 +3428,17 @@ class LibraryScreen extends StatefulWidget {
     required this.user,
     required this.repository,
     required this.exercises,
+    required this.routines,
     required this.onExercisesChanged,
+    required this.onStartRoutine,
   });
 
   final AppUser user;
   final AgujetasRepository repository;
   final List<WorkoutExercise> exercises;
+  final List<RoutineTemplate> routines;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
+  final ValueChanged<RoutineTemplate> onStartRoutine;
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -3446,6 +3563,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
               child: const Text('Guardar'),
             ),
           ),
+          if (widget.routines.isNotEmpty)
+            DashboardCard(
+              icon: Icons.inventory_2_outlined,
+              title: 'Rutinas legacy importadas',
+              subtitle:
+                  '${widget.routines.length} rutinas y sesiones personalizadas disponibles offline.',
+              child: Column(
+                children: [
+                  for (final routine in widget.routines.take(8))
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.fitness_center),
+                      title: Text(routine.title),
+                      subtitle: Text('${routine.exercises.length} ejercicios'),
+                      trailing: FilledButton(
+                        onPressed: () => widget.onStartRoutine(routine),
+                        child: const Text('Iniciar'),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           StreamBuilder<List<ExerciseCatalogEntry>>(
             stream: widget.repository.watchCustomExercises(widget.user.uid),
             builder: (context, snapshot) {

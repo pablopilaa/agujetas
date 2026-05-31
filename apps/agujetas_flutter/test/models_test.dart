@@ -264,4 +264,59 @@ void main() {
       expect(sessions, hasLength(1));
     },
   );
+
+  test(
+    'legacy routine importer loads custom sessions as routine templates',
+    () async {
+      final result = await LegacyHistoryImporter.loadBundledRoutines(
+        userId: 'routine-user',
+      );
+
+      expect(result.routines.length, greaterThanOrEqualTo(15));
+      expect(
+        result.routines,
+        anyElement(
+          isA<RoutineTemplate>()
+              .having((routine) => routine.title, 'title', 'Push 2')
+              .having((routine) => routine.exercises.length, 'exercises', 6),
+        ),
+      );
+      final pushSmith = result.routines.firstWhere(
+        (routine) => routine.title == 'Push Smith',
+      );
+      final backoffSet = pushSmith.exercises
+          .expand((exercise) => exercise.sets)
+          .firstWhere((set) => set.hasBackoffSegment);
+      expect(
+        backoffSet.segments.map((segment) => segment.weightKg),
+        contains(20),
+      );
+    },
+  );
+
+  test(
+    'local workout store imports legacy routines only once by stable id',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = LocalWorkoutStore.instance;
+      final result = await LegacyHistoryImporter.loadBundledRoutines(
+        userId: 'routine-dedupe-user',
+      );
+
+      final first = await store.saveImportedRoutineTemplates(
+        userId: 'routine-dedupe-user',
+        routines: result.routines,
+      );
+      final second = await store.saveImportedRoutineTemplates(
+        userId: 'routine-dedupe-user',
+        routines: result.routines,
+      );
+      final routines = await store.loadRoutineTemplates('routine-dedupe-user');
+
+      expect(first, greaterThan(0));
+      expect(second, 0);
+      expect(routines.length, first);
+      expect(routines, anyElement((routine) => routine.title == 'Push 2'));
+    },
+  );
 }

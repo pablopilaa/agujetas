@@ -389,6 +389,20 @@ class RoutineTemplate {
     'assignedClientId': assignedClientId,
     'updatedAt': DateTime.now().toUtc().toIso8601String(),
   };
+
+  factory RoutineTemplate.fromJson(Map<String, Object?> json) {
+    final exercises = (json['exercises'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((raw) => WorkoutExercise.fromJson(raw.cast<String, Object?>()))
+        .toList();
+    return RoutineTemplate(
+      id: json['id']?.toString() ?? '',
+      ownerId: json['ownerId']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Rutina importada',
+      exercises: exercises,
+      assignedClientId: json['assignedClientId']?.toString(),
+    );
+  }
 }
 
 class TrainerInvite {
