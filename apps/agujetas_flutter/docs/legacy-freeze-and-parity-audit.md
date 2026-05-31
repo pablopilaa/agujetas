@@ -360,3 +360,10 @@ Vigésimo bloque local-first implementado:
 - `TrainScreen` reporta cambios de timers a `HomeShell`, que guarda el draft local junto con modo y ejercicios.
 - Cambiar modo, iniciar rutina, repetir sesión histórica o finalizar entrenamiento reinicia también el estado local de timers.
 - Tests unitarios cubren persistencia/restauración de timers; tests de widget cubren que Entrenar muestra los relojes restaurados.
+
+Vigésimo primer bloque local-first implementado:
+
+- El resolver de imágenes propias normaliza correctamente caracteres acentuados reales de español, incluyendo mayúsculas con tilde y diéresis.
+- La búsqueda de miniaturas ya no depende de claves mal codificadas ni de texto mojibake para mapear nombres del catálogo.
+- Se mantiene bloqueado `app-image://` legacy para no renderizar assets Lyfta en builds comerciales.
+- Test unitario cubre que un nombre con tilde como `Jalón lateral alternativo` resuelve contra el asset local propio `ag_jalon_lateral_alternativo...`.

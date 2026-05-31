@@ -98,6 +98,21 @@ void main() {
   });
 
   test(
+    'image resolver normalizes Spanish accents for catalog matching',
+    () async {
+      final resolved = await ExerciseImageResolver.instance.resolve(
+        exerciseId: 'unknown-accented-id',
+        name: 'Jalón lateral alternativo',
+        muscleGroup: 'Espalda',
+      );
+
+      expect(resolved.isFallback, isFalse);
+      expect(resolved.assetPath, contains('ag_jalon_lateral_alternativo'));
+      expect(resolved.assetPath, isNot(contains('lyfta')));
+    },
+  );
+
+  test(
     'legacy Lyfta URI is blocked and resolved through safe catalog art',
     () async {
       final resolved = await ExerciseImageResolver.instance.resolve(
