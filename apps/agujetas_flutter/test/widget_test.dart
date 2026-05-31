@@ -141,6 +141,72 @@ void main() {
     expect(find.text('Press banca'), findsWidgets);
   });
 
+  testWidgets('library removes an exercise from the routine order', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var exercises = seedWorkout();
+    const user = AppUser(
+      uid: 'library-remove-user',
+      displayName: 'Demo',
+      email: 'demo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => LibraryScreen(
+              user: user,
+              repository: DemoAgujetasRepository(),
+              exercises: exercises,
+              routines: const [],
+              editingRoutineId: 'routine-edit',
+              editingRoutineTitle: 'Rutina editable',
+              customExercises: const [],
+              onExercisesChanged: (next) => setState(() => exercises = next),
+              onStartRoutine: (_) {},
+              onEditRoutine: (_) {},
+              onSaveRoutine: (_) async {},
+              onSaveEditingRoutine: () async {},
+              onSaveEditingRoutineAsCopy: () async {},
+              onDeleteRoutine: (_) async {},
+              onDuplicateRoutine: (_) async {},
+              onMoveRoutine: (_, _) async {},
+              onSaveCustomExercise: (_) async {},
+              onDeleteCustomExercise: (_) async {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Press banca'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Quitar de rutina').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quitar ejercicio'), findsOneWidget);
+    expect(
+      find.textContaining('No borra tu historial ni el catálogo'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Quitar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Press banca'), findsNothing);
+  });
+
   testWidgets('routine defaults sheet edits template set defaults', (
     tester,
   ) async {
@@ -363,6 +429,39 @@ void main() {
 
     expect(find.text('Press custom editado'), findsOneWidget);
     expect(find.text('Press custom'), findsNothing);
+  });
+
+  testWidgets('training flow removes an exercise from active session', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Entrenar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Press banca'), findsWidgets);
+
+    await tester.tap(find.byTooltip('Opciones del ejercicio').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Quitar de sesión'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quitar ejercicio'), findsOneWidget);
+    expect(
+      find.textContaining('No borra tu historial ni el catálogo'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Quitar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Press banca'), findsNothing);
   });
 
   testWidgets('training timers expose start, pause and reset controls', (

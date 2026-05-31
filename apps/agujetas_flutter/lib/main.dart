@@ -1514,6 +1514,7 @@ class _TrainScreenState extends State<TrainScreen> {
               onEditCustomExercise: exercise.isCustom
                   ? () => _editCustomExercise(index, exercise)
                   : null,
+              onRemove: () => _confirmRemoveExercise(index, exercise),
               onMoveUp: index == 0
                   ? null
                   : () {
@@ -1591,6 +1592,41 @@ class _TrainScreenState extends State<TrainScreen> {
     widget.onExercisesChanged(next);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${updated.name} actualizado en la sesión')),
+    );
+  }
+
+  Future<void> _confirmRemoveExercise(
+    int index,
+    WorkoutExercise exercise,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Quitar ejercicio'),
+        content: Text(
+          'Esto quita "${exercise.name}" de la sesión actual. '
+          'No borra tu historial ni el catálogo de ejercicios.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final next = [...widget.exercises];
+    if (index < 0 || index >= next.length) return;
+    next.removeAt(index);
+    widget.onExercisesChanged(next);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${exercise.name} quitado de la sesión')),
     );
   }
 
@@ -1792,6 +1828,7 @@ class ExerciseCard extends StatelessWidget {
     this.latestRecord,
     required this.onChanged,
     this.onEditCustomExercise,
+    required this.onRemove,
     this.onMoveUp,
     this.onMoveDown,
   });
@@ -1801,6 +1838,7 @@ class ExerciseCard extends StatelessWidget {
   final ExerciseHistoryRecord? latestRecord;
   final ValueChanged<WorkoutExercise> onChanged;
   final VoidCallback? onEditCustomExercise;
+  final VoidCallback onRemove;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
 
@@ -1883,6 +1921,9 @@ class ExerciseCard extends StatelessWidget {
                       case 'editCustom':
                         onEditCustomExercise?.call();
                         break;
+                      case 'remove':
+                        onRemove();
+                        break;
                     }
                   },
                   itemBuilder: (context) => [
@@ -1895,6 +1936,11 @@ class ExerciseCard extends StatelessWidget {
                         value: 'editCustom',
                         child: Text('Editar ejercicio'),
                       ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'remove',
+                      child: Text('Quitar de sesión'),
+                    ),
                   ],
                 ),
                 ReorderAccessibilityMenu(
@@ -4157,6 +4203,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 onEditDefaults: isEditingRoutine
                     ? () => _editRoutineExerciseDefaults(index, exercise)
                     : null,
+                onRemoveExercise: () =>
+                    _confirmRemoveRoutineExercise(index, exercise),
                 onMoveUp: index == 0
                     ? null
                     : () {
@@ -4221,6 +4269,41 @@ class _LibraryScreenState extends State<LibraryScreen> {
     widget.onExercisesChanged(next);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Defaults de ${updated.name} actualizados')),
+    );
+  }
+
+  Future<void> _confirmRemoveRoutineExercise(
+    int index,
+    WorkoutExercise exercise,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Quitar ejercicio'),
+        content: Text(
+          'Esto quita "${exercise.name}" de esta rutina local. '
+          'No borra tu historial ni el catálogo de ejercicios.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final next = [...widget.exercises];
+    if (index < 0 || index >= next.length) return;
+    next.removeAt(index);
+    widget.onExercisesChanged(next);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${exercise.name} quitado de la rutina')),
     );
   }
 
@@ -4954,6 +5037,7 @@ class _LibraryRoutineTile extends StatelessWidget {
     required this.isEditingRoutine,
     required this.onTap,
     this.onEditDefaults,
+    required this.onRemoveExercise,
     this.onMoveUp,
     this.onMoveDown,
   });
@@ -4963,6 +5047,7 @@ class _LibraryRoutineTile extends StatelessWidget {
   final bool isEditingRoutine;
   final VoidCallback onTap;
   final VoidCallback? onEditDefaults;
+  final VoidCallback onRemoveExercise;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
 
@@ -5024,6 +5109,11 @@ class _LibraryRoutineTile extends StatelessWidget {
                   onPressed: onEditDefaults,
                   icon: const Icon(Icons.tune),
                 ),
+              IconButton(
+                tooltip: 'Quitar de rutina',
+                onPressed: onRemoveExercise,
+                icon: const Icon(Icons.remove_circle_outline),
+              ),
               ReorderAccessibilityMenu(
                 onMoveUp: onMoveUp,
                 onMoveDown: onMoveDown,

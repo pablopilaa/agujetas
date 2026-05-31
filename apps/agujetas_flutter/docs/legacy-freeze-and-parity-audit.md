@@ -296,3 +296,10 @@ Doceavo bloque local-first implementado:
 - La edicion desde Entrenar reutiliza `CustomExerciseSheet`, guarda primero el catalogo custom local y despues actualiza la instancia activa.
 - La accion no aparece en ejercicios del catalogo base, evitando editar por accidente datos importados/legacy.
 - Tests de widget cubren crear un ejercicio personalizado, agregarlo a la sesion, editarlo desde Entrenar y ver el cambio en la tarjeta activa.
+
+Decimotercer bloque local-first implementado:
+
+- Entrenar permite quitar ejercicios de la sesion activa con confirmacion.
+- Biblioteca permite quitar ejercicios del orden de rutina local con confirmacion.
+- En ambos casos la accion no borra historial guardado ni elimina el ejercicio del catalogo.
+- Tests de widget cubren el flujo de quitar desde Entrenar y desde Biblioteca.
