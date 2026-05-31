@@ -328,6 +328,8 @@ class _HomeShellState extends State<HomeShell> {
   List<RoutineTemplate> _localRoutines = const [];
   String _sessionMode = 'Fuerza';
   String _activeRoutineTitle = 'Empuje A';
+  String? _editingRoutineId;
+  String? _editingRoutineTitle;
   bool _workoutDirty = false;
   int _sessionResetToken = 0;
   String? _lastInviteCode;
@@ -386,9 +388,14 @@ class _HomeShellState extends State<HomeShell> {
         repository: widget.repository,
         exercises: _workout,
         routines: _localRoutines,
+        editingRoutineId: _editingRoutineId,
+        editingRoutineTitle: _editingRoutineTitle,
         onExercisesChanged: _updateWorkout,
         onStartRoutine: _startRoutine,
+        onEditRoutine: _editRoutine,
         onSaveRoutine: _saveRoutine,
+        onSaveEditingRoutine: _saveEditingRoutine,
+        onSaveEditingRoutineAsCopy: _saveEditingRoutineAsCopy,
         onDeleteRoutine: _deleteRoutine,
         onDuplicateRoutine: _duplicateRoutine,
         onMoveRoutine: _moveRoutine,
@@ -425,6 +432,8 @@ class _HomeShellState extends State<HomeShell> {
     setState(() {
       _sessionMode = mode;
       _activeRoutineTitle = 'Empuje A';
+      _editingRoutineId = null;
+      _editingRoutineTitle = null;
       _tab = 1;
     });
     unawaited(_persistActiveDraft());
@@ -432,10 +441,23 @@ class _HomeShellState extends State<HomeShell> {
 
   void _startRoutine(RoutineTemplate routine) {
     setState(() {
-      _workout = routine.exercises;
+      _workout = _cloneWorkoutExercises(routine.exercises);
       _activeRoutineTitle = routine.title;
       _workoutDirty = true;
       _tab = 1;
+    });
+    unawaited(_persistActiveDraft());
+  }
+
+  void _editRoutine(RoutineTemplate routine) {
+    setState(() {
+      _workout = _cloneWorkoutExercises(routine.exercises);
+      _activeRoutineTitle = routine.title;
+      _editingRoutineId = routine.id;
+      _editingRoutineTitle = routine.title;
+      _workoutDirty = true;
+      _tab = 3;
+      _notice = 'Editando rutina "${routine.title}" localmente.';
     });
     unawaited(_persistActiveDraft());
   }
@@ -450,7 +472,38 @@ class _HomeShellState extends State<HomeShell> {
     setState(() {
       _localRoutines = routines;
       _notice = 'Rutina "${routine.title}" guardada localmente.';
+      if (_editingRoutineId == routine.id) {
+        _editingRoutineTitle = routine.title;
+        _activeRoutineTitle = routine.title;
+      }
     });
+  }
+
+  Future<void> _saveEditingRoutine() async {
+    final id = _editingRoutineId;
+    final title = _editingRoutineTitle;
+    if (id == null || title == null) return;
+    await _saveRoutine(
+      RoutineTemplate(
+        id: id,
+        ownerId: widget.user.uid,
+        title: title,
+        exercises: _cloneWorkoutExercises(_workout),
+      ),
+    );
+    if (!mounted) return;
+    setState(() => _workoutDirty = false);
+  }
+
+  Future<void> _saveEditingRoutineAsCopy() async {
+    final title = _editingRoutineTitle ?? _activeRoutineTitle;
+    final copy = RoutineTemplate(
+      id: const Uuid().v4(),
+      ownerId: widget.user.uid,
+      title: '$title copia',
+      exercises: _cloneWorkoutExercises(_workout),
+    );
+    await _saveRoutine(copy);
   }
 
   Future<void> _deleteRoutine(RoutineTemplate routine) async {
@@ -463,6 +516,13 @@ class _HomeShellState extends State<HomeShell> {
     setState(() {
       _localRoutines = routines;
       _notice = 'Rutina "${routine.title}" eliminada.';
+      if (_editingRoutineId == routine.id) {
+        _editingRoutineId = null;
+        _editingRoutineTitle = null;
+        _activeRoutineTitle = 'Empuje A';
+        _workout = seedWorkout();
+        _workoutDirty = false;
+      }
     });
   }
 
@@ -505,6 +565,8 @@ class _HomeShellState extends State<HomeShell> {
       _sessionMode = mode;
       _workout = seedWorkout();
       _activeRoutineTitle = 'Empuje A';
+      _editingRoutineId = null;
+      _editingRoutineTitle = null;
       _workoutDirty = false;
       _sessionResetToken++;
       _tab = 1;
@@ -527,6 +589,8 @@ class _HomeShellState extends State<HomeShell> {
       _workout = draft.exercises;
       _sessionMode = draft.sessionMode;
       _workoutDirty = true;
+      _editingRoutineId = null;
+      _editingRoutineTitle = null;
       _notice = 'Restauré tu sesión activa guardada en este dispositivo.';
     });
   }
@@ -615,10 +679,18 @@ class _HomeShellState extends State<HomeShell> {
         ..._localSessions.where((session) => session.id != savedSession.id),
       ].take(500).toList();
       _workoutDirty = false;
+      _editingRoutineId = null;
+      _editingRoutineTitle = null;
       _sessionResetToken++;
       _notice = 'Sesión guardada en el historial local.';
     });
   }
+}
+
+List<WorkoutExercise> _cloneWorkoutExercises(List<WorkoutExercise> exercises) {
+  return exercises
+      .map((exercise) => WorkoutExercise.fromJson(exercise.toJson()))
+      .toList();
 }
 
 class HomeDashboard extends StatefulWidget {
@@ -3493,9 +3565,14 @@ class LibraryScreen extends StatefulWidget {
     required this.repository,
     required this.exercises,
     required this.routines,
+    required this.editingRoutineId,
+    required this.editingRoutineTitle,
     required this.onExercisesChanged,
     required this.onStartRoutine,
+    required this.onEditRoutine,
     required this.onSaveRoutine,
+    required this.onSaveEditingRoutine,
+    required this.onSaveEditingRoutineAsCopy,
     required this.onDeleteRoutine,
     required this.onDuplicateRoutine,
     required this.onMoveRoutine,
@@ -3505,9 +3582,14 @@ class LibraryScreen extends StatefulWidget {
   final AgujetasRepository repository;
   final List<WorkoutExercise> exercises;
   final List<RoutineTemplate> routines;
+  final String? editingRoutineId;
+  final String? editingRoutineTitle;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final ValueChanged<RoutineTemplate> onStartRoutine;
+  final ValueChanged<RoutineTemplate> onEditRoutine;
   final Future<void> Function(RoutineTemplate routine) onSaveRoutine;
+  final Future<void> Function() onSaveEditingRoutine;
+  final Future<void> Function() onSaveEditingRoutineAsCopy;
   final Future<void> Function(RoutineTemplate routine) onDeleteRoutine;
   final Future<void> Function(RoutineTemplate routine) onDuplicateRoutine;
   final Future<void> Function(int oldIndex, int newIndex) onMoveRoutine;
@@ -3524,6 +3606,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditingRoutine = widget.editingRoutineId != null;
+    final editingTitle = widget.editingRoutineTitle ?? 'Rutina sin nombre';
+    final showMine = _showMine || isEditingRoutine;
     return AppScaffold(
       title: 'Biblioteca',
       user: widget.user,
@@ -3541,13 +3626,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
         AppMenuAction(
           icon: Icons.search,
           label: 'Catálogo',
-          selected: !_showMine,
+          selected: !showMine,
           onSelected: () => setState(() => _showMine = false),
         ),
         AppMenuAction(
           icon: Icons.bookmarks_outlined,
           label: 'Mis ejercicios',
-          selected: _showMine,
+          selected: showMine,
           onSelected: () => setState(() => _showMine = true),
         ),
       ],
@@ -3566,12 +3651,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ),
         const SizedBox(height: 12),
         _LibraryTabs(
-          showMine: _showMine,
+          showMine: showMine,
           onChanged: (value) => setState(() => _showMine = value),
         ),
         const _LibraryFilterChips(),
         const _LibraryAssetBanner(),
-        if (!_showMine)
+        if (!showMine)
           FutureBuilder<List<ExerciseCatalogEntry>>(
             future: _catalogFuture,
             builder: (context, snapshot) {
@@ -3610,19 +3695,26 @@ class _LibraryScreenState extends State<LibraryScreen> {
           )
         else ...[
           DashboardCard(
-            icon: Icons.bookmarks_outlined,
-            title: 'Rutina base',
-            subtitle:
-                '${widget.exercises.length} ejercicios listos para editar, reordenar y asignar.',
+            icon: isEditingRoutine
+                ? Icons.edit_note_outlined
+                : Icons.bookmarks_outlined,
+            title: isEditingRoutine ? 'Editando: $editingTitle' : 'Rutina base',
+            subtitle: isEditingRoutine
+                ? '${widget.exercises.length} ejercicios. Los cambios se guardan en esta plantilla local.'
+                : '${widget.exercises.length} ejercicios listos para editar, reordenar y asignar.',
             action: FilledButton(
               onPressed: () async {
-                final routine = RoutineTemplate(
-                  id: const Uuid().v4(),
-                  ownerId: widget.user.uid,
-                  title: 'Rutina base Agujetas',
-                  exercises: widget.exercises,
-                );
-                await widget.onSaveRoutine(routine);
+                if (isEditingRoutine) {
+                  await widget.onSaveEditingRoutine();
+                } else {
+                  final routine = RoutineTemplate(
+                    id: const Uuid().v4(),
+                    ownerId: widget.user.uid,
+                    title: 'Rutina base Agujetas',
+                    exercises: widget.exercises,
+                  );
+                  await widget.onSaveRoutine(routine);
+                }
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Rutina guardada localmente')),
@@ -3631,6 +3723,41 @@ class _LibraryScreenState extends State<LibraryScreen> {
               },
               child: const Text('Guardar'),
             ),
+            child: isEditingRoutine
+                ? Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () async {
+                          await widget.onSaveEditingRoutineAsCopy();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Copia guardada localmente'),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.copy_all_outlined),
+                        label: const Text('Guardar copia'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          final routine = RoutineTemplate(
+                            id: widget.editingRoutineId!,
+                            ownerId: widget.user.uid,
+                            title: editingTitle,
+                            exercises: widget.exercises,
+                          );
+                          widget.onStartRoutine(routine);
+                        },
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('Entrenar'),
+                      ),
+                    ],
+                  )
+                : null,
           ),
           if (widget.routines.isNotEmpty)
             DashboardCard(
@@ -3643,7 +3770,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   for (var i = 0; i < widget.routines.length; i++)
                     RoutineTemplateTile(
                       routine: widget.routines[i],
+                      isEditing:
+                          widget.routines[i].id == widget.editingRoutineId,
                       onStart: () => widget.onStartRoutine(widget.routines[i]),
+                      onEdit: () => widget.onEditRoutine(widget.routines[i]),
                       onRename: () => _renameRoutine(widget.routines[i]),
                       onDuplicate: () =>
                           widget.onDuplicateRoutine(widget.routines[i]),
@@ -3942,7 +4072,9 @@ class RoutineTemplateTile extends StatelessWidget {
   const RoutineTemplateTile({
     super.key,
     required this.routine,
+    required this.isEditing,
     required this.onStart,
+    required this.onEdit,
     required this.onRename,
     required this.onDuplicate,
     required this.onDelete,
@@ -3951,7 +4083,9 @@ class RoutineTemplateTile extends StatelessWidget {
   });
 
   final RoutineTemplate routine;
+  final bool isEditing;
   final VoidCallback onStart;
+  final VoidCallback onEdit;
   final VoidCallback onRename;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
@@ -3967,6 +4101,7 @@ class RoutineTemplateTile extends StatelessWidget {
         .map((exercise) => exercise.name)
         .join(', ');
     return Card(
+      color: isEditing ? colors.primaryContainer.withValues(alpha: 0.1) : null,
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -4009,6 +4144,16 @@ class RoutineTemplateTile extends StatelessWidget {
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 3),
+                      if (isEditing) ...[
+                        _SoftChip(
+                          label: 'En edición',
+                          color: colors.primaryStrong,
+                          background: colors.primaryContainer.withValues(
+                            alpha: 0.16,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                      ],
                       Text(
                         '${routine.exercises.length} ejercicios'
                         '${subtitle.isEmpty ? '' : ' · $subtitle'}',
@@ -4026,6 +4171,9 @@ class RoutineTemplateTile extends StatelessWidget {
                       case 'rename':
                         onRename();
                         break;
+                      case 'edit':
+                        onEdit();
+                        break;
                       case 'duplicate':
                         onDuplicate();
                         break;
@@ -4041,6 +4189,7 @@ class RoutineTemplateTile extends StatelessWidget {
                     }
                   },
                   itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'edit', child: Text('Editar')),
                     const PopupMenuItem(
                       value: 'rename',
                       child: Text('Renombrar'),
@@ -4066,13 +4215,24 @@ class RoutineTemplateTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onStart,
-                icon: const Icon(Icons.play_arrow),
-                label: const Text('Iniciar rutina'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Editar'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: onStart,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Iniciar'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

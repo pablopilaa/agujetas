@@ -105,6 +105,34 @@ void main() {
     expect(find.textContaining('Empuje A'), findsNothing);
   });
 
+  testWidgets('library can load an imported routine into the local editor', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Biblioteca'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mis ejercicios'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rutinas legacy importadas'), findsOneWidget);
+
+    final editButton = find.widgetWithText(OutlinedButton, 'Editar').first;
+    await tester.ensureVisible(editButton);
+    await tester.tap(editButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('En edición'), findsOneWidget);
+  });
+
   testWidgets('training timers expose start, pause and reset controls', (
     tester,
   ) async {

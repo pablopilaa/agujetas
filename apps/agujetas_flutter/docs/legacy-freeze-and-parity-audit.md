@@ -242,3 +242,11 @@ Quinto bloque local-first implementado:
 - Biblioteca permite renombrar, duplicar, borrar y subir/bajar rutinas importadas o guardadas localmente.
 - Las rutinas se mantienen offline y no dependen de Firestore para operar en modo demo.
 - Tests unitarios cubren guardado, renombrado, reordenamiento y borrado local de rutinas.
+
+Sexto bloque local-first implementado:
+
+- Biblioteca permite abrir una rutina importada o guardada en un editor local.
+- El editor carga los ejercicios de la plantilla, habilita cambios de orden y permite agregar ejercicios desde el catálogo.
+- La plantilla en edición puede guardarse sobre el mismo `RoutineTemplate` o guardarse como copia.
+- La rutina editada puede iniciarse directamente desde Biblioteca sin pasar por Firestore.
+- Tests de widget cubren que una rutina importada entra al editor local y expone acciones de guardado.

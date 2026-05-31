@@ -20,6 +20,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Importacion local del historico exportado desde la app Expo legacy incluido en `assets/user_data`.
 - Importacion local de rutinas y sesiones personalizadas legacy desde `assets/user_data/catalogo_ejercicios_2026-05-13.json`.
 - CRUD local-first basico de rutinas: guardar, renombrar, duplicar, borrar y reordenar plantillas sin depender de Firestore.
+- Editor local de rutinas: abrir una plantilla importada, modificar su lista de ejercicios/orden, guardar cambios o guardar una copia.
 - Roles:
   - `normal`: usuario autogestionado.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.
@@ -108,7 +109,7 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 
 - Instalar Android command-line tools localmente si el equipo no tiene `sdkmanager`.
 - Convertir importaciones legacy en flujo visible/configurable antes de publicar una build comercial.
-- Completar editor profundo de rutinas: editar ejercicios, series, orden interno y defaults por plantilla.
+- Completar editor profundo de rutinas a nivel serie: editar defaults por plantilla sin mezclarlo con la sesion activa.
 - Ejecutar tests de reglas con Firebase Emulator Suite.
 - Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
 - Definir terminos, privacidad, consentimiento de datos y flujo de borrado de cuenta.
