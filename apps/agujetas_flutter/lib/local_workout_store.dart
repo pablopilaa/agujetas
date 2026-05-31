@@ -11,18 +11,30 @@ class ActiveWorkoutDraft {
     required this.sessionMode,
     required this.exercises,
     required this.updatedAt,
+    this.totalElapsed = Duration.zero,
+    this.restRemaining = const Duration(minutes: 2),
+    this.totalRunning = false,
+    this.restRunning = false,
   });
 
   final String userId;
   final String sessionMode;
   final List<WorkoutExercise> exercises;
   final DateTime updatedAt;
+  final Duration totalElapsed;
+  final Duration restRemaining;
+  final bool totalRunning;
+  final bool restRunning;
 
   Map<String, Object?> toJson() => {
     'userId': userId,
     'sessionMode': sessionMode,
     'exercises': exercises.map((exercise) => exercise.toJson()).toList(),
     'updatedAt': updatedAt.toUtc().toIso8601String(),
+    'totalElapsedSeconds': totalElapsed.inSeconds,
+    'restRemainingSeconds': restRemaining.inSeconds,
+    'totalRunning': totalRunning,
+    'restRunning': restRunning,
   };
 
   factory ActiveWorkoutDraft.fromJson(Map<String, Object?> json) {
@@ -30,13 +42,36 @@ class ActiveWorkoutDraft {
         .whereType<Map>()
         .map((raw) => WorkoutExercise.fromJson(raw.cast<String, Object?>()))
         .toList();
+    final updatedAt =
+        DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
+        DateTime.now().toUtc();
+    final now = DateTime.now().toUtc();
+    final elapsedSinceUpdate = now.isAfter(updatedAt)
+        ? now.difference(updatedAt)
+        : Duration.zero;
+    final totalRunning = json['totalRunning'] == true;
+    final restRunning = json['restRunning'] == true;
+    final totalElapsed =
+        Duration(seconds: _readInt(json['totalElapsedSeconds'])) +
+        (totalRunning ? elapsedSinceUpdate : Duration.zero);
+    final rawRestRemaining = Duration(
+      seconds: _readIntWithDefault(json['restRemainingSeconds'], 120),
+    );
+    final adjustedRestRemaining = restRunning
+        ? rawRestRemaining - elapsedSinceUpdate
+        : rawRestRemaining;
+    final restRemaining = adjustedRestRemaining <= Duration.zero
+        ? Duration.zero
+        : adjustedRestRemaining;
     return ActiveWorkoutDraft(
       userId: json['userId']?.toString() ?? '',
       sessionMode: json['sessionMode']?.toString() ?? 'Fuerza',
       exercises: exercises.isEmpty ? seedWorkout() : exercises,
-      updatedAt:
-          DateTime.tryParse(json['updatedAt']?.toString() ?? '') ??
-          DateTime.now().toUtc(),
+      updatedAt: updatedAt,
+      totalElapsed: totalElapsed,
+      restRemaining: restRemaining,
+      totalRunning: totalRunning,
+      restRunning: restRunning && restRemaining > Duration.zero,
     );
   }
 }
@@ -173,6 +208,10 @@ class LocalWorkoutStore {
     required String userId,
     required String sessionMode,
     required List<WorkoutExercise> exercises,
+    Duration totalElapsed = Duration.zero,
+    Duration restRemaining = const Duration(minutes: 2),
+    bool totalRunning = false,
+    bool restRunning = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final draft = ActiveWorkoutDraft(
@@ -180,6 +219,10 @@ class LocalWorkoutStore {
       sessionMode: sessionMode,
       exercises: exercises,
       updatedAt: DateTime.now().toUtc(),
+      totalElapsed: totalElapsed,
+      restRemaining: restRemaining,
+      totalRunning: totalRunning,
+      restRunning: restRunning,
     );
     await prefs.setString(_activeDraftKey(userId), jsonEncode(draft.toJson()));
   }
@@ -672,4 +715,11 @@ int _readInt(Object? value) {
   if (value is int) return value;
   if (value is double) return value.round();
   return int.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+int _readIntWithDefault(Object? value, int fallback) {
+  if (value == null) return fallback;
+  if (value is int) return value;
+  if (value is double) return value.round();
+  return int.tryParse(value.toString()) ?? fallback;
 }

@@ -149,6 +149,51 @@ void main() {
     expect(draft.exercises.first.name, exercises.first.name);
   });
 
+  test('active workout draft preserves timer state', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+
+    await store.saveActiveDraft(
+      userId: 'timer-user',
+      sessionMode: 'Técnica',
+      exercises: seedWorkout(),
+      totalElapsed: const Duration(minutes: 12, seconds: 4),
+      restRemaining: const Duration(seconds: 45),
+      totalRunning: true,
+      restRunning: true,
+    );
+
+    final draft = await store.loadActiveDraft('timer-user');
+
+    expect(draft, isNotNull);
+    expect(draft!.sessionMode, 'Técnica');
+    expect(draft.totalElapsed.inSeconds, greaterThanOrEqualTo(724));
+    expect(draft.restRemaining.inSeconds, lessThanOrEqualTo(45));
+    expect(draft.totalRunning, isTrue);
+    expect(draft.restRunning, isTrue);
+  });
+
+  test('active workout draft stops expired rest timer on restore', () {
+    final draft = ActiveWorkoutDraft.fromJson({
+      'userId': 'timer-user',
+      'sessionMode': 'Fuerza',
+      'exercises': seedWorkout().map((exercise) => exercise.toJson()).toList(),
+      'updatedAt': DateTime.now()
+          .toUtc()
+          .subtract(const Duration(minutes: 3))
+          .toIso8601String(),
+      'totalElapsedSeconds': 60,
+      'restRemainingSeconds': 45,
+      'totalRunning': true,
+      'restRunning': true,
+    });
+
+    expect(draft.totalElapsed.inSeconds, greaterThanOrEqualTo(240));
+    expect(draft.restRemaining, Duration.zero);
+    expect(draft.totalRunning, isTrue);
+    expect(draft.restRunning, isFalse);
+  });
+
   test(
     'local workout store saves history and clears draft separately',
     () async {

@@ -490,6 +490,29 @@ void main() {
     expect(find.text('00:00'), findsOneWidget);
   });
 
+  testWidgets('active workout draft restores timer values in training', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await LocalWorkoutStore.instance.saveActiveDraft(
+      userId: 'demo-user',
+      sessionMode: 'Hipertrofia',
+      exercises: seedWorkout(),
+      totalElapsed: const Duration(minutes: 3, seconds: 5),
+      restRemaining: const Duration(seconds: 30),
+    );
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Entrenar'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Entrenar · Hipertrofia'), findsOneWidget);
+    expect(find.text('03:05'), findsWidgets);
+    expect(find.text('00:30'), findsOneWidget);
+  });
+
   testWidgets('training mode dropdown confirms reset after session activity', (
     tester,
   ) async {

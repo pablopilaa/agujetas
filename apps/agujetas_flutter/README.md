@@ -22,6 +22,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - El historial local permite editar nombre/nota de una sesión guardada y borrar sesiones locales con confirmación.
 - Perfil permite exportar/importar un respaldo JSON local con sesiones, rutinas, peso corporal y ejercicios personalizados.
 - Perfil permite reimportar manualmente los datos legacy incluidos de Agujetas 1.x, con deduplicación local.
+- El borrador de sesión activa persiste y restaura relojes de tiempo total/descanso, incluyendo timers que estaban corriendo.
 - Seguimiento de peso corporal local-first con recordatorio diario opcional y sync best-effort si hay backend disponible.
 - Importacion local del historico exportado desde la app Expo legacy incluido en `assets/user_data`.
 - Importacion local de rutinas y sesiones personalizadas legacy desde `assets/user_data/catalogo_ejercicios_2026-05-13.json`.

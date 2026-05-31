@@ -335,6 +335,10 @@ class _HomeShellState extends State<HomeShell> {
   String? _editingRoutineTitle;
   bool _workoutDirty = false;
   int _sessionResetToken = 0;
+  Duration _totalElapsed = Duration.zero;
+  Duration _restRemaining = const Duration(minutes: 2);
+  bool _totalRunning = false;
+  bool _restRunning = false;
   String? _lastInviteCode;
   String? _notice;
 
@@ -381,9 +385,13 @@ class _HomeShellState extends State<HomeShell> {
         exercises: _workout,
         localSessions: _localSessions,
         hasEditedWorkout: _workoutDirty,
+        initialTotalElapsed: _totalElapsed,
+        initialRestRemaining: _restRemaining,
+        initialTotalRunning: _totalRunning,
+        initialRestRunning: _restRunning,
         onExercisesChanged: _updateWorkout,
         onSaveCustomExercise: _saveCustomExerciseLocally,
-        onSessionActivity: () {},
+        onTimerStateChanged: _updateTimerDraft,
         onSessionModeChanged: _changeTrainingMode,
         onSessionSavedLocally: _saveSessionLocally,
         onOpenLibrary: () => setState(() => _tab = 3),
@@ -462,6 +470,11 @@ class _HomeShellState extends State<HomeShell> {
       _editingRoutineId = null;
       _editingRoutineTitle = null;
       _tab = 1;
+      _totalElapsed = Duration.zero;
+      _restRemaining = const Duration(minutes: 2);
+      _totalRunning = false;
+      _restRunning = false;
+      _sessionResetToken++;
     });
     unawaited(_persistActiveDraft());
   }
@@ -472,6 +485,11 @@ class _HomeShellState extends State<HomeShell> {
       _activeRoutineTitle = routine.title;
       _workoutDirty = true;
       _tab = 1;
+      _totalElapsed = Duration.zero;
+      _restRemaining = const Duration(minutes: 2);
+      _totalRunning = false;
+      _restRunning = false;
+      _sessionResetToken++;
     });
     unawaited(_persistActiveDraft());
   }
@@ -487,6 +505,11 @@ class _HomeShellState extends State<HomeShell> {
       _routineEditorExercises = const [];
       _tab = 1;
       _notice = 'Sesión histórica cargada como entrenamiento activo.';
+      _totalElapsed = Duration.zero;
+      _restRemaining = const Duration(minutes: 2);
+      _totalRunning = false;
+      _restRunning = false;
+      _sessionResetToken++;
     });
     unawaited(_persistActiveDraft());
   }
@@ -649,6 +672,10 @@ class _HomeShellState extends State<HomeShell> {
       _workoutDirty = false;
       _sessionResetToken++;
       _tab = 1;
+      _totalElapsed = Duration.zero;
+      _restRemaining = const Duration(minutes: 2);
+      _totalRunning = false;
+      _restRunning = false;
     });
     unawaited(_persistActiveDraft());
   }
@@ -677,6 +704,11 @@ class _HomeShellState extends State<HomeShell> {
       _editingRoutineId = null;
       _editingRoutineTitle = null;
       _routineEditorExercises = const [];
+      _totalElapsed = draft.totalElapsed;
+      _restRemaining = draft.restRemaining;
+      _totalRunning = draft.totalRunning;
+      _restRunning = draft.restRunning;
+      _sessionResetToken++;
       _notice = 'Restauré tu sesión activa guardada en este dispositivo.';
     });
   }
@@ -754,7 +786,24 @@ class _HomeShellState extends State<HomeShell> {
       userId: widget.user.uid,
       sessionMode: _sessionMode,
       exercises: _workout,
+      totalElapsed: _totalElapsed,
+      restRemaining: _restRemaining,
+      totalRunning: _totalRunning,
+      restRunning: _restRunning,
     );
+  }
+
+  void _updateTimerDraft(
+    Duration totalElapsed,
+    Duration restRemaining,
+    bool totalRunning,
+    bool restRunning,
+  ) {
+    _totalElapsed = totalElapsed;
+    _restRemaining = restRemaining;
+    _totalRunning = totalRunning;
+    _restRunning = restRunning;
+    unawaited(_persistActiveDraft());
   }
 
   Future<void> _saveSessionLocally(
@@ -781,6 +830,10 @@ class _HomeShellState extends State<HomeShell> {
       _editingRoutineTitle = null;
       _routineEditorExercises = const [];
       _sessionResetToken++;
+      _totalElapsed = Duration.zero;
+      _restRemaining = const Duration(minutes: 2);
+      _totalRunning = false;
+      _restRunning = false;
       _notice = 'Sesión guardada en el historial local.';
     });
   }
@@ -1496,9 +1549,13 @@ class TrainScreen extends StatefulWidget {
     required this.exercises,
     required this.localSessions,
     required this.hasEditedWorkout,
+    required this.initialTotalElapsed,
+    required this.initialRestRemaining,
+    required this.initialTotalRunning,
+    required this.initialRestRunning,
     required this.onExercisesChanged,
     required this.onSaveCustomExercise,
-    required this.onSessionActivity,
+    required this.onTimerStateChanged,
     required this.onSessionModeChanged,
     required this.onSessionSavedLocally,
     required this.onOpenLibrary,
@@ -1512,10 +1569,20 @@ class TrainScreen extends StatefulWidget {
   final List<WorkoutExercise> exercises;
   final List<LocalWorkoutSession> localSessions;
   final bool hasEditedWorkout;
+  final Duration initialTotalElapsed;
+  final Duration initialRestRemaining;
+  final bool initialTotalRunning;
+  final bool initialRestRunning;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final Future<void> Function(ExerciseCatalogEntry exercise)
   onSaveCustomExercise;
-  final VoidCallback onSessionActivity;
+  final void Function(
+    Duration totalElapsed,
+    Duration restRemaining,
+    bool totalRunning,
+    bool restRunning,
+  )
+  onTimerStateChanged;
   final ValueChanged<String> onSessionModeChanged;
   final Future<void> Function(
     Duration totalElapsed,
@@ -1544,10 +1611,22 @@ class _TrainScreenState extends State<TrainScreen> {
       _restRunning;
 
   @override
+  void initState() {
+    super.initState();
+    _applyInitialTimerState();
+    if (_totalRunning || _restRunning) {
+      _ensureTicker();
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant TrainScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.sessionResetToken != widget.sessionResetToken) {
-      _resetTimers();
+      _applyInitialTimerState();
+      if (_totalRunning || _restRunning) {
+        _ensureTicker();
+      }
     }
   }
 
@@ -1716,11 +1795,26 @@ class _TrainScreenState extends State<TrainScreen> {
           }
         }
       });
+      _notifyTimerStateChanged();
     });
   }
 
-  void _markSessionActivity() {
-    widget.onSessionActivity();
+  void _applyInitialTimerState() {
+    _totalElapsed = widget.initialTotalElapsed;
+    _restRemaining = widget.initialRestRemaining;
+    _totalRunning = widget.initialTotalRunning;
+    _restRunning =
+        widget.initialRestRunning &&
+        widget.initialRestRemaining > Duration.zero;
+  }
+
+  void _notifyTimerStateChanged() {
+    widget.onTimerStateChanged(
+      _totalElapsed,
+      _restRemaining,
+      _totalRunning,
+      _restRunning,
+    );
   }
 
   Future<void> _editCustomExercise(int index, WorkoutExercise exercise) async {
@@ -1796,9 +1890,9 @@ class _TrainScreenState extends State<TrainScreen> {
       _totalRunning = !_totalRunning;
       if (_totalRunning) {
         _ensureTicker();
-        _markSessionActivity();
       }
     });
+    _notifyTimerStateChanged();
   }
 
   void _resetTotalTimer() {
@@ -1806,6 +1900,7 @@ class _TrainScreenState extends State<TrainScreen> {
       _totalRunning = false;
       _totalElapsed = Duration.zero;
     });
+    _notifyTimerStateChanged();
   }
 
   void _toggleRestTimer() {
@@ -1816,9 +1911,9 @@ class _TrainScreenState extends State<TrainScreen> {
       _restRunning = !_restRunning;
       if (_restRunning) {
         _ensureTicker();
-        _markSessionActivity();
       }
     });
+    _notifyTimerStateChanged();
   }
 
   void _startRestTimer(Duration duration) {
@@ -1826,8 +1921,8 @@ class _TrainScreenState extends State<TrainScreen> {
       _restRemaining = duration;
       _restRunning = true;
       _ensureTicker();
-      _markSessionActivity();
     });
+    _notifyTimerStateChanged();
   }
 
   void _resetRestTimer() {
@@ -1835,15 +1930,7 @@ class _TrainScreenState extends State<TrainScreen> {
       _restRunning = false;
       _restRemaining = const Duration(minutes: 2);
     });
-  }
-
-  void _resetTimers() {
-    setState(() {
-      _totalRunning = false;
-      _restRunning = false;
-      _totalElapsed = Duration.zero;
-      _restRemaining = const Duration(minutes: 2);
-    });
+    _notifyTimerStateChanged();
   }
 
   Future<void> _requestModeChange(String mode) async {

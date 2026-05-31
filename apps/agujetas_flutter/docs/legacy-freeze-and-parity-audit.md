@@ -352,3 +352,11 @@ Decimonoveno bloque local-first implementado:
 - `HomeShell` refresca calendario, progreso y biblioteca después de esa importación manual sin depender de Firestore.
 - El usuario ya no depende sólo de la autoimportación silenciosa de instalaciones limpias para recuperar datos legacy.
 - Tests de widget cubren el flujo visible con confirmación y resumen de sesiones/rutinas importadas.
+
+Vigésimo bloque local-first implementado:
+
+- `ActiveWorkoutDraft` ahora persiste `totalElapsed`, `restRemaining`, `totalRunning` y `restRunning` con lectura backwards-compatible.
+- Al restaurar una sesión activa, si un reloj estaba corriendo se compensa el tiempo transcurrido desde el último guardado.
+- `TrainScreen` reporta cambios de timers a `HomeShell`, que guarda el draft local junto con modo y ejercicios.
+- Cambiar modo, iniciar rutina, repetir sesión histórica o finalizar entrenamiento reinicia también el estado local de timers.
+- Tests unitarios cubren persistencia/restauración de timers; tests de widget cubren que Entrenar muestra los relojes restaurados.
