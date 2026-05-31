@@ -1,4 +1,6 @@
+import 'package:agujetas_flutter/app_theme.dart';
 import 'package:agujetas_flutter/main.dart';
+import 'package:agujetas_flutter/models.dart';
 import 'package:agujetas_flutter/repositories.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -137,6 +139,57 @@ void main() {
 
     expect(find.textContaining('Empuje A'), findsOneWidget);
     expect(find.text('Press banca'), findsWidgets);
+  });
+
+  testWidgets('routine defaults sheet edits template set defaults', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    WorkoutExercise? saved;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () async {
+                  saved = await showRoutineExerciseDefaultsSheet(
+                    context,
+                    exercise: seedWorkout().first,
+                  );
+                },
+                child: const Text('Abrir defaults'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Abrir defaults'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editar defaults'), findsOneWidget);
+    expect(find.text('Series predeterminadas'), findsOneWidget);
+    expect(find.text('RIR'), findsWidgets);
+
+    final addSet = find.widgetWithText(OutlinedButton, 'Agregar serie');
+    await tester.ensureVisible(addSet);
+    await tester.tap(addSet);
+    await tester.pumpAndSettle();
+
+    expect(find.text('S4'), findsOneWidget);
+
+    await tester.tap(find.text('Guardar defaults'));
+    await tester.pumpAndSettle();
+
+    expect(saved, isNotNull);
+    expect(saved!.sets, hasLength(4));
   });
 
   testWidgets('training timers expose start, pause and reset controls', (

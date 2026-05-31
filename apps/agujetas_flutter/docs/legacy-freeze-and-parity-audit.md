@@ -257,3 +257,10 @@ Séptimo bloque local-first implementado:
 - Abrir una rutina para editar ya no reemplaza el entrenamiento actual ni persiste un draft de sesión.
 - Agregar o reordenar ejercicios dentro de una plantilla en edición afecta sólo al editor hasta guardar o iniciar esa rutina.
 - Tests de widget cubren que cargar una rutina en el editor no cambia la sesión activa `Empuje A`.
+
+Octavo bloque local-first implementado:
+
+- Biblioteca permite tocar un ejercicio dentro de una rutina en edición y abrir una hoja de defaults.
+- Esa hoja edita unilateralidad, `setType`, `kg`, `reps`, `RIR` y segundo peso/backoff por serie usando el mismo modelo que Entrenar.
+- Se pueden agregar series predeterminadas a la plantilla sin iniciar ni modificar la sesión activa.
+- Tests de widget cubren la apertura del editor de defaults y la incorporación de una cuarta serie antes de guardar.

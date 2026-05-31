@@ -1801,6 +1801,161 @@ Future<void> showExerciseDetailSheet(
   );
 }
 
+Future<WorkoutExercise?> showRoutineExerciseDefaultsSheet(
+  BuildContext context, {
+  required WorkoutExercise exercise,
+}) {
+  return showModalBottomSheet<WorkoutExercise>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (_) => RoutineExerciseDefaultsSheet(exercise: exercise),
+  );
+}
+
+class RoutineExerciseDefaultsSheet extends StatefulWidget {
+  const RoutineExerciseDefaultsSheet({super.key, required this.exercise});
+
+  final WorkoutExercise exercise;
+
+  @override
+  State<RoutineExerciseDefaultsSheet> createState() =>
+      _RoutineExerciseDefaultsSheetState();
+}
+
+class _RoutineExerciseDefaultsSheetState
+    extends State<RoutineExerciseDefaultsSheet> {
+  late WorkoutExercise _exercise = WorkoutExercise.fromJson(
+    widget.exercise.toJson(),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                ExerciseImageBadge(
+                  exerciseId: _exercise.id,
+                  name: _exercise.name,
+                  muscleGroup: _exercise.muscleGroup,
+                  imageUri: _exercise.imageUri,
+                  size: 58,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Editar defaults',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colors.primaryStrong,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _exercise.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        _exercise.muscleGroup,
+                        style: TextStyle(color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.raised,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Ejecución',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Bilateral')),
+                      ButtonSegment(value: true, label: Text('Unilateral')),
+                    ],
+                    selected: {_exercise.isUnilateral},
+                    onSelectionChanged: (value) => setState(
+                      () => _exercise = _exercise.copyWith(
+                        isUnilateral: value.first,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Series predeterminadas',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            for (var i = 0; i < _exercise.sets.length; i++)
+              SetEditor(
+                set: _exercise.sets[i],
+                showDoneCheckbox: false,
+                onChanged: (updated) => _updateSet(i, updated),
+              ),
+            OutlinedButton.icon(
+              onPressed: _addSet,
+              icon: const Icon(Icons.add),
+              label: const Text('Agregar serie'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).pop(_exercise),
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Guardar defaults'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _updateSet(int index, WorkoutSet updated) {
+    final nextSets = [..._exercise.sets];
+    if (index < 0 || index >= nextSets.length) return;
+    nextSets[index] = updated.copyWith(done: false);
+    setState(() => _exercise = _exercise.copyWith(sets: nextSets));
+  }
+
+  void _addSet() {
+    final nextOrder = _exercise.sets.length + 1;
+    final nextSets = [
+      ..._exercise.sets,
+      WorkoutSet(
+        order: nextOrder,
+        setType: SetType.normal,
+        segments: const [WeightSegment(weightKg: 0, reps: 0)],
+      ),
+    ];
+    setState(() => _exercise = _exercise.copyWith(sets: nextSets));
+  }
+}
+
 class _ExerciseDetailSheet extends StatelessWidget {
   const _ExerciseDetailSheet({
     required this.exercise,
@@ -2175,10 +2330,16 @@ class _LoggerMetric extends StatelessWidget {
 }
 
 class SetEditor extends StatelessWidget {
-  const SetEditor({super.key, required this.set, required this.onChanged});
+  const SetEditor({
+    super.key,
+    required this.set,
+    required this.onChanged,
+    this.showDoneCheckbox = true,
+  });
 
   final WorkoutSet set;
   final ValueChanged<WorkoutSet> onChanged;
+  final bool showDoneCheckbox;
 
   @override
   Widget build(BuildContext context) {
@@ -2204,11 +2365,12 @@ class SetEditor extends StatelessWidget {
                 onChanged: (type) => onChanged(set.copyWith(setType: type)),
               ),
               const Spacer(),
-              Checkbox(
-                value: set.done,
-                onChanged: (value) =>
-                    onChanged(set.copyWith(done: value ?? false)),
-              ),
+              if (showDoneCheckbox)
+                Checkbox(
+                  value: set.done,
+                  onChanged: (value) =>
+                      onChanged(set.copyWith(done: value ?? false)),
+                ),
             ],
           ),
           _SetMainFields(
@@ -3856,8 +4018,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 key: ValueKey('library-${exercise.id}'),
                 index: index,
                 exercise: exercise,
-                onTap: () =>
-                    showExerciseDetailSheet(context, exercise: exercise),
+                isEditingRoutine: isEditingRoutine,
+                onTap: () => isEditingRoutine
+                    ? _editRoutineExerciseDefaults(index, exercise)
+                    : showExerciseDetailSheet(context, exercise: exercise),
+                onEditDefaults: isEditingRoutine
+                    ? () => _editRoutineExerciseDefaults(index, exercise)
+                    : null,
                 onMoveUp: index == 0
                     ? null
                     : () {
@@ -3904,6 +4071,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
     widget.onExercisesChanged([...widget.exercises, exercise]);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${exercise.name} agregado a la rutina')),
+    );
+  }
+
+  Future<void> _editRoutineExerciseDefaults(
+    int index,
+    WorkoutExercise exercise,
+  ) async {
+    final updated = await showRoutineExerciseDefaultsSheet(
+      context,
+      exercise: exercise,
+    );
+    if (updated == null || !mounted) return;
+    final next = [...widget.exercises];
+    if (index < 0 || index >= next.length) return;
+    next[index] = updated;
+    widget.onExercisesChanged(next);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Defaults de ${updated.name} actualizados')),
     );
   }
 
@@ -4409,14 +4594,18 @@ class _LibraryRoutineTile extends StatelessWidget {
     super.key,
     required this.index,
     required this.exercise,
+    required this.isEditingRoutine,
     required this.onTap,
+    this.onEditDefaults,
     this.onMoveUp,
     this.onMoveDown,
   });
 
   final int index;
   final WorkoutExercise exercise;
+  final bool isEditingRoutine;
   final VoidCallback onTap;
+  final VoidCallback? onEditDefaults;
   final VoidCallback? onMoveUp;
   final VoidCallback? onMoveDown;
 
@@ -4459,9 +4648,25 @@ class _LibraryRoutineTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: colors.textSecondary),
                     ),
+                    if (isEditingRoutine) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Tocá para editar kg, reps, RIR y backoff',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: colors.primaryStrong),
+                      ),
+                    ],
                   ],
                 ),
               ),
+              if (onEditDefaults != null)
+                IconButton(
+                  tooltip: 'Editar defaults',
+                  onPressed: onEditDefaults,
+                  icon: const Icon(Icons.tune),
+                ),
               ReorderAccessibilityMenu(
                 onMoveUp: onMoveUp,
                 onMoveDown: onMoveDown,
