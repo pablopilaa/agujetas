@@ -652,6 +652,55 @@ class AssignedRoutine {
   }
 }
 
+class AssignedTask {
+  const AssignedTask({
+    required this.id,
+    required this.trainerId,
+    required this.assignedClientId,
+    required this.title,
+    required this.description,
+    required this.status,
+    required this.assignedAt,
+    this.dueAt,
+  });
+
+  final String id;
+  final String trainerId;
+  final String assignedClientId;
+  final String title;
+  final String description;
+  final String status;
+  final DateTime assignedAt;
+  final DateTime? dueAt;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'trainerId': trainerId,
+    'assignedClientId': assignedClientId,
+    'title': title,
+    'description': description,
+    'status': status,
+    'assignedAt': assignedAt.toUtc().toIso8601String(),
+    'dueAt': dueAt?.toUtc().toIso8601String(),
+    'schemaVersion': 1,
+  };
+
+  factory AssignedTask.fromJson(Map<String, Object?> json) {
+    return AssignedTask(
+      id: json['id']?.toString() ?? '',
+      trainerId: json['trainerId']?.toString() ?? '',
+      assignedClientId: json['assignedClientId']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Tarea asignada',
+      description: json['description']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'pending',
+      assignedAt:
+          DateTime.tryParse(json['assignedAt']?.toString() ?? '') ??
+          DateTime.now().toUtc(),
+      dueAt: DateTime.tryParse(json['dueAt']?.toString() ?? ''),
+    );
+  }
+}
+
 List<WorkoutSet> defaultWorkoutSets() => const [
   WorkoutSet(
     order: 1,

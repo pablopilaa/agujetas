@@ -126,12 +126,40 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 100));
 
-    await tester.ensureVisible(find.text('Asignar').first);
-    await tester.tap(find.text('Asignar').first);
+    await tester.ensureVisible(find.text('Asignar rutina').first);
+    await tester.tap(find.text('Asignar rutina').first);
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Rutina "'), findsOneWidget);
     expect(find.textContaining('asignada a Sofia Demo'), findsOneWidget);
+  });
+
+  testWidgets('trainer dashboard sends a task to a linked client', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Modo entrenador').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Activar Pro demo'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.ensureVisible(find.text('Enviar tarea').first);
+    await tester.tap(find.text('Enviar tarea').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Tarea "Registrar peso corporal"'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('enviada a Sofia Demo'), findsOneWidget);
   });
 
   testWidgets('profile plan sheet exposes Pro contract and demo activation', (

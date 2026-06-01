@@ -100,6 +100,28 @@ void main() {
     expect(restored.exercises, hasLength(2));
   });
 
+  test('assigned task serializes trainer client payload', () {
+    final task = AssignedTask(
+      id: 'task-1',
+      trainerId: 'trainer-1',
+      assignedClientId: 'client-1',
+      title: 'Registrar peso corporal',
+      description: 'Cargar peso semanal y notas de energía.',
+      status: 'pending',
+      assignedAt: DateTime.utc(2026, 6, 1),
+      dueAt: DateTime.utc(2026, 6, 8),
+    );
+
+    final restored = AssignedTask.fromJson(task.toJson());
+
+    expect(restored.id, 'task-1');
+    expect(restored.trainerId, 'trainer-1');
+    expect(restored.assignedClientId, 'client-1');
+    expect(restored.title, 'Registrar peso corporal');
+    expect(restored.status, 'pending');
+    expect(restored.dueAt, DateTime.utc(2026, 6, 8));
+  });
+
   test('legacy single weight fields migrate into segments', () {
     final set = WorkoutSet.fromJson({
       'order': 2,

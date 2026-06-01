@@ -1913,18 +1913,40 @@ class _TrainerPanel extends StatelessWidget {
               child: Column(
                 children: clients
                     .map(
-                      (client) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: const CircleAvatar(child: Icon(Icons.person)),
-                        title: Text(client.clientName),
-                        subtitle: const Text(
-                          'Rutinas, tareas, schedules y metas',
-                        ),
-                        trailing: FilledButton.tonal(
-                          onPressed: routines.isEmpty
-                              ? null
-                              : () => _assignFirstRoutine(client),
-                          child: const Text('Asignar'),
+                      (client) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          children: [
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const CircleAvatar(
+                                child: Icon(Icons.person),
+                              ),
+                              title: Text(client.clientName),
+                              subtitle: const Text(
+                                'Rutinas, tareas, schedules y metas',
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FilledButton.tonal(
+                                    onPressed: routines.isEmpty
+                                        ? null
+                                        : () => _assignFirstRoutine(client),
+                                    child: const Text('Asignar rutina'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => _assignDefaultTask(client),
+                                    child: const Text('Enviar tarea'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
                     )
@@ -1960,6 +1982,22 @@ class _TrainerPanel extends StatelessWidget {
       );
     } catch (error) {
       onNotice('No pude asignar la rutina: $error');
+    }
+  }
+
+  Future<void> _assignDefaultTask(TrainerClientLink client) async {
+    try {
+      final task = await repository.assignTaskToClient(
+        trainer: user,
+        client: client,
+        title: 'Registrar peso corporal',
+        description:
+            'Cargá tu peso esta semana y avisame si hubo cambios fuertes.',
+        dueAt: DateTime.now().toUtc().add(const Duration(days: 7)),
+      );
+      onNotice('Tarea "${task.title}" enviada a ${client.clientName}.');
+    } catch (error) {
+      onNotice('No pude enviar la tarea: $error');
     }
   }
 }
@@ -2029,6 +2067,34 @@ class _AthletePanel extends StatelessWidget {
                             subtitle: Text(
                               '${routine.exercises.length} ejercicios asignados',
                             ),
+                          ),
+                      ],
+                    ),
+            );
+          },
+        ),
+        StreamBuilder<List<AssignedTask>>(
+          stream: repository.watchAssignedTasksForClient(user.uid),
+          builder: (context, snapshot) {
+            final tasks = snapshot.data ?? const <AssignedTask>[];
+            return DashboardCard(
+              icon: Icons.task_alt_outlined,
+              title: 'Tareas del entrenador',
+              subtitle: tasks.isEmpty
+                  ? 'Si tu entrenador te manda tareas o controles, aparecen acá.'
+                  : '${tasks.length} tarea${tasks.length == 1 ? '' : 's'} pendiente${tasks.length == 1 ? '' : 's'}',
+              child: tasks.isEmpty
+                  ? null
+                  : Column(
+                      children: [
+                        for (final task in tasks.take(3))
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const CircleAvatar(
+                              child: Icon(Icons.checklist_outlined),
+                            ),
+                            title: Text(task.title),
+                            subtitle: Text(task.description),
                           ),
                       ],
                     ),

@@ -583,3 +583,12 @@ Cuadragésimo octavo bloque Asignación inicial entrenador-entrenado:
 - El panel entrenador muestra un botón `Asignar` por entrenado activo y crea una asignación usando una rutina existente.
 - El usuario normal tiene una sección `Rutinas asignadas` que lee `assignedRoutines` por `assignedClientId`.
 - Este bloque vuelve real la primera parte de “compartir rutinas”; tareas, schedules y metas todavía quedan para los siguientes bloques usando el mismo patrón.
+
+Cuadragésimo noveno bloque Tareas entrenador-entrenado:
+
+- Se agregó el modelo `AssignedTask` como contrato de tarea puntual enviada por entrenador.
+- `AgujetasRepository` expone `assignTaskToClient` y `watchAssignedTasksForClient`.
+- Firebase escribe tareas en `tasks/{id}` con `trainerId`, `ownerId`, `clientId`, `assignedClientId`, estado `pending`, descripción y vencimiento opcional.
+- El panel entrenador muestra `Enviar tarea` por entrenado activo y crea una tarea de control de peso semanal.
+- El usuario normal tiene una sección `Tareas del entrenador` que lee `tasks` por `assignedClientId`.
+- Quedan pendientes edición de tareas, marcar completada, comentarios de seguimiento y schedules/metas con calendario.
