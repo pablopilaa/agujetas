@@ -460,3 +460,11 @@ Trigésimo tercer bloque Encoding implementado:
 - Se agregó un test de CI que recorre archivos de texto del proyecto Flutter y exige UTF-8 válido.
 - El mismo test falla si detecta marcadores típicos de mojibake o el carácter de reemplazo Unicode.
 - Esto protege textos en español latinoamericano con tildes reales dentro de `lib`, `test`, `docs` y archivos de configuración.
+
+Trigésimo cuarto bloque Pro/Entitlements implementado:
+
+- `AppPlan` ahora expone entitlements comerciales explícitos: modo entrenador, gestión de entrenados y rutinas compartidas.
+- Un usuario Free puede conservar metadata histórica de rol entrenador, pero la app no lo deja activar ese modo sin entitlement Pro.
+- Perfil suma la tarjeta `Plan y suscripción` y `Ver planes` abre un sheet real con Agujetas Free y Agujetas Pro.
+- La build demo permite activar Pro demo desde ese sheet para probar el panel entrenador sin cobrar ni conectar RevenueCat todavía.
+- Tests de modelo cubren entitlements Free/Pro; tests de widget cubren el sheet de planes y la activación Pro demo.

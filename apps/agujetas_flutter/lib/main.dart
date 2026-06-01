@@ -7451,6 +7451,7 @@ class ProfileScreen extends StatelessWidget {
       children: [
         _ProfileHero(user: user, dark: dark),
         RoleSwitcher(user: user, repository: repository),
+        PlanBillingCard(user: user, repository: repository),
         _SettingsSection(
           icon: Icons.palette_outlined,
           title: 'Apariencia',
@@ -7963,6 +7964,14 @@ class RoleSwitcher extends StatelessWidget {
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Ahora no'),
           ),
+          if (isDemo)
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                showProPlansSheet(context, user: user, repository: repository);
+              },
+              child: const Text('Ver planes'),
+            ),
           FilledButton(
             onPressed: () {
               Navigator.of(dialogContext).pop();
@@ -7976,14 +7985,233 @@ class RoleSwitcher extends StatelessWidget {
                 );
                 return;
               }
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('La compra Pro se conectará al checkout.'),
-                ),
-              );
+              showProPlansSheet(context, user: user, repository: repository);
             },
             child: Text(isDemo ? 'Activar Pro demo' : 'Ver planes'),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> showProPlansSheet(
+  BuildContext context, {
+  required AppUser user,
+  required AgujetasRepository repository,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => _ProPlansSheet(user: user, repository: repository),
+  );
+}
+
+class PlanBillingCard extends StatelessWidget {
+  const PlanBillingCard({
+    super.key,
+    required this.user,
+    required this.repository,
+  });
+
+  final AppUser user;
+  final AgujetasRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    final plan = SubscriptionPlanDefinition.forPlan(user.plan);
+    return DashboardCard(
+      icon: Icons.payments_outlined,
+      title: 'Plan y suscripción',
+      subtitle: plan.subtitle,
+      action: _SoftChip(
+        label: plan.priceLabel,
+        color: user.isPro
+            ? context.appColors.primaryStrong
+            : context.appColors.textSecondary,
+        background: context.appColors.raised,
+      ),
+      onTap: () =>
+          showProPlansSheet(context, user: user, repository: repository),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final feature in plan.features.take(2))
+            _PlanFeatureRow(text: feature),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () =>
+                showProPlansSheet(context, user: user, repository: repository),
+            icon: const Icon(Icons.workspace_premium_outlined),
+            label: Text(user.isPro ? 'Gestionar plan' : 'Ver planes'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProPlansSheet extends StatelessWidget {
+  const _ProPlansSheet({required this.user, required this.repository});
+
+  final AppUser user;
+  final AgujetasRepository repository;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDemo = user.uid == 'demo-user';
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          4,
+          16,
+          16 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Planes Agujetas',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Esta build deja definido el contrato Free/Pro. El cobro real queda pendiente de conectar con RevenueCat antes de producción.',
+              style: TextStyle(color: context.appColors.textSecondary),
+            ),
+            const SizedBox(height: 14),
+            for (final plan in SubscriptionPlanDefinition.all)
+              _PlanOptionCard(
+                plan: plan,
+                current: plan.plan == user.plan,
+                onSelected: plan.isPro
+                    ? () => _activatePro(context, isDemo)
+                    : () => Navigator.of(context).pop(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _activatePro(BuildContext context, bool isDemo) {
+    Navigator.of(context).pop();
+    if (isDemo) {
+      repository.setActiveRole(
+        user.copyWith(
+          plan: AppPlan.pro,
+          roles: {...user.roles, AppRole.trainer},
+        ),
+        AppRole.trainer,
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Checkout RevenueCat pendiente: no se cobra nada en esta build.',
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanOptionCard extends StatelessWidget {
+  const _PlanOptionCard({
+    required this.plan,
+    required this.current,
+    required this.onSelected,
+  });
+
+  final SubscriptionPlanDefinition plan;
+  final bool current;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: current
+            ? colors.primaryContainer.withValues(alpha: 0.12)
+            : colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: current ? colors.primaryStrong : colors.divider,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  plan.title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              _SoftChip(
+                label: current ? 'Actual' : plan.priceLabel,
+                color: current ? colors.primaryStrong : colors.textSecondary,
+                background: colors.raised,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(plan.subtitle, style: TextStyle(color: colors.textSecondary)),
+          const SizedBox(height: 10),
+          for (final feature in plan.features) _PlanFeatureRow(text: feature),
+          if (plan.entitlements.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final entitlement in plan.entitlements)
+                  _SoftChip(
+                    label: entitlement.label,
+                    color: colors.primaryStrong,
+                    background: colors.primaryContainer.withValues(alpha: 0.1),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: current ? null : onSelected,
+            child: Text(current ? 'Plan actual' : 'Elegir ${plan.title}'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlanFeatureRow extends StatelessWidget {
+  const _PlanFeatureRow({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.check_circle_outline,
+            size: 18,
+            color: context.appColors.primaryStrong,
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text)),
         ],
       ),
     );

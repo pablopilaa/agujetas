@@ -34,6 +34,42 @@ void main() {
     expect(find.text('Sumar entrenados'), findsOneWidget);
   });
 
+  testWidgets('profile plan sheet exposes Pro contract and demo activation', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Plan y suscripción'), findsOneWidget);
+    await tester.ensureVisible(find.text('Plan y suscripción'));
+    await tester.tap(find.text('Plan y suscripción'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Planes Agujetas'), findsOneWidget);
+    expect(find.text('Agujetas Free'), findsOneWidget);
+    expect(find.text('Agujetas Pro'), findsOneWidget);
+    expect(find.text('Modo entrenador'), findsWidgets);
+    expect(find.text('Gestión de entrenados'), findsOneWidget);
+    expect(find.text('Rutinas compartidas'), findsOneWidget);
+    expect(find.text('Elegir Agujetas Pro'), findsOneWidget);
+
+    await tester.tap(find.text('Elegir Agujetas Pro'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Inicio'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Panel entrenador'), findsOneWidget);
+  });
+
   testWidgets(
     'training flow exposes unilateral, set type and second weight controls',
     (tester) async {
@@ -69,7 +105,7 @@ void main() {
   testWidgets('session mode chips open training with selected intent', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(900, 1500);
+    tester.view.physicalSize = const Size(900, 2600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -1532,7 +1568,7 @@ void main() {
   testWidgets('profile delete account confirms local data wipe', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(900, 1500);
+    tester.view.physicalSize = const Size(900, 2600);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -1582,8 +1618,12 @@ void main() {
     await tester.pumpAndSettle();
 
     final deleteAction = find.text('Eliminar cuenta');
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'Eliminar cuenta'),
+      500,
+    );
     await tester.ensureVisible(deleteAction);
-    await tester.tapAt(tester.getCenter(deleteAction));
+    await tester.tap(find.widgetWithText(ListTile, 'Eliminar cuenta'));
     await tester.pumpAndSettle();
 
     expect(find.text('Eliminar cuenta local'), findsOneWidget);

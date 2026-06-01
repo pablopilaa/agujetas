@@ -79,6 +79,8 @@ flowchart TD
   I --> I3["Importar respaldo local JSON"]
   I --> I4["Importar datos legacy incluidos"]
   I --> I5["Cerrar sesión"]
+  I --> I6["Plan y suscripción"]
+  I6 --> I7["Planes Agujetas Free / Pro"]
 
   E["Panel entrenador"] --> E1["Crear código de invitación"]
   E --> E2["Entrenados activos"]
@@ -127,6 +129,8 @@ flowchart TD
 | Biblioteca | Agregar ejercicio | Agregar a rutina activa | Entrenamiento actual actualizado |
 | Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado |
 | Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado |
+| Perfil | Plan y suscripción | Ver planes | Sheet Agujetas Free / Agujetas Pro |
+| Planes Agujetas | Agujetas Pro demo | Elegir Agujetas Pro | Activa Pro demo y modo entrenador |
 | Perfil | Privacidad y datos | Exportar mis datos | Dialog con JSON local y acción de copiar |
 | Perfil | Privacidad y datos | Importar respaldo | Pegar JSON Agujetas y fusionar datos locales |
 | Perfil | Privacidad y datos | Importar datos legacy incluidos | Releer assets legacy incluidos y agregar sesiones/rutinas faltantes |

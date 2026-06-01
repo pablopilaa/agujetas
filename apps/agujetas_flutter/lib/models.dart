@@ -4,6 +4,8 @@ enum AppRole { normal, trainer }
 
 enum AppPlan { free, pro }
 
+enum AppEntitlement { trainerMode, clientAssignments, routineSharing }
+
 enum SetType { normal, warmup, dropset }
 
 extension AppRoleX on AppRole {
@@ -61,6 +63,84 @@ extension AppPlanX on AppPlan {
   static AppPlan fromValue(String? value) {
     return value == AppPlan.pro.value ? AppPlan.pro : AppPlan.free;
   }
+
+  Set<AppEntitlement> get entitlements => switch (this) {
+    AppPlan.free => const {},
+    AppPlan.pro => const {
+      AppEntitlement.trainerMode,
+      AppEntitlement.clientAssignments,
+      AppEntitlement.routineSharing,
+    },
+  };
+}
+
+extension AppEntitlementX on AppEntitlement {
+  String get value => switch (this) {
+    AppEntitlement.trainerMode => 'trainer_mode',
+    AppEntitlement.clientAssignments => 'client_assignments',
+    AppEntitlement.routineSharing => 'routine_sharing',
+  };
+
+  String get label => switch (this) {
+    AppEntitlement.trainerMode => 'Modo entrenador',
+    AppEntitlement.clientAssignments => 'Gestión de entrenados',
+    AppEntitlement.routineSharing => 'Rutinas compartidas',
+  };
+}
+
+class SubscriptionPlanDefinition {
+  const SubscriptionPlanDefinition({
+    required this.id,
+    required this.plan,
+    required this.title,
+    required this.priceLabel,
+    required this.subtitle,
+    required this.features,
+  });
+
+  final String id;
+  final AppPlan plan;
+  final String title;
+  final String priceLabel;
+  final String subtitle;
+  final List<String> features;
+
+  Set<AppEntitlement> get entitlements => plan.entitlements;
+
+  bool get isPro => plan == AppPlan.pro;
+
+  static const free = SubscriptionPlanDefinition(
+    id: 'free',
+    plan: AppPlan.free,
+    title: 'Agujetas Free',
+    priceLabel: 'Gratis',
+    subtitle: 'Entrenamiento personal local-first sin pagar cloud.',
+    features: [
+      'Sesión activa, rutinas e historial local',
+      'Calendario mensual y progreso personal',
+      'Ejercicios personalizados con imagen local',
+    ],
+  );
+
+  static const pro = SubscriptionPlanDefinition(
+    id: 'pro_monthly',
+    plan: AppPlan.pro,
+    title: 'Agujetas Pro',
+    priceLabel: 'Precio pendiente',
+    subtitle:
+        'Herramientas comerciales para entrenadores y usuarios avanzados.',
+    features: [
+      'Modo entrenador y panel de entrenados',
+      'Asignación de rutinas, tareas, schedules y metas',
+      'Preparado para checkout con RevenueCat',
+    ],
+  );
+
+  static const all = [free, pro];
+
+  static SubscriptionPlanDefinition forPlan(AppPlan plan) {
+    return all.firstWhere((item) => item.plan == plan);
+  }
 }
 
 class AppUser {
@@ -84,7 +164,10 @@ class AppUser {
 
   bool get isTrainer => roles.contains(AppRole.trainer);
   bool get isPro => plan == AppPlan.pro;
-  bool get canUseTrainerMode => isPro && roles.contains(AppRole.trainer);
+  Set<AppEntitlement> get entitlements => plan.entitlements;
+  bool hasEntitlement(AppEntitlement entitlement) =>
+      entitlements.contains(entitlement);
+  bool get canUseTrainerMode => hasEntitlement(AppEntitlement.trainerMode);
 
   Map<String, Object?> toJson() => {
     'uid': uid,
@@ -101,16 +184,21 @@ class AppUser {
     final roleValues = (json['roles'] as List<dynamic>? ?? const ['normal'])
         .map((value) => AppRoleX.fromValue(value?.toString()))
         .toSet();
-    final roles = roleValues.isEmpty ? {AppRole.normal} : roleValues;
+    final roles = {AppRole.normal, ...roleValues};
     final activeRole = AppRoleX.fromValue(json['activeRole']?.toString());
+    final plan = AppPlanX.fromValue(json['plan']?.toString());
+    final activeRoleAllowed =
+        activeRole == AppRole.normal ||
+        (plan.entitlements.contains(AppEntitlement.trainerMode) &&
+            roles.contains(AppRole.trainer));
     return AppUser(
       uid: json['uid']?.toString() ?? '',
       displayName: json['displayName']?.toString() ?? 'Agujetas',
       email: json['email']?.toString() ?? '',
       photoUrl: json['photoURL']?.toString(),
       roles: roles,
-      activeRole: roles.contains(activeRole) ? activeRole : roles.first,
-      plan: AppPlanX.fromValue(json['plan']?.toString()),
+      activeRole: activeRoleAllowed ? activeRole : AppRole.normal,
+      plan: plan,
     );
   }
 

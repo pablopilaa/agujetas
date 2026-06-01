@@ -39,11 +39,43 @@ void main() {
       'email': 'pablo@example.com',
       'roles': ['normal', 'trainer'],
       'activeRole': 'trainer',
+      'plan': 'pro',
     });
 
     expect(user.roles, containsAll([AppRole.normal, AppRole.trainer]));
     expect(user.activeRole, AppRole.trainer);
     expect(user.isTrainer, isTrue);
+    expect(user.canUseTrainerMode, isTrue);
+  });
+
+  test('free trainer metadata does not unlock trainer mode', () {
+    final user = AppUser.fromJson({
+      'uid': 'u2',
+      'displayName': 'Pablo',
+      'email': 'pablo@example.com',
+      'roles': ['trainer'],
+      'activeRole': 'trainer',
+      'plan': 'free',
+    });
+
+    expect(user.roles, containsAll([AppRole.normal, AppRole.trainer]));
+    expect(user.activeRole, AppRole.normal);
+    expect(user.isTrainer, isTrue);
+    expect(user.canUseTrainerMode, isFalse);
+    expect(user.entitlements, isEmpty);
+  });
+
+  test('pro plan exposes commercial trainer entitlements', () {
+    final pro = SubscriptionPlanDefinition.pro;
+
+    expect(pro.plan, AppPlan.pro);
+    expect(pro.entitlements, contains(AppEntitlement.trainerMode));
+    expect(pro.entitlements, contains(AppEntitlement.clientAssignments));
+    expect(pro.entitlements, contains(AppEntitlement.routineSharing));
+    expect(
+      SubscriptionPlanDefinition.forPlan(AppPlan.free).entitlements,
+      isEmpty,
+    );
   });
 
   test('legacy single weight fields migrate into segments', () {

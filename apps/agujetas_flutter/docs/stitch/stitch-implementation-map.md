@@ -33,4 +33,5 @@ Este archivo define qué diseños de Stitch son fuente de verdad para la app Flu
 ## Estado Actual
 
 - Implementado: referencias locales de Stitch, header más cercano, CTA fijo en Inicio, tarjetas de rutina más compactas, pantalla Entrenar con header/timer strip y controles funcionales, Biblioteca, Progreso, Perfil, Detalle de ejercicio y progreso local por ejercicio.
-- Pendiente: checkout Pro real, QA en dispositivo físico de galería/notificaciones y flujo de permisos iOS/macOS cuando haya entorno Apple.
+- Implementado parcial: contrato visual y funcional de planes Free/Pro dentro de Perfil, con sheet de planes y activación Pro demo sin cobro.
+- Pendiente: checkout Pro real con RevenueCat, QA en dispositivo físico de galería/notificaciones y flujo de permisos iOS/macOS cuando haya entorno Apple.

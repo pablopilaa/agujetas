@@ -93,6 +93,9 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
 
   @override
   Future<void> setActiveRole(AppUser user, AppRole role) async {
+    if (role == AppRole.trainer && !user.canUseTrainerMode) {
+      throw StateError('Agujetas Pro es requerido para usar modo entrenador.');
+    }
     final roles = {...user.roles, role};
     await _firestore.collection('users').doc(user.uid).set({
       'roles': roles.map((item) => item.value).toList(),
@@ -405,6 +408,9 @@ class DemoAgujetasRepository implements AgujetasRepository {
 
   @override
   Future<void> setActiveRole(AppUser user, AppRole role) async {
+    if (role == AppRole.trainer && !user.canUseTrainerMode) {
+      throw StateError('Agujetas Pro es requerido para usar modo entrenador.');
+    }
     _user = user.copyWith(roles: {...user.roles, role}, activeRole: role);
     _controller.add(_user);
   }
