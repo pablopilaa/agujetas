@@ -260,6 +260,8 @@ void main() {
     expect(repository, contains('watchAssignmentEventsForClient'));
     expect(repository, contains(".collection('assignmentEvents')"));
     expect(repository, contains('_recordAssignmentEvent'));
+    expect(repository, contains('addAssignmentComment'));
+    expect(repository, contains("action: 'commented'"));
     expect(
       rules,
       contains(

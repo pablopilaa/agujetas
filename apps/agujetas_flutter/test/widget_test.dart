@@ -177,6 +177,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('1 de 1 evento'), findsOneWidget);
     expect(find.textContaining('asignó Registrar peso corporal'), findsWidgets);
+
+    await tester.tap(find.text('Comentar').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Comentar asignación'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Comentario'),
+      'Revisar RIR y técnica en la próxima sesión.',
+    );
+    await tester.pump();
+    await tester.tap(find.text('Guardar comentario'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('2 de 2 eventos'), findsOneWidget);
+    expect(
+      find.textContaining('comentó en Registrar peso corporal'),
+      findsWidgets,
+    );
+    expect(find.textContaining('Revisar RIR y técnica'), findsWidgets);
   });
 
   testWidgets('trainer dashboard schedules a client session', (tester) async {

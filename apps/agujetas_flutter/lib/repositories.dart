@@ -134,6 +134,11 @@ abstract class AgujetasRepository {
     required String status,
   });
   Stream<List<AssignmentEvent>> watchAssignmentEventsForClient(String clientId);
+  Future<void> addAssignmentComment({
+    required AppUser user,
+    required AssignmentEvent event,
+    required String message,
+  });
   Future<void> saveSession({
     required AppUser user,
     required LocalWorkoutSession session,
@@ -793,6 +798,30 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
                   .toList()
                 ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt)),
         );
+  }
+
+  @override
+  Future<void> addAssignmentComment({
+    required AppUser user,
+    required AssignmentEvent event,
+    required String message,
+  }) async {
+    final normalized = message.trim();
+    if (normalized.isEmpty) return;
+    if (user.uid != event.trainerId && user.uid != event.assignedClientId) {
+      throw StateError('El usuario no pertenece a esta asignacion.');
+    }
+    await _recordAssignmentEvent(
+      trainerId: event.trainerId,
+      assignedClientId: event.assignedClientId,
+      targetType: event.targetType,
+      targetId: event.targetId,
+      title: event.title,
+      action: 'commented',
+      actorId: user.uid,
+      actorRole: user.uid == event.trainerId ? 'trainer' : 'client',
+      summary: normalized,
+    );
   }
 
   Future<void> _recordAssignmentEvent({
@@ -1513,6 +1542,27 @@ class DemoAgujetasRepository implements AgujetasRepository {
       (items) =>
           items.where((event) => event.assignedClientId == clientId).toList()
             ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt)),
+    );
+  }
+
+  @override
+  Future<void> addAssignmentComment({
+    required AppUser user,
+    required AssignmentEvent event,
+    required String message,
+  }) async {
+    final normalized = message.trim();
+    if (normalized.isEmpty) return;
+    _recordDemoAssignmentEvent(
+      trainerId: event.trainerId,
+      assignedClientId: event.assignedClientId,
+      targetType: event.targetType,
+      targetId: event.targetId,
+      title: event.title,
+      action: 'commented',
+      actorId: user.uid,
+      actorRole: user.uid == event.trainerId ? 'trainer' : 'client',
+      summary: normalized,
     );
   }
 

@@ -1993,6 +1993,7 @@ class _TrainerPanel extends StatelessWidget {
                             const SizedBox(height: 10),
                             _TrainerClientAssignmentPreview(
                               repository: repository,
+                              user: user,
                               client: client,
                             ),
                           ],
@@ -2095,10 +2096,12 @@ class _TrainerPanel extends StatelessWidget {
 class _TrainerClientAssignmentPreview extends StatefulWidget {
   const _TrainerClientAssignmentPreview({
     required this.repository,
+    required this.user,
     required this.client,
   });
 
   final AgujetasRepository repository;
+  final AppUser user;
   final TrainerClientLink client;
 
   @override
@@ -2233,6 +2236,7 @@ class _TrainerClientAssignmentPreviewState
               onPressed: () => _openAssignmentTimelineSheet(
                 context,
                 repository: widget.repository,
+                user: widget.user,
                 clientId: widget.client.clientId,
                 title: 'Actividad de ${widget.client.clientName}',
               ),
@@ -2304,11 +2308,13 @@ class AssignmentTimelineCard extends StatefulWidget {
   const AssignmentTimelineCard({
     super.key,
     required this.repository,
+    required this.user,
     required this.clientId,
     this.compact = false,
   });
 
   final AgujetasRepository repository;
+  final AppUser user;
   final String clientId;
   final bool compact;
 
@@ -2360,6 +2366,7 @@ class _AssignmentTimelineCardState extends State<AssignmentTimelineCard> {
                   onPressed: () => _openAssignmentTimelineSheet(
                     context,
                     repository: widget.repository,
+                    user: widget.user,
                     clientId: widget.clientId,
                     title: 'Actividad de asignaciones',
                   ),
@@ -2394,11 +2401,13 @@ class AssignmentTimelineSheet extends StatefulWidget {
   const AssignmentTimelineSheet({
     super.key,
     required this.repository,
+    required this.user,
     required this.clientId,
     required this.title,
   });
 
   final AgujetasRepository repository;
+  final AppUser user;
   final String clientId;
   final String title;
 
@@ -2484,14 +2493,34 @@ class _AssignmentTimelineSheetState extends State<AssignmentTimelineSheet> {
             else
               for (final event in filtered)
                 Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      child: Icon(_assignmentEventIcon(event.targetType)),
-                    ),
-                    title: Text(_eventTimelineLabel(event)),
-                    subtitle: Text(
-                      '${_formatShortDateTime(event.occurredAt)} · ${_eventActorLabel(event.actorRole)} · ${_assignmentEventTypeLabel(event.targetType)}',
-                    ),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: CircleAvatar(
+                          child: Icon(_assignmentEventIcon(event.targetType)),
+                        ),
+                        title: Text(_eventTimelineLabel(event)),
+                        subtitle: Text(
+                          '${_formatShortDateTime(event.occurredAt)} · ${_eventActorLabel(event.actorRole)} · ${_assignmentEventTypeLabel(event.targetType)}',
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => _openAssignmentCommentSheet(
+                              context,
+                              repository: widget.repository,
+                              user: widget.user,
+                              event: event,
+                            ),
+                            icon: const Icon(Icons.mode_comment_outlined),
+                            label: const Text('Comentar'),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
           ],
@@ -2518,6 +2547,112 @@ class _FilterChipButton extends StatelessWidget {
       label: Text(label),
       selected: selected,
       onSelected: (_) => onSelected(),
+    );
+  }
+}
+
+class AssignmentCommentSheet extends StatefulWidget {
+  const AssignmentCommentSheet({
+    super.key,
+    required this.repository,
+    required this.user,
+    required this.event,
+  });
+
+  final AgujetasRepository repository;
+  final AppUser user;
+  final AssignmentEvent event;
+
+  @override
+  State<AssignmentCommentSheet> createState() => _AssignmentCommentSheetState();
+}
+
+class _AssignmentCommentSheetState extends State<AssignmentCommentSheet> {
+  final _controller = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final message = _controller.text.trim();
+    if (message.isEmpty || _busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.repository.addAssignmentComment(
+        user: widget.user,
+        event: widget.event,
+        message: message,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No pude guardar el comentario: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Comentar asignación',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.event.title,
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              maxLines: 4,
+              maxLength: 500,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Comentario',
+                hintText: 'Ej: Revisé el video, bajá un poco el peso.',
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _controller.text.trim().isEmpty || _busy
+                    ? null
+                    : _submit,
+                icon: _busy
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.send_outlined),
+                label: Text(_busy ? 'Guardando' : 'Guardar comentario'),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2634,7 +2769,11 @@ class _AthletePanel extends StatelessWidget {
             );
           },
         ),
-        AssignmentTimelineCard(repository: repository, clientId: user.uid),
+        AssignmentTimelineCard(
+          repository: repository,
+          user: user,
+          clientId: user.uid,
+        ),
         DashboardCard(
           icon: Icons.event_available_outlined,
           title: 'Schedules asignados',
@@ -6060,6 +6199,7 @@ String _eventTimelineLabel(AssignmentEvent event) {
     'cancelled' => 'canceló',
     'rescheduled' => 'reprogramó',
     'progress_updated' => 'actualizó',
+    'commented' => 'comentó en',
     _ => 'actualizó',
   };
   final summary = event.summary?.trim();
@@ -6100,6 +6240,7 @@ IconData _assignmentEventIcon(String targetType) {
 void _openAssignmentTimelineSheet(
   BuildContext context, {
   required AgujetasRepository repository,
+  required AppUser user,
   required String clientId,
   required String title,
 }) {
@@ -6116,12 +6257,36 @@ void _openAssignmentTimelineSheet(
         controller: scrollController,
         child: AssignmentTimelineSheet(
           repository: repository,
+          user: user,
           clientId: clientId,
           title: title,
         ),
       ),
     ),
   );
+}
+
+Future<void> _openAssignmentCommentSheet(
+  BuildContext context, {
+  required AgujetasRepository repository,
+  required AppUser user,
+  required AssignmentEvent event,
+}) async {
+  final sent = await showModalBottomSheet<bool>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => AssignmentCommentSheet(
+      repository: repository,
+      user: user,
+      event: event,
+    ),
+  );
+  if (sent == true && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Comentario guardado en la actividad.')),
+    );
+  }
 }
 
 String _dateKey(DateTime value) =>

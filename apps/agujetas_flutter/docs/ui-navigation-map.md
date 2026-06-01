@@ -101,6 +101,10 @@ flowchart TD
   B --> B4["Schedules asignados"]
   B --> B5["Metas del entrenador"]
   B --> B6["Actividad de asignaciones"]
+  B6 --> B7["Comentar evento"]
+  E2 --> E12["Responder en historial"]
+  B7 --> E13["Firestore assignmentEvents action commented"]
+  E12 --> E13
 ```
 
 ## Pantallas Principales
@@ -127,6 +131,7 @@ flowchart TD
 | Inicio | Meta asignada | Guardar valor | Actualizar `goals/{id}.currentValue` y completar si llega al objetivo |
 | Inicio | Actividad de asignaciones | Ver timeline | Leer `assignmentEvents` por `assignedClientId` |
 | Inicio | Actividad de asignaciones | Ver todo | Hoja filtrable por Todo / Rutinas / Tareas / Schedules / Metas |
+| Inicio / Panel entrenador | Evento de asignación | Comentar | Crear `assignmentEvents` con `action = commented` y `summary` textual |
 | Inicio | Selector Fuerza / Hipertrofia / Técnica / Libre | Elegir modo de sesión | Entrenar con modo elegido |
 | Inicio | CTA iniciar entrenamiento | Iniciar sesión recomendada | Entrenar |
 | Inicio | Card calendario | Ver calendario mensual | Bottom sheet de calendario con navegación por mes |

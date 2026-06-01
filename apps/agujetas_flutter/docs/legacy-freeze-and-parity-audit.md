@@ -653,3 +653,12 @@ Quincuagésimo sexto bloque Timeline filtrable de asignaciones:
 - La hoja muestra conteo filtrado, actor, fecha/hora, tipo de asignación y resumen del evento.
 - Tests de widget cubren enviar tarea, abrir historial del entrenado y filtrar por tareas.
 - Quedan pendientes pantalla full-route si el timeline crece, respuestas del entrenador por evento y adjuntos/evidencia.
+
+Quincuagésimo séptimo bloque Comentarios en asignaciones:
+
+- `AgujetasRepository` expone `addAssignmentComment` para guardar feedback textual sobre cualquier evento de rutina, tarea, schedule o meta.
+- Firebase/demo reutilizan `assignmentEvents` con `action = commented`, `actorRole` y `summary`, evitando Storage y costos cloud.
+- La hoja completa del timeline agrega `Comentar` por evento, abre un formulario con límite de 500 caracteres y refleja el comentario como nuevo evento cronológico.
+- El flujo funciona tanto para entrenador como para entrenado siempre que el usuario pertenezca al vínculo de asignación.
+- Tests de widget cubren enviar tarea, abrir historial, comentar y ver el nuevo evento comentado.
+- Quedan pendientes adjuntos/evidencia real y una pantalla full-route si el historial crece demasiado para un bottom sheet.

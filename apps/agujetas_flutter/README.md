@@ -44,7 +44,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Vinculacion entrenador-entrenado por codigo de invitacion.
 - Modo entrenador Pro con primera asignacion real de rutinas, tareas, schedules y metas: el entrenador puede asignar una plantilla existente a un entrenado vinculado, enviar una tarea puntual, agendar una sesion, asignar una meta medible y revisar seguimiento por entrenado desde `assignedRoutines`, `tasks`, `schedules` y `goals`.
 - El usuario normal puede accionar asignaciones recibidas desde flujos detallados: completar tareas con comentario para el entrenador, cancelar o reprogramar schedules y actualizar progreso de metas con valor manual persistido en Firestore/demo.
-- Timeline de asignaciones filtrable por rutinas, tareas, schedules y metas para usuario normal y entrenador.
+- Timeline de asignaciones filtrable por rutinas, tareas, schedules y metas para usuario normal y entrenador, con comentarios textuales por evento sin depender de Storage.
 - Series con:
   - `setType`: `normal`, `warmup`, `dropset`.
   - `segments`: pesos/reps multiples, por ejemplo `20 kg x 8 + 10 kg x 6`.
@@ -76,7 +76,7 @@ Las reglas estan en `firebase/firestore.rules`. Criterio:
 - El cliente no puede autoasignarse `plan` ni `roles`; Pro queda reservado para backend/admin/RevenueCat.
 - El borrado de perfil/invitaciones/vínculos de entrenador permite limpieza de privacidad aunque el usuario pierda Pro; crear/editar sigue bloqueado por entitlement.
 - Catalogos publicos solo lectura: `publicExerciseCatalog`, `exerciseMediaIndex`, `appConfig`.
-- Los eventos de asignaciones se guardan en `assignmentEvents` con `trainerId`, `assignedClientId`, `targetType`, `targetId`, `action`, `actorRole` y resumen legible.
+- Los eventos de asignaciones se guardan en `assignmentEvents` con `trainerId`, `assignedClientId`, `targetType`, `targetId`, `action`, `actorRole` y resumen legible; los comentarios usan `action = commented`.
 - Escritura admin solo con custom claim `admin == true`.
 
 ## Desarrollo local
