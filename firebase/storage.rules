@@ -1,0 +1,56 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.admin == true;
+    }
+
+    function isImage() {
+      return request.resource != null
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    function isCsvOrSpreadsheet() {
+      return request.resource != null
+        && request.resource.contentType in [
+          'text/csv',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ];
+    }
+
+    function belowBytes(limit) {
+      return request.resource != null && request.resource.size < limit;
+    }
+
+    match /public/exercises/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && belowBytes(5 * 1024 * 1024);
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId}/custom-exercises/{fileName} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isImage() && belowBytes(5 * 1024 * 1024);
+      allow delete: if isOwner(userId);
+    }
+
+    match /users/{userId}/exports/{fileName} {
+      allow read: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isCsvOrSpreadsheet() && belowBytes(10 * 1024 * 1024);
+      allow delete: if isOwner(userId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

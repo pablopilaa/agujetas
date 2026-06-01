@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="384" height="384" viewBox="0 0 256 256" role="img" aria-label="Estiramiento frontal cruzado so…">
+  <rect width="256" height="256" rx="28" fill="#F7F8F5"/>
+  <rect x="14" y="14" width="228" height="228" rx="24" fill="#FFFFFF" stroke="#DCE5DF" stroke-width="2"/>
+  <circle cx="128" cy="132" r="84" fill="#E8EFEA"/>
+  <path d="M58 58h140" fill="none" stroke="#5F6F68" stroke-width="7" stroke-linecap="round"/><path d="M76 44v28M180 44v28" fill="none" stroke="#5F6F68" stroke-width="6" stroke-linecap="round"/>
+  
+  <circle cx="128" cy="74" r="17" fill="none" stroke="#5F6F68" stroke-width="8"/>
+  <path d="M128 94v54M93 118c21-16 49-16 70 0M103 198l25-50 25 50" fill="none" stroke="#5F6F68" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M76 147c20-12 35-22 52-22s32 10 52 22" fill="none" stroke="#5F6F68" stroke-width="8" stroke-linecap="round"/>
+  <path d="M81 136h94M99 196l29-48 29 48" fill="none" stroke="#5F6F68" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="128" y="223" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="800" fill="#17211D">Estiramiento frontal cruzado so…</text>
+  <text x="128" y="239" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="9" font-weight="700" fill="#5F6F68">Gemelos</text>
+</svg>

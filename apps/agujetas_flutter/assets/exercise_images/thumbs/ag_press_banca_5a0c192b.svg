@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="384" height="384" viewBox="0 0 256 256" role="img" aria-label="Press banca">
+  <rect width="256" height="256" rx="28" fill="#F7F8F5"/>
+  <rect x="14" y="14" width="228" height="228" rx="24" fill="#FFFFFF" stroke="#DCE5DF" stroke-width="2"/>
+  <circle cx="128" cy="132" r="84" fill="#E8EFEA"/>
+  <path d="M48 55h160M64 39v32M79 43v24M177 43v24M192 39v32" fill="none" stroke="#2A6357" stroke-width="7" stroke-linecap="round"/>
+  
+  <circle cx="128" cy="74" r="17" fill="none" stroke="#2A6357" stroke-width="8"/>
+  <path d="M128 94v54M93 118c21-16 49-16 70 0M103 198l25-50 25 50" fill="none" stroke="#2A6357" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M76 147c20-12 35-22 52-22s32 10 52 22" fill="none" stroke="#2A6357" stroke-width="8" stroke-linecap="round"/>
+  <path d="M78 126c24-35 76-35 100 0-25 3-42 12-50 26-8-14-25-23-50-26Z" fill="#FFFFFF" stroke="#2A6357" stroke-width="7" stroke-linejoin="round"/><path d="M128 104v48" fill="none" stroke="#2A6357" stroke-width="7" stroke-linecap="round"/>
+  <text x="128" y="223" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="800" fill="#17211D">Press banca</text>
+  <text x="128" y="239" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="9" font-weight="700" fill="#5F6F68">Pectoral</text>
+</svg>

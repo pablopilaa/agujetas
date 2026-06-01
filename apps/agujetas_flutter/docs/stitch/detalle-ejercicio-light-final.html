@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+
+<html lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Press de banca - Agujetas</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#d8dbd8",
+                      "divider": "#DCE5DF",
+                      "on-tertiary-container": "#fff3f1",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-container": "#a15f4f",
+                      "on-primary": "#ffffff",
+                      "surface": "#FFFFFF",
+                      "on-secondary": "#ffffff",
+                      "on-surface": "#191c1b",
+                      "on-secondary-fixed": "#2d1600",
+                      "on-background": "#191c1b",
+                      "outline": "#6f7976",
+                      "on-tertiary-fixed": "#380d04",
+                      "inverse-surface": "#2d3130",
+                      "on-secondary-fixed-variant": "#6a3b00",
+                      "surface-container-low": "#f2f4f2",
+                      "secondary-fixed-dim": "#ffb874",
+                      "surface-tint": "#1f695b",
+                      "secondary-fixed": "#ffdcbf",
+                      "primary": "#156355",
+                      "surface-variant": "#e0e3e1",
+                      "text-primary": "#17211D",
+                      "surface-container-highest": "#e0e3e1",
+                      "on-secondary-container": "#764200",
+                      "primary-fixed-dim": "#8dd4c2",
+                      "on-surface-variant": "#3f4946",
+                      "on-primary-container": "#d3fff2",
+                      "background": "#F7F8F5",
+                      "error-container": "#ffdad6",
+                      "tertiary": "#844739",
+                      "on-tertiary-fixed-variant": "#6f3729",
+                      "primary-fixed": "#a9f0de",
+                      "surface-container": "#eceeec",
+                      "inverse-on-surface": "#eff1ef",
+                      "secondary": "#8b5007",
+                      "surface-bright": "#f7faf7",
+                      "tertiary-fixed": "#ffdad2",
+                      "surface-raised": "#EEF3EF",
+                      "on-tertiary": "#ffffff",
+                      "error": "#ba1a1a",
+                      "secondary-container": "#feb064",
+                      "outline-variant": "#bec9c4",
+                      "inverse-primary": "#8dd4c2",
+                      "tertiary-fixed-dim": "#ffb4a3",
+                      "danger": "#C94C4C",
+                      "surface-container-high": "#e6e9e6",
+                      "on-primary-fixed-variant": "#005144",
+                      "on-error-container": "#93000a",
+                      "primary-container": "#357c6d",
+                      "on-error": "#ffffff",
+                      "on-primary-fixed": "#00201a",
+                      "primary-strong": "#2A6357",
+                      "text-secondary": "#5F6F68"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "touch-target-min": "44px",
+                      "stack-sm": "8px",
+                      "gutter": "12px",
+                      "base-unit": "4px",
+                      "stack-md": "16px",
+                      "stack-lg": "24px"
+              },
+              "fontFamily": {
+                      "page-heading": [
+                              "Inter"
+                      ],
+                      "metadata": [
+                              "Inter"
+                      ],
+                      "section-header": [
+                              "Inter"
+                      ],
+                      "display": [
+                              "Inter"
+                      ],
+                      "body": [
+                              "Inter"
+                      ]
+              },
+              "fontSize": {
+                      "page-heading": [
+                              "22px",
+                              {
+                                      "lineHeight": "28px",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "metadata": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "section-header": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display": [
+                              "28px",
+                              {
+                                      "lineHeight": "34px",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body": [
+                              "15px",
+                              {
+                                      "lineHeight": "22px",
+                                      "letterSpacing": "0",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-on-surface docked full-width top-0 border-b border-divider dark:border-outline-variant flat no shadows flex items-center justify-between px-margin-mobile h-14 w-full fixed top-0 z-50">
+<button aria-label="Volver" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-primary dark:text-primary-fixed-dim hover:bg-surface-container-low transition-colors active:scale-95 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<img alt="Agujetas Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ug8WeaNSUH4-VydQMJkPC1WGNLK4AB7bTfRcG3WH_iEWTpYY-izrJUIrzO1zd-Ue5XcnsHKmbw-CyQNmkYg7JNJhGyVmF306B5Eypka6d0NKiLoQZPSetgDLjBdrAqu2XuifQgE4lN1E2ijhSjA_FmMMwtRiMmNcnEzG5GIg4KysprK7AEgTC20n9iicPp5cxifMqKrGz4Knuc3B-Ikmqzgd796tmuzsOg4DCqu2ETqBWE1pZUFERUA8ww" style="max-height: 32px;"/>
+<div class="flex items-center gap-2">
+<button aria-label="Favorito" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors active:scale-95 transition-transform">
+<span class="material-symbols-outlined">favorite_border</span>
+</button>
+<button aria-label="Más opciones" class="min-w-[44px] min-h-[44px] flex items-center justify-center text-on-surface-variant hover:bg-surface-container-low transition-colors active:scale-95 transition-transform">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-14 px-margin-mobile mt-stack-md max-w-2xl mx-auto space-y-stack-lg">
+<!-- Hero Section -->
+<section class="relative rounded-xl overflow-hidden bg-surface-container aspect-video border border-divider">
+<img alt="Persona haciendo press de banca" class="w-full h-full object-cover" data-alt="A focused close-up shot of a fitness athlete performing a barbell bench press in a modern, well-lit gym environment. The lighting is bright and clean, emphasizing a premium commercial gym aesthetic rather than a dark, gritty atmosphere. The barbell and weight plates are clearly visible, with the athlete's hands firmly gripping the knurling. The overall color palette leans towards cool whites, soft grays, and natural skin tones, aligning with a high-end, modern minimalist fitness application." src="https://lh3.googleusercontent.com/aida-public/AB6AXuChssaSFwDw7VZ-YKO0RYgZqsTanqAJGuju6C9DH2-hPM459fGf6PaVzsMJnATMYoDRcRBT-VXd7yyMT5hSyjhQK-2LDAuGJz60gadMkI9ctRjQ-S5HDOLyYyGR1YciKsTjUdJFkojlF3pHSW1u2YE_AgdurVV1I30Cawnv1TxM_o_EHjch6_enLYrsx41p1ga7807IjdsApc2QieAPevxW8XpxtQzAYvKaeHqmZHH9o8bxRwuBh3V7YdpJ1n79l3lbXPqGWcP-mRo"/>
+<div class="absolute top-3 left-3 bg-surface/90 backdrop-blur-sm px-2 py-1 rounded font-metadata text-metadata text-text-primary flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 14px;">cloud_done</span>
+<span>Optimizado</span>
+</div>
+</section>
+<!-- Header Info -->
+<section>
+<h1 class="font-display text-display text-text-primary mb-2">Press de banca</h1>
+<!-- Quick Info Bento -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-gutter mt-stack-md">
+<div class="bg-surface rounded-lg p-3 border border-divider flex flex-col gap-1">
+<span class="font-metadata text-metadata text-text-secondary">Músculo</span>
+<span class="font-body text-body font-medium text-text-primary">Pecho</span>
+</div>
+<div class="bg-surface rounded-lg p-3 border border-divider flex flex-col gap-1">
+<span class="font-metadata text-metadata text-text-secondary">Equipo</span>
+<span class="font-body text-body font-medium text-text-primary">Barra</span>
+</div>
+<div class="bg-surface rounded-lg p-3 border border-divider flex flex-col gap-1">
+<span class="font-metadata text-metadata text-text-secondary">Nivel</span>
+<span class="font-body text-body font-medium text-text-primary">Intermedio</span>
+</div>
+<div class="bg-surface rounded-lg p-3 border border-divider flex flex-col gap-1">
+<span class="font-metadata text-metadata text-text-secondary">Patrón</span>
+<span class="font-body text-body font-medium text-text-primary">Empuje Horizontal</span>
+</div>
+</div>
+</section>
+<!-- Actions -->
+<section class="flex flex-col sm:flex-row gap-gutter">
+<button class="flex-1 bg-primary-container text-on-primary min-h-[44px] rounded-lg font-section-header text-section-header flex items-center justify-center gap-2 active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined">add</span>
+                Agregar a rutina
+            </button>
+<button class="flex-1 bg-surface-raised text-primary min-h-[44px] rounded-lg font-section-header text-section-header flex items-center justify-center gap-2 border border-divider active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined">monitoring</span>
+                Ver progreso
+            </button>
+</section>
+<!-- Instructions -->
+<section class="bg-surface rounded-xl border border-divider p-margin-mobile">
+<h2 class="font-section-header text-section-header text-text-primary mb-stack-md flex items-center gap-2">
+<span class="material-symbols-outlined text-text-secondary">format_list_numbered</span>
+                Instrucciones
+            </h2>
+<ol class="space-y-stack-md font-body text-body text-text-primary">
+<li class="flex gap-3">
+<span class="flex-shrink-0 w-6 h-6 rounded-full bg-surface-raised text-primary-strong flex items-center justify-center font-metadata text-metadata font-bold">1</span>
+<p>Acostate en el banco con los ojos alineados bajo la barra. Agarrá la barra con una separación ligeramente superior al ancho de los hombros.</p>
+</li>
+<li class="flex gap-3">
+<span class="flex-shrink-0 w-6 h-6 rounded-full bg-surface-raised text-primary-strong flex items-center justify-center font-metadata text-metadata font-bold">2</span>
+<p>Despegá la barra de los soportes y sostenela sobre el pecho con los brazos extendidos.</p>
+</li>
+<li class="flex gap-3">
+<span class="flex-shrink-0 w-6 h-6 rounded-full bg-surface-raised text-primary-strong flex items-center justify-center font-metadata text-metadata font-bold">3</span>
+<p>Bajá la barra controladamente hasta que toque la parte media del pecho, manteniendo los codos a un ángulo de 45-60 grados respecto al torso.</p>
+</li>
+<li class="flex gap-3">
+<span class="flex-shrink-0 w-6 h-6 rounded-full bg-surface-raised text-primary-strong flex items-center justify-center font-metadata text-metadata font-bold">4</span>
+<p>Empujá la barra hacia arriba de forma explosiva hasta volver a la posición inicial, extendiendo los brazos por completo.</p>
+</li>
+</ol>
+</section>
+<!-- Form Cues / Tips -->
+<section class="bg-surface-raised rounded-xl border border-divider p-margin-mobile">
+<h2 class="font-section-header text-section-header text-primary-strong mb-stack-md flex items-center gap-2">
+<span class="material-symbols-outlined">lightbulb</span>
+                Tips y Seguridad
+            </h2>
+<ul class="space-y-3 font-body text-body text-text-primary">
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-text-secondary text-[20px] mt-0.5">check_circle</span>
+<span>Mantené los pies firmemente apoyados en el suelo durante todo el movimiento para generar estabilidad.</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-text-secondary text-[20px] mt-0.5">check_circle</span>
+<span>Retraé las escápulas (juntalas hacia atrás y abajo) antes de sacar la barra para proteger los hombros.</span>
+</li>
+<li class="flex items-start gap-2">
+<span class="material-symbols-outlined text-text-secondary text-[20px] mt-0.5">check_circle</span>
+<span>Evitá rebotar la barra en el pecho; usá un movimiento controlado.</span>
+</li>
+</ul>
+</section>
+<!-- History Snapshot -->
+<section class="bg-surface rounded-xl border border-divider p-margin-mobile">
+<div class="flex items-center justify-between mb-stack-sm">
+<h2 class="font-section-header text-section-header text-text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-text-secondary">history</span>
+                    Historial Reciente
+                </h2>
+<span class="font-metadata text-metadata text-text-secondary">Última vez: Hace 4 días</span>
+</div>
+<div class="grid grid-cols-2 gap-gutter mt-stack-md">
+<div class="flex flex-col">
+<span class="font-metadata text-metadata text-text-secondary">Récord Personal (PR)</span>
+<span class="font-section-header text-section-header text-text-primary">100kg x 5</span>
+</div>
+<div class="flex flex-col border-l border-divider pl-gutter">
+<span class="font-metadata text-metadata text-text-secondary">Volumen Total</span>
+<span class="font-section-header text-section-header text-text-primary">1,500kg</span>
+</div>
+</div>
+</section>
+<!-- Privacy Note -->
+<p class="font-metadata text-metadata text-text-secondary text-center pb-stack-lg">
+            Si subís una imagen desde galería, queda local en este dispositivo salvo que actives sincronización futura.
+        </p>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface dark:bg-on-surface docked full-width bottom-0 border-t border-divider dark:border-outline-variant flat no shadows fixed bottom-0 left-0 w-full z-50 flex justify-around items-center h-16 px-2 pb-safe md:hidden">
+<a class="flex flex-col items-center justify-center text-text-secondary dark:text-on-surface-variant px-3 py-1 hover:bg-surface-container-high transition-colors active:scale-95 transition-transform min-w-[44px] min-h-[44px]" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-metadata text-metadata mt-1">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary dark:text-on-surface-variant px-3 py-1 hover:bg-surface-container-high transition-colors active:scale-95 transition-transform min-w-[44px] min-h-[44px]" href="#">
+<span class="material-symbols-outlined">fitness_center</span>
+<span class="font-metadata text-metadata mt-1">Entrenar</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary dark:text-on-surface-variant px-3 py-1 hover:bg-surface-container-high transition-colors active:scale-95 transition-transform min-w-[44px] min-h-[44px]" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-metadata text-metadata mt-1">Progreso</span>
+</a>
+<a aria-current="page" class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-lg px-3 py-1 hover:bg-surface-container-high transition-colors active:scale-95 transition-transform min-w-[44px] min-h-[44px]" href="#">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">menu_book</span>
+<span class="font-metadata text-metadata mt-1">Biblioteca</span>
+</a>
+<a class="flex flex-col items-center justify-center text-text-secondary dark:text-on-surface-variant px-3 py-1 hover:bg-surface-container-high transition-colors active:scale-95 transition-transform min-w-[44px] min-h-[44px]" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-metadata text-metadata mt-1">Perfil</span>
+</a>
+</nav>
+</body></html>

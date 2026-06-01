@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Agujetas - Biblioteca</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-container": "#357c6d",
+                        "surface-container-high": "#e6e9e6",
+                        "on-secondary-container": "#764200",
+                        "danger": "#C94C4C",
+                        "tertiary": "#844739",
+                        "secondary-fixed": "#ffdcbf",
+                        "primary-fixed-dim": "#8dd4c2",
+                        "tertiary-container": "#a15f4f",
+                        "surface-dim": "#d8dbd8",
+                        "secondary-container": "#feb064",
+                        "text-secondary": "#5F6F68",
+                        "inverse-primary": "#8dd4c2",
+                        "inverse-on-surface": "#eff1ef",
+                        "primary-fixed": "#a9f0de",
+                        "on-surface-variant": "#3f4946",
+                        "on-primary-fixed-variant": "#005144",
+                        "on-secondary-fixed-variant": "#6a3b00",
+                        "surface-container": "#eceeec",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "divider": "#DCE5DF",
+                        "on-secondary": "#ffffff",
+                        "surface-container-low": "#f2f4f2",
+                        "secondary": "#8b5007",
+                        "on-primary-fixed": "#00201a",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#fff3f1",
+                        "on-primary-container": "#d3fff2",
+                        "surface-bright": "#f7faf7",
+                        "surface": "#FFFFFF",
+                        "on-tertiary-fixed": "#380d04",
+                        "surface-raised": "#EEF3EF",
+                        "on-background": "#191c1b",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed-variant": "#6f3729",
+                        "outline": "#6f7976",
+                        "on-secondary-fixed": "#2d1600",
+                        "outline-variant": "#bec9c4",
+                        "on-surface": "#191c1b",
+                        "on-error": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "background": "#F7F8F5",
+                        "surface-container-highest": "#e0e3e1",
+                        "inverse-surface": "#2d3130",
+                        "surface-variant": "#e0e3e1",
+                        "primary-strong": "#2A6357",
+                        "surface-tint": "#1f695b",
+                        "tertiary-fixed": "#ffdad2",
+                        "secondary-fixed-dim": "#ffb874",
+                        "primary": "#156355",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb4a3",
+                        "text-primary": "#17211D"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "12px",
+                        "stack-sm": "8px",
+                        "stack-md": "16px",
+                        "margin-mobile": "16px",
+                        "base-unit": "4px",
+                        "touch-target-min": "44px",
+                        "stack-lg": "24px",
+                        "pb-safe": "env(safe-area-inset-bottom)"
+                    },
+                    "fontFamily": {
+                        "metadata": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "page-heading": ["Inter", "sans-serif"],
+                        "display": ["Inter", "sans-serif"],
+                        "section-header": ["Inter", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "metadata": ["12px", { "lineHeight": "16px", "letterSpacing": "0", "fontWeight": "500" }],
+                        "body": ["15px", { "lineHeight": "22px", "letterSpacing": "0", "fontWeight": "400" }],
+                        "page-heading": ["22px", { "lineHeight": "28px", "letterSpacing": "0", "fontWeight": "600" }],
+                        "display": ["28px", { "lineHeight": "34px", "letterSpacing": "0", "fontWeight": "700" }],
+                        "section-header": ["16px", { "lineHeight": "24px", "letterSpacing": "0", "fontWeight": "600" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-[90px] font-body flex flex-col md:hidden">
+<!-- TopAppBar -->
+<header class="bg-background w-full top-0 sticky z-40 flat no shadows">
+<div class="flex items-center justify-between px-margin-mobile h-[64px] w-full max-w-7xl mx-auto">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 flex items-center justify-center overflow-hidden shrink-0"><img alt="Agujetas Logo" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida/ADBb0ug8WeaNSUH4-VydQMJkPC1WGNLK4AB7bTfRcG3WH_iEWTpYY-izrJUIrzO1zd-Ue5XcnsHKmbw-CyQNmkYg7JNJhGyVmF306B5Eypka6d0NKiLoQZPSetgDLjBdrAqu2XuifQgE4lN1E2ijhSjA_FmMMwtRiMmNcnEzG5GIg4KysprK7AEgTC20n9iicPp5cxifMqKrGz4Knuc3B-Ikmqzgd796tmuzsOg4DCqu2ETqBWE1pZUFERUA8ww"/></div>
+<h1 class="font-page-heading text-page-heading text-primary">Biblioteca</h1>
+</div>
+<div class="flex items-center gap-1 text-on-surface-variant">
+<button class="w-touch-target-min h-touch-target-min flex items-center justify-center hover:bg-surface-raised transition-colors rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="w-touch-target-min h-touch-target-min flex items-center justify-center hover:bg-surface-raised transition-colors rounded-full active:scale-95 transition-transform">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</div>
+</div>
+</header>
+<main class="flex-1 flex flex-col px-margin-mobile gap-stack-md mt-stack-sm">
+<!-- Search Field -->
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary">search</span>
+<input class="w-full h-touch-target-min bg-surface border-divider border rounded-lg pl-10 pr-4 font-body text-body text-text-primary placeholder:text-text-secondary focus:border-primary focus:ring-0 focus:outline-none transition-colors" placeholder="Buscar ejercicios..." type="text"/>
+</div>
+<!-- Segmented Control -->
+<div class="flex p-1 bg-surface-raised rounded-lg w-full">
+<button class="flex-1 h-[36px] bg-surface rounded-md shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] text-primary font-section-header text-section-header text-sm">Catálogo</button>
+<button class="flex-1 h-[36px] text-text-secondary font-section-header text-section-header text-sm">Mis ejercicios</button>
+</div>
+<!-- Filter Chips -->
+<div class="flex overflow-x-auto no-scrollbar gap-2 -mx-margin-mobile px-margin-mobile pb-1">
+<button class="h-8 px-4 bg-surface-raised border border-divider rounded-full flex items-center justify-center whitespace-nowrap text-text-primary font-metadata text-metadata active:scale-95 transition-transform">Grupo muscular <span class="material-symbols-outlined text-[16px] ml-1">arrow_drop_down</span></button>
+<button class="h-8 px-4 bg-surface-raised border border-divider rounded-full flex items-center justify-center whitespace-nowrap text-text-primary font-metadata text-metadata active:scale-95 transition-transform">Equipamiento <span class="material-symbols-outlined text-[16px] ml-1">arrow_drop_down</span></button>
+<button class="h-8 px-4 bg-surface-raised border border-divider rounded-full flex items-center justify-center whitespace-nowrap text-text-primary font-metadata text-metadata active:scale-95 transition-transform">Favoritos</button>
+<button class="h-8 px-4 bg-surface-raised border border-divider rounded-full flex items-center justify-center whitespace-nowrap text-text-primary font-metadata text-metadata active:scale-95 transition-transform">Sin imagen</button>
+</div>
+<!-- Info Banner -->
+<div class="flex items-center gap-2 py-2 px-3 bg-surface-raised rounded-lg border border-divider text-text-secondary">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+<span class="font-metadata text-metadata">Imágenes optimizadas y cacheadas</span>
+</div>
+<!-- Exercise List -->
+<div class="flex flex-col gap-3">
+<!-- Item 1 -->
+<div class="flex items-center p-2 bg-surface rounded-lg border border-divider gap-3">
+<div class="w-16 h-16 bg-surface-container-high rounded flex items-center justify-center shrink-0 overflow-hidden relative">
+<img alt="Bench Press" class="w-full h-full object-cover" data-alt="A close up shot of a muscular male athlete performing a barbell bench press in a brightly lit modern commercial gym. The lighting is soft and neutral, enhancing the pure white surfaces and teal accents. The mood is focused and intense. Clean minimalism with functional gym aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3aGIzGeyWrxGtHbALauoXZxxvT0Veu8ji0wjjFcJBrrc2p54l0UtBDuklxRouOvaHvc8cDpvmx1S3jrV7oX8FrJQAhH9r_zUFxl4rpQQocMz1TGQLOnmWdFTReHgYxJ4IqvTiXj8U6MUuqoEwPy7OOIAghf7v_oJsE7-tjFhBWqZGbAqKc24ZnY205IcpzK3H0S4Lw8X8psVA63ly8IV9HidkFSQFCe2PJyjQJ1kIjO0OqzzeeXQEBot4UJ4ASt_xEPS5KdUI61s"/>
+</div>
+<div class="flex-1 flex flex-col justify-center">
+<h3 class="font-section-header text-section-header text-text-primary line-clamp-1">Press de banca</h3>
+<p class="font-metadata text-metadata text-text-secondary line-clamp-1 mt-0.5">Pecho • Barra</p>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<button class="w-10 h-10 flex items-center justify-center text-text-secondary active:scale-95 transition-transform">
+<span class="material-symbols-outlined">favorite</span>
+</button>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center p-2 bg-surface rounded-lg border border-divider gap-3">
+<div class="w-16 h-16 bg-surface-container-high rounded flex items-center justify-center shrink-0 overflow-hidden relative">
+<img alt="Bulgarian Split Squat" class="w-full h-full object-cover" data-alt="A focused athlete performing a Bulgarian split squat with dumbbells in a modern, well-lit fitness studio. The background features light off-white walls and pristine white floors. Accents of warm ambient light contrast with the cool teal elements of the environment. The composition is clean, emphasizing the biomechanics of the movement." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB009J9w0MXaRTkNTDpMGjNQaj67HQckz4gmt528Pz_X5KNFAF1rYZLJweKSMW5Ku_4WujRiUaNaavVBZURCGj9WiS0hg_0jye6LiAg3qWJztfFtYPIdqTiEnyl2ME1jFIGEvZLMQkPkCqTn7riuYNs8vZ61FC-ItNTElO1kZuGzjZ6PblwgCgD2c-ANDTN7odR6zqZqbr1XgbEarRy76mMutz80sBx0eNFcSGhFNsc_AGmmYWvweP9CO_jcNGKI66ixdCoKYV5FcE"/>
+</div>
+<div class="flex-1 flex flex-col justify-center">
+<h3 class="font-section-header text-section-header text-text-primary line-clamp-1">Sentadilla Búlgara</h3>
+<p class="font-metadata text-metadata text-text-secondary line-clamp-1 mt-0.5">Piernas • Mancuernas</p>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<button class="w-10 h-10 flex items-center justify-center text-text-secondary active:scale-95 transition-transform">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center p-2 bg-surface rounded-lg border border-divider gap-3">
+<div class="w-16 h-16 bg-surface-container-high rounded flex items-center justify-center shrink-0 overflow-hidden relative">
+<img alt="Pull ups" class="w-full h-full object-cover" data-alt="A strong athlete performing strict pull-ups on a matte black rig. The environment is a bright, high-end functional training facility with crisp white walls and subtle teal trim. Natural light streams in softly, highlighting the muscular back definition. The mood is utilitarian, disciplined, and calm." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3O1z4PiS7mlLis9_Xq7batM8F4OKG1yClFgbiZFNwaSC9dBg4oQt25Aewo1Kg7sBxxRw4qtxv_KINt2VIFA1ctKsDVzX4TcaLFDSssw4wrLg4dknFDuib2A7X5RCVOMZ_5MQW5L4vhPv6MFdnTAj1ii9z7A0-WX65MdIsyVBQ0G3YSvkV1WNqoSxal9cIRBkySdN6aW7X_NeX3zN4ZP__3Id_cIq-5mFqqJdoldjPPFzvWbduuLer_p55XJti9YVA9Y9pcDncdZY"/>
+</div>
+<div class="flex-1 flex flex-col justify-center">
+<h3 class="font-section-header text-section-header text-text-primary line-clamp-1">Dominadas</h3>
+<p class="font-metadata text-metadata text-text-secondary line-clamp-1 mt-0.5">Espalda • Peso corporal</p>
+</div>
+<div class="flex items-center gap-1 shrink-0">
+<span class="material-symbols-outlined text-[16px] text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<button class="w-10 h-10 flex items-center justify-center text-text-secondary active:scale-95 transition-transform">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Bottom Preview / Offline status -->
+<div class="mt-4 mb-24 flex items-center justify-center gap-2 py-3 px-4 bg-surface rounded-lg border border-divider">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">offline_pin</span>
+<span class="font-metadata text-metadata text-text-primary">Disponible sin conexión</span>
+</div>
+</main>
+<!-- FAB -->
+<button class="fixed bottom-[88px] right-margin-mobile w-14 h-14 bg-primary-container text-on-primary rounded-2xl shadow-[0_4px_12px_rgba(53,124,109,0.25)] flex items-center justify-center active:scale-95 transition-transform z-40">
+<span class="material-symbols-outlined text-[28px]">add</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="bg-surface fixed bottom-0 w-full z-50 rounded-t-xl shadow-[0_-1px_3px_0_rgba(53,124,109,0.05)] flex justify-around items-center px-gutter py-2 pb-safe">
+<button class="flex flex-col items-center justify-center text-text-secondary w-16 h-12 hover:text-primary transition-colors active:scale-90 transition-transform">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="font-metadata text-[10px] leading-none font-medium">Inicio</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary w-16 h-12 hover:text-primary transition-colors active:scale-90 transition-transform">
+<span class="material-symbols-outlined mb-1">fitness_center</span>
+<span class="font-metadata text-[10px] leading-none font-medium">Entrenar</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary w-16 h-12 hover:text-primary transition-colors active:scale-90 transition-transform">
+<span class="material-symbols-outlined mb-1">trending_up</span>
+<span class="font-metadata text-[10px] leading-none font-medium">Progreso</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-1 h-12 hover:text-primary transition-colors active:scale-90 transition-transform">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">local_library</span>
+<span class="font-metadata text-[10px] leading-none font-medium">Biblioteca</span>
+</button>
+<button class="flex flex-col items-center justify-center text-text-secondary w-16 h-12 hover:text-primary transition-colors active:scale-90 transition-transform">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="font-metadata text-[10px] leading-none font-medium">Perfil</span>
+</button>
+</nav>
+</body></html>
