@@ -474,3 +474,11 @@ Trigésimo quinto bloque Firestore seguridad implementado:
 - Las reglas de Firestore ahora exigen `plan == pro` y rol `trainer` en `users/{uid}` para crear/editar perfil de entrenador o invitaciones.
 - El acceso cruzado entrenador-entrenado sigue atado a `trainerClientLinks/{trainerId}_{clientId}` con `status: active`, pero ahora también exige entitlement Pro del entrenador.
 - Se agregó un test de contrato que inspecciona `firebase/firestore.rules` desde la suite Flutter para evitar que el gate Pro/Trainer se remueva sin romper CI.
+
+Trigésimo sexto bloque Anti-escalada Pro implementado:
+
+- `users/{uid}` ya no permite que el cliente cambie `plan` ni `roles`; esas propiedades quedan reservadas para backend/admin.
+- La creación inicial de usuario queda limitada a `plan: free`, rol `normal` y `activeRole: normal`.
+- Cambiar `activeRole` a entrenador sólo es válido si el usuario ya tiene entitlement Pro en Firestore.
+- `FirebaseAgujetasRepository.setActiveRole` dejó de escribir `roles`; sólo actualiza `activeRole` y `updatedAt`.
+- El test de contrato de reglas ahora cubre que no se pueda escalar de Free a Pro desde el cliente.

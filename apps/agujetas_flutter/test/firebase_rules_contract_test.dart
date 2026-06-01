@@ -19,6 +19,23 @@ void main() {
     expect(rules, contains('&& canUseTrainerMode(request.auth.uid);'));
   });
 
+  test('firestore rules prevent client-side plan or role escalation', () {
+    final rules = _readFirestoreRules();
+
+    expect(rules, contains("request.resource.data.plan == 'free'"));
+    expect(rules, contains("request.resource.data.roles.hasOnly(['normal'])"));
+    expect(rules, contains('request.resource.data.plan == resource.data.plan'));
+    expect(
+      rules,
+      contains('request.resource.data.roles == resource.data.roles'),
+    );
+    expect(rules, contains("request.resource.data.activeRole == 'normal'"));
+    expect(
+      rules,
+      contains('allow update: if validSelfUserUpdate(userId) || isAdmin();'),
+    );
+  });
+
   test('firestore rules keep linked trainer access tied to active links', () {
     final rules = _readFirestoreRules();
 

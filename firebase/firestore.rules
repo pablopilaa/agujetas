@@ -90,9 +90,11 @@ service cloud.firestore {
       ];
     }
 
-    match /users/{userId} {
-      allow create: if isOwner(userId)
-        && request.resource.data.uid == userId
+    function validNewUser(userId) {
+      return request.resource.data.uid == userId
+        && request.resource.data.plan == 'free'
+        && request.resource.data.activeRole == 'normal'
+        && request.resource.data.roles.hasOnly(['normal'])
         && request.resource.data.keys().hasOnly([
           'uid',
           'displayName',
@@ -108,8 +110,35 @@ service cloud.firestore {
           'roles',
           'activeRole'
         ]);
+    }
 
-      allow read, update, delete: if isOwner(userId);
+    function validSelfUserUpdate(userId) {
+      return isOwner(userId)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.plan == resource.data.plan
+        && request.resource.data.roles == resource.data.roles
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName',
+          'photoURL',
+          'updatedAt',
+          'preferredTheme',
+          'units',
+          'locale',
+          'onboardingCompleted',
+          'activeRole'
+        ])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['activeRole'])
+          || request.resource.data.activeRole == 'normal'
+          || canUseTrainerMode(userId));
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId)
+        && validNewUser(userId);
+
+      allow read: if isOwner(userId) || isAdmin();
+      allow update: if validSelfUserUpdate(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
 
       match /{collectionName}/{docId} {
         allow read, write: if isOwner(userId) && allowedUserCollection(collectionName);

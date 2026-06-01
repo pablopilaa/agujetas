@@ -96,14 +96,12 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     if (role == AppRole.trainer && !user.canUseTrainerMode) {
       throw StateError('Agujetas Pro es requerido para usar modo entrenador.');
     }
-    final roles = {...user.roles, role};
     await _firestore.collection('users').doc(user.uid).set({
-      'roles': roles.map((item) => item.value).toList(),
       'activeRole': role.value,
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     if (role == AppRole.trainer) {
-      await ensureTrainerProfile(user.copyWith(roles: roles, activeRole: role));
+      await ensureTrainerProfile(user.copyWith(activeRole: role));
     }
   }
 
