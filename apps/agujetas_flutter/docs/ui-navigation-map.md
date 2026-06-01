@@ -157,6 +157,7 @@ flowchart TD
 | Calendario mensual | Flechas mes anterior/siguiente | Cambiar mes visible | Misma pantalla con resumen mensual actualizado |
 | Calendario mensual | Día con sesiones | Revisar entrenos del día | Hoja con sesiones de esa fecha |
 | Calendario mensual | Día con schedule | Revisar sesión planificada | Hoja con schedule, estado, nota y rutina sugerida |
+| Calendario mensual | Schedule con sesión local misma fecha | Revisar cobertura | Estado visual `con sesión registrada` y detalle de la sesión local |
 | Calendario mensual | Sesión histórica | Ver detalle completo | Hoja con ejercicios, series, kg, reps, RIR y segmentos |
 | Calendario mensual | Sesiones | Sync remoto | Merge Firestore `sessions` por `ownerId` sin borrar historial offline |
 | Calendario mensual | Schedules | Sync remoto | Leer Firestore `schedules` por `assignedClientId` |
@@ -214,6 +215,7 @@ flowchart TD
 - Cada consentimiento guarda versión de esquema, términos, privacidad, datos y notificaciones. Si una versión cambia, el usuario real debe volver a aceptar.
 - Las preferencias de Perfil se leen primero desde el dispositivo y después desde Firebase. Si Firebase falla, la app conserva el valor local y muestra aviso.
 - Los recordatorios de schedules se programan localmente desde el stream de asignaciones y se cancelan si el usuario desactiva `Recordatorios de agenda`, si el schedule vence o si deja de estar activo.
+- El calendario marca schedules activos con sesión local el mismo día como `con sesión registrada`; es una cobertura visual local, no una mutación remota del estado.
 - El peso corporal se muestra desde local inmediatamente, sube registros recientes a Firestore en segundo plano y fusiona snapshots remotos por `id`.
 - Los ejercicios personalizados siguen el mismo patrón local-first: catálogo local inmediato, sync Firestore por `ownerId`, delete remoto best-effort y sin Firebase Storage.
 - Las rutinas siguen el mismo patrón local-first: biblioteca local inmediata, sync Firestore por `ownerId`, `orderIndex` para replicar reorder entre dispositivos, delete remoto best-effort y sin bloquear la edición offline.

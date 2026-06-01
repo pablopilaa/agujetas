@@ -6259,6 +6259,7 @@ String _taskStatusLabel(String status) {
 
 String _scheduleStatusLabel(String status) {
   return switch (status) {
+    'covered' => 'con sesión registrada',
     'completed' => 'completado',
     'cancelled' => 'cancelado',
     'scheduled' => 'planificado',
@@ -6269,6 +6270,7 @@ String _scheduleStatusLabel(String status) {
 Color _scheduleStatusColor(BuildContext context, String status) {
   final colors = context.appColors;
   return switch (status) {
+    'covered' => colors.primaryStrong,
     'completed' => colors.primaryStrong,
     'cancelled' => Theme.of(context).colorScheme.error,
     _ => colors.amber,
@@ -6526,6 +6528,9 @@ class _MonthlySessionCalendarSheetState
     final cancelledScheduleCount = monthSchedules
         .where((schedule) => schedule.status == 'cancelled')
         .length;
+    final coveredScheduleCount = monthSchedules
+        .where((schedule) => _isScheduleCoveredBySession(schedule, _sessions))
+        .length;
     final recentSessions = _sessions.take(6).toList();
     final monthVolume = monthSessions.fold<double>(
       0,
@@ -6605,6 +6610,14 @@ class _MonthlySessionCalendarSheetState
                         context,
                       ).colorScheme.error.withValues(alpha: 0.10),
                     ),
+                    if (coveredScheduleCount > 0)
+                      _SoftChip(
+                        label: '$coveredScheduleCount con sesión registrada',
+                        color: colors.primaryStrong,
+                        background: colors.primaryContainer.withValues(
+                          alpha: 0.22,
+                        ),
+                      ),
                   ],
                 ),
         ),
@@ -6643,7 +6656,7 @@ class _MonthlySessionCalendarSheetState
                 daySchedules != null && daySchedules.isNotEmpty;
             final hasEntries = hasSessions || hasSchedules;
             final scheduleStatus = hasSchedules
-                ? _dominantScheduleStatus(daySchedules)
+                ? _dominantScheduleStatus(daySchedules, daySessions ?? const [])
                 : null;
             final scheduleColor = scheduleStatus == null
                 ? colors.amber
@@ -6771,12 +6784,17 @@ class _MonthlySessionCalendarSheetState
             Card(
               child: ListTile(
                 leading: Icon(
-                  Icons.event_available,
-                  color: _scheduleStatusColor(context, schedule.status),
+                  _isScheduleCoveredBySession(schedule, _sessions)
+                      ? Icons.task_alt
+                      : Icons.event_available,
+                  color: _scheduleStatusColor(
+                    context,
+                    _scheduleStatusForCalendar(schedule),
+                  ),
                 ),
                 title: Text(schedule.title),
                 subtitle: Text(
-                  '${_scheduleSubtitle(schedule)} · ${_scheduleStatusLabel(schedule.status)}',
+                  '${_scheduleSubtitle(schedule)} · ${_scheduleStatusLabelForCalendar(schedule)}',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openScheduleDetail(context, schedule),
@@ -6844,7 +6862,15 @@ class _MonthlySessionCalendarSheetState
     return grouped;
   }
 
-  static String _dominantScheduleStatus(List<AssignedSchedule> schedules) {
+  static String _dominantScheduleStatus(
+    List<AssignedSchedule> schedules,
+    List<LocalWorkoutSession> sessions,
+  ) {
+    if (schedules.any(
+      (schedule) => _isScheduleCoveredBySession(schedule, sessions),
+    )) {
+      return 'covered';
+    }
     if (schedules.any((schedule) => schedule.status == 'scheduled')) {
       return 'scheduled';
     }
@@ -6855,6 +6881,49 @@ class _MonthlySessionCalendarSheetState
       return 'cancelled';
     }
     return schedules.first.status;
+  }
+
+  String _scheduleStatusForCalendar(AssignedSchedule schedule) {
+    return _isScheduleCoveredBySession(schedule, _sessions)
+        ? 'covered'
+        : schedule.status;
+  }
+
+  String _scheduleStatusLabelForCalendar(AssignedSchedule schedule) {
+    return _scheduleStatusLabel(_scheduleStatusForCalendar(schedule));
+  }
+
+  static bool _isScheduleCoveredBySession(
+    AssignedSchedule schedule,
+    List<LocalWorkoutSession> sessions,
+  ) {
+    if (schedule.status != 'scheduled') return false;
+    return _sessionCoveringSchedule(schedule, sessions) != null;
+  }
+
+  static LocalWorkoutSession? _sessionCoveringSchedule(
+    AssignedSchedule schedule,
+    List<LocalWorkoutSession> sessions,
+  ) {
+    for (final session in sessions) {
+      if (!_isSameDay(
+        session.finishedAt.toLocal(),
+        schedule.scheduledFor.toLocal(),
+      )) {
+        continue;
+      }
+      final routine = schedule.routineTitle?.trim().toLowerCase();
+      if (routine == null || routine.isEmpty) return session;
+      final sessionTitle = _sessionTitle(session).toLowerCase();
+      final sessionMode = session.sessionMode.toLowerCase();
+      if (sessionTitle.contains(routine) ||
+          routine.contains(sessionMode) ||
+          routine.contains(schedule.title.toLowerCase())) {
+        return session;
+      }
+      return session;
+    }
+    return null;
   }
 
   void _openDayDetail(
@@ -6885,10 +6954,18 @@ class _MonthlySessionCalendarSheetState
             for (final schedule in schedules)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.event_available),
+                leading: Icon(
+                  _isScheduleCoveredBySession(schedule, _sessions)
+                      ? Icons.task_alt
+                      : Icons.event_available,
+                  color: _scheduleStatusColor(
+                    context,
+                    _scheduleStatusForCalendar(schedule),
+                  ),
+                ),
                 title: Text(schedule.title),
                 subtitle: Text(
-                  '${_scheduleSubtitle(schedule)} · ${_scheduleStatusLabel(schedule.status)}',
+                  '${_scheduleSubtitle(schedule)} · ${_scheduleStatusLabelForCalendar(schedule)}',
                 ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openScheduleDetail(context, schedule),
@@ -6913,6 +6990,8 @@ class _MonthlySessionCalendarSheetState
   }
 
   void _openScheduleDetail(BuildContext context, AssignedSchedule schedule) {
+    final coveredBySession = _sessionCoveringSchedule(schedule, _sessions);
+    final status = _scheduleStatusForCalendar(schedule);
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -6929,13 +7008,22 @@ class _MonthlySessionCalendarSheetState
             ),
             const SizedBox(height: 10),
             _SoftChip(
-              label: _scheduleStatusLabel(schedule.status),
-              color: _scheduleStatusColor(context, schedule.status),
+              label: _scheduleStatusLabel(status),
+              color: _scheduleStatusColor(context, status),
               background: _scheduleStatusColor(
                 context,
-                schedule.status,
+                status,
               ).withValues(alpha: 0.12),
             ),
+            if (coveredBySession != null) ...[
+              const SizedBox(height: 12),
+              DashboardCard(
+                icon: Icons.task_alt,
+                title: 'Sesión registrada ese día',
+                subtitle:
+                    '${_sessionTitle(coveredBySession)} · ${_sessionSubtitle(coveredBySession)}',
+              ),
+            ],
             if (schedule.note != null && schedule.note!.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(schedule.note!),

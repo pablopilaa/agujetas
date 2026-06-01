@@ -1535,6 +1535,61 @@ void main() {
     expect(find.textContaining('Revisar técnica'), findsOneWidget);
   });
 
+  testWidgets(
+    'monthly calendar marks scheduled items covered by local session',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final now = DateTime.now();
+      final scheduleDate = DateTime(now.year, now.month, 20, 19);
+      final session = LocalWorkoutSession(
+        id: 'session-covered-schedule',
+        userId: 'calendar-user',
+        sessionMode: 'Fuerza',
+        exercises: seedWorkout(),
+        startedAt: scheduleDate.subtract(const Duration(minutes: 55)).toUtc(),
+        finishedAt: scheduleDate.add(const Duration(minutes: 5)).toUtc(),
+        durationSeconds: 55 * 60,
+        title: 'Empuje A',
+      );
+      final schedule = AssignedSchedule(
+        id: 'schedule-covered',
+        trainerId: 'trainer-1',
+        assignedClientId: 'calendar-user',
+        title: 'Sesión planificada',
+        scheduledFor: scheduleDate.toUtc(),
+        status: 'scheduled',
+        assignedAt: DateTime.now().toUtc(),
+        routineTitle: 'Empuje A',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AgujetasTheme.light(),
+          home: Scaffold(
+            body: MonthlySessionCalendarSheet(
+              sessions: [session],
+              schedules: [schedule],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('1 con sesión registrada'), findsOneWidget);
+      expect(find.textContaining('con sesión registrada'), findsWidgets);
+
+      await tester.tap(find.text('Sesión planificada').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sesión registrada ese día'), findsOneWidget);
+      expect(find.text('Empuje A'), findsWidgets);
+    },
+  );
+
   testWidgets('session history can be repeated as active workout', (
     tester,
   ) async {
