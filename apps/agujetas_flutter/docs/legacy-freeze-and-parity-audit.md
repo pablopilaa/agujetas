@@ -421,3 +421,11 @@ Vigésimo octavo bloque local-first implementado:
 - El historial completo del ejercicio queda visible desde esa vista sin depender de Firestore ni de gráficos ubicados en configuración.
 - La acción conserva `Usar último` para aplicar defaults desde el registro más reciente al entrenamiento activo.
 - Test de widget cubre abrir detalle, entrar a progreso por ejercicio, ver métricas/tendencia y volver para aplicar el último registro.
+
+Vigésimo noveno bloque Android test implementado:
+
+- El manifest Android declara permisos de notificación, vibración, reinicio, alarma exacta opcional y lectura de imágenes para galería local en Android moderno y legacy.
+- Se eliminó `USE_EXACT_ALARM` para evitar una categoría de permiso más restrictiva que no corresponde a una app fitness comercial común.
+- `NotificationService.initialize()` deja de pedir permisos al abrir la app; las notificaciones se solicitan sólo cuando el usuario programa una alerta.
+- Las alertas de descanso y peso intentan alarma exacta y caen a `inexactAllowWhileIdle` si Android deniega exact alarms, sin romper el entrenamiento ni el guardado local.
+- Los snackbars distinguen alerta exacta, alerta inexacta, permiso denegado o disponibilidad nativa ausente.

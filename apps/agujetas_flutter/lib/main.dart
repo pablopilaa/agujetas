@@ -1738,18 +1738,21 @@ class _TrainScreenState extends State<TrainScreen> {
             _startRestTimer(const Duration(seconds: 90));
             final shouldScheduleNotification =
                 widget.restAlertsEnabled && !kIsWeb;
+            AgujetasNotificationResult? notificationResult;
             if (shouldScheduleNotification) {
-              await NotificationService.scheduleRestFinished(
-                const Duration(seconds: 90),
-              );
+              notificationResult =
+                  await NotificationService.scheduleRestFinished(
+                    const Duration(seconds: 90),
+                  );
             }
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    widget.restAlertsEnabled
-                        ? 'Alerta de descanso programada en 01:30'
-                        : 'Descanso iniciado sin alerta: activala desde Perfil',
+                    _restTimerMessage(
+                      restAlertsEnabled: widget.restAlertsEnabled,
+                      notificationResult: notificationResult,
+                    ),
                   ),
                 ),
               );
@@ -1818,6 +1821,27 @@ class _TrainScreenState extends State<TrainScreen> {
         ),
       ],
     );
+  }
+
+  String _restTimerMessage({
+    required bool restAlertsEnabled,
+    required AgujetasNotificationResult? notificationResult,
+  }) {
+    if (!restAlertsEnabled) {
+      return 'Descanso iniciado sin alerta: activala desde Perfil';
+    }
+    return switch (notificationResult) {
+      AgujetasNotificationResult.scheduledExact =>
+        'Alerta de descanso exacta programada en 01:30',
+      AgujetasNotificationResult.scheduledInexact =>
+        'Alerta de descanso programada en 01:30',
+      AgujetasNotificationResult.permissionDenied =>
+        'Descanso iniciado, pero Android no permitió notificaciones',
+      AgujetasNotificationResult.disabled ||
+      null => 'Descanso iniciado sin alerta disponible en este dispositivo',
+      AgujetasNotificationResult.shown =>
+        'Alerta de descanso programada en 01:30',
+    };
   }
 
   void _ensureTicker() {
@@ -3651,16 +3675,18 @@ class BodyWeightCard extends StatelessWidget {
                 );
                 return;
               }
+              AgujetasNotificationResult? notificationResult;
               if (!kIsWeb) {
-                await NotificationService.scheduleBodyWeightReminder(
-                  hour: 9,
-                  minute: 0,
-                );
+                notificationResult =
+                    await NotificationService.scheduleBodyWeightReminder(
+                      hour: 9,
+                      minute: 0,
+                    );
               }
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Alerta diaria de peso programada 09:00'),
+                  SnackBar(
+                    content: Text(_bodyWeightAlertMessage(notificationResult)),
                   ),
                 );
               }
@@ -3675,6 +3701,23 @@ class BodyWeightCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _bodyWeightAlertMessage(
+    AgujetasNotificationResult? notificationResult,
+  ) {
+    return switch (notificationResult) {
+      AgujetasNotificationResult.scheduledExact =>
+        'Alerta diaria exacta de peso programada 09:00',
+      AgujetasNotificationResult.scheduledInexact ||
+      null => 'Alerta diaria de peso programada 09:00',
+      AgujetasNotificationResult.permissionDenied =>
+        'Android no permitió notificaciones de peso',
+      AgujetasNotificationResult.disabled =>
+        'Las alertas de peso no están disponibles en este dispositivo',
+      AgujetasNotificationResult.shown =>
+        'Alerta diaria de peso programada 09:00',
+    };
   }
 
   Future<void> _openWeightSheet(BuildContext context) async {

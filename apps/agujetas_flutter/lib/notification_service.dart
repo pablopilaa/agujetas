@@ -3,6 +3,14 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
+enum AgujetasNotificationResult {
+  scheduledExact,
+  scheduledInexact,
+  shown,
+  permissionDenied,
+  disabled,
+}
+
 class NotificationService {
   NotificationService._();
 
@@ -34,22 +42,22 @@ class NotificationService {
     } catch (_) {
       tz.setLocalLocation(tz.getLocation('Europe/Madrid'));
     }
-    await _requestAndroidPermissions();
     _initialized = true;
   }
 
-  static Future<void> _requestAndroidPermissions() async {
+  static Future<bool> _requestNotificationPermission() async {
     final android = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
         >();
-    await android?.requestNotificationsPermission();
-    await android?.requestExactAlarmsPermission();
+    return await android?.requestNotificationsPermission() ?? true;
   }
 
-  static Future<void> showSessionSaved() async {
+  static Future<AgujetasNotificationResult> showSessionSaved() async {
     await initialize();
-    if (!_initialized) return;
+    if (!_initialized) return AgujetasNotificationResult.disabled;
+    final canNotify = await _requestNotificationPermission();
+    if (!canNotify) return AgujetasNotificationResult.permissionDenied;
     await _plugin.show(
       id: 101,
       title: 'Sesión guardada',
@@ -59,31 +67,35 @@ class NotificationService {
         channelName: 'Sesiones',
       ),
     );
+    return AgujetasNotificationResult.shown;
   }
 
-  static Future<void> scheduleRestFinished(Duration duration) async {
+  static Future<AgujetasNotificationResult> scheduleRestFinished(
+    Duration duration,
+  ) async {
     await initialize();
-    if (!_initialized) return;
+    if (!_initialized) return AgujetasNotificationResult.disabled;
+    final canNotify = await _requestNotificationPermission();
+    if (!canNotify) return AgujetasNotificationResult.permissionDenied;
     final when = tz.TZDateTime.now(tz.local).add(duration);
-    await _plugin.zonedSchedule(
+    return _scheduleWithFallback(
       id: 201,
       title: 'Descanso terminado',
       body: 'Volver a la siguiente serie.',
       scheduledDate: when,
-      notificationDetails: _details(
-        channelId: 'rest_timer',
-        channelName: 'Descansos',
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      channelId: 'rest_timer',
+      channelName: 'Descansos',
     );
   }
 
-  static Future<void> scheduleBodyWeightReminder({
+  static Future<AgujetasNotificationResult> scheduleBodyWeightReminder({
     required int hour,
     required int minute,
   }) async {
     await initialize();
-    if (!_initialized) return;
+    if (!_initialized) return AgujetasNotificationResult.disabled;
+    final canNotify = await _requestNotificationPermission();
+    if (!canNotify) return AgujetasNotificationResult.permissionDenied;
     final now = tz.TZDateTime.now(tz.local);
     var scheduled = tz.TZDateTime(
       tz.local,
@@ -96,18 +108,57 @@ class NotificationService {
     if (scheduled.isBefore(now)) {
       scheduled = scheduled.add(const Duration(days: 1));
     }
-    await _plugin.zonedSchedule(
+    return _scheduleWithFallback(
       id: 301,
       title: 'Registrar peso',
       body: 'Anota tu peso corporal para mantener el seguimiento semanal.',
       scheduledDate: scheduled,
-      notificationDetails: _details(
-        channelId: 'body_weight',
-        channelName: 'Peso corporal',
-      ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      channelId: 'body_weight',
+      channelName: 'Peso corporal',
       matchDateTimeComponents: DateTimeComponents.time,
     );
+  }
+
+  static Future<AgujetasNotificationResult> _scheduleWithFallback({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime scheduledDate,
+    required String channelId,
+    required String channelName,
+    DateTimeComponents? matchDateTimeComponents,
+  }) async {
+    final notificationDetails = _details(
+      channelId: channelId,
+      channelName: channelName,
+    );
+    try {
+      await _plugin.zonedSchedule(
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: scheduledDate,
+        notificationDetails: notificationDetails,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        matchDateTimeComponents: matchDateTimeComponents,
+      );
+      return AgujetasNotificationResult.scheduledExact;
+    } catch (_) {
+      try {
+        await _plugin.zonedSchedule(
+          id: id,
+          title: title,
+          body: body,
+          scheduledDate: scheduledDate,
+          notificationDetails: notificationDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: matchDateTimeComponents,
+        );
+        return AgujetasNotificationResult.scheduledInexact;
+      } catch (_) {
+        return AgujetasNotificationResult.disabled;
+      }
+    }
   }
 
   static NotificationDetails _details({
