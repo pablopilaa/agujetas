@@ -36,6 +36,43 @@ void main() {
     );
   });
 
+  test(
+    'firestore rules allow privacy cleanup without active Pro entitlement',
+    () {
+      final rules = _readFirestoreRules();
+
+      expect(
+        rules,
+        contains('allow delete: if isOwner(trainerId) || isAdmin();'),
+      );
+      expect(
+        rules,
+        contains(
+          'allow delete: if signedIn()\n        && resource.data.trainerId == request.auth.uid;',
+        ),
+      );
+    },
+  );
+
+  test('firestore rules do not use request.resource on link deletes', () {
+    final rules = _readFirestoreRules();
+    final linkRules = _rulesBlock(rules, 'trainerClientLinks');
+
+    expect(
+      linkRules,
+      contains(
+        'allow update: if signedIn()\n        && (resource.data.trainerId == request.auth.uid\n          || resource.data.clientId == request.auth.uid)\n        && request.resource.data.trainerId == resource.data.trainerId\n        && request.resource.data.clientId == resource.data.clientId;',
+      ),
+    );
+    expect(
+      linkRules,
+      contains(
+        'allow delete: if signedIn()\n        && (resource.data.trainerId == request.auth.uid\n          || resource.data.clientId == request.auth.uid);',
+      ),
+    );
+    expect(linkRules, isNot(contains('allow update, delete: if signedIn()')));
+  });
+
   test('firestore rules keep linked trainer access tied to active links', () {
     final rules = _readFirestoreRules();
 
@@ -55,4 +92,12 @@ String _readFirestoreRules() {
   final file = File('../../firebase/firestore.rules');
   expect(file.existsSync(), isTrue, reason: 'Missing firebase/firestore.rules');
   return file.readAsStringSync();
+}
+
+String _rulesBlock(String rules, String collectionName) {
+  final start = rules.indexOf('match /$collectionName/');
+  expect(start, isNonNegative, reason: 'Missing $collectionName rules block');
+
+  final nextMatch = rules.indexOf('\n    match /', start + 1);
+  return rules.substring(start, nextMatch == -1 ? rules.length : nextMatch);
 }

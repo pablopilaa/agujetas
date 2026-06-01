@@ -202,10 +202,11 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     required AppUser owner,
     required RoutineTemplate routine,
   }) async {
+    final normalized = routine.copyWith(ownerId: owner.uid);
     await _firestore
         .collection('routineTemplates')
-        .doc(routine.id)
-        .set(routine.toJson(), SetOptions(merge: true));
+        .doc(normalized.id)
+        .set(normalized.toJson(), SetOptions(merge: true));
   }
 
   @override

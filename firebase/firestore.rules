@@ -154,8 +154,7 @@ service cloud.firestore {
       allow create, update: if isOwner(trainerId)
         && request.resource.data.uid == trainerId
         && canUseTrainerMode(trainerId);
-      allow delete: if isOwner(trainerId)
-        && canUseTrainerMode(trainerId);
+      allow delete: if isOwner(trainerId) || isAdmin();
     }
 
     match /trainerInvites/{code} {
@@ -169,8 +168,7 @@ service cloud.firestore {
         && request.resource.data.trainerId == resource.data.trainerId
         && canUseTrainerMode(request.auth.uid);
       allow delete: if signedIn()
-        && resource.data.trainerId == request.auth.uid
-        && canUseTrainerMode(request.auth.uid);
+        && resource.data.trainerId == request.auth.uid;
     }
 
     match /trainerClientLinks/{linkId} {
@@ -184,11 +182,14 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/trainerInvites/$(request.resource.data.inviteCode))
         && get(/databases/$(database)/documents/trainerInvites/$(request.resource.data.inviteCode)).data.active == true
         && get(/databases/$(database)/documents/trainerInvites/$(request.resource.data.inviteCode)).data.trainerId == request.resource.data.trainerId;
-      allow update, delete: if signedIn()
+      allow update: if signedIn()
         && (resource.data.trainerId == request.auth.uid
           || resource.data.clientId == request.auth.uid)
         && request.resource.data.trainerId == resource.data.trainerId
         && request.resource.data.clientId == resource.data.clientId;
+      allow delete: if signedIn()
+        && (resource.data.trainerId == request.auth.uid
+          || resource.data.clientId == request.auth.uid);
     }
 
     match /sessions/{sessionId} {

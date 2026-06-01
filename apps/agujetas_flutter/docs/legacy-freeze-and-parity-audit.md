@@ -482,3 +482,11 @@ Trigésimo sexto bloque Anti-escalada Pro implementado:
 - Cambiar `activeRole` a entrenador sólo es válido si el usuario ya tiene entitlement Pro en Firestore.
 - `FirebaseAgujetasRepository.setActiveRole` dejó de escribir `roles`; sólo actualiza `activeRole` y `updatedAt`.
 - El test de contrato de reglas ahora cubre que no se pueda escalar de Free a Pro desde el cliente.
+
+Trigésimo séptimo bloque Limpieza y ownership implementado:
+
+- Las reglas permiten borrar perfil, invitaciones y vínculos de entrenador como operación de limpieza/privacidad aunque el usuario haya perdido Pro.
+- Crear o editar perfil/invitaciones sigue exigiendo `plan == pro` y rol `trainer`, por lo que la limpieza no reabre el uso comercial del modo entrenador.
+- `trainerClientLinks` separa `update` y `delete`; el borrado ya no depende de `request.resource`, que no corresponde al contrato mental de una eliminación.
+- `FirebaseAgujetasRepository.saveRoutineTemplate` normaliza `ownerId` contra el usuario autenticado antes de escribir en Firestore, evitando escrituras rechazadas o ownership accidentalmente incorrecto.
+- El test de contrato de reglas cubre cleanup sin Pro y separación explícita de update/delete.
