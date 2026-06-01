@@ -739,3 +739,9 @@ Sexagésimo octavo bloque Corrección de peso corporal:
 - Editar conserva el mismo `id`, permite corregir fecha, kg y nota, y sincroniza el mismo documento remoto si hay sesión Google.
 - Borrar elimina local-first y luego intenta borrar `bodyWeights/{id}` en Firestore para usuarios autenticados.
 - `LocalWorkoutStore` suma `deleteBodyWeightLocal`; `AgujetasRepository` suma `deleteBodyWeight` con implementación Firebase y demo.
+
+Sexagésimo noveno bloque Editor de rutinas:
+
+- El editor de Biblioteca ahora permite renombrar el borrador de rutina activo antes de guardarlo.
+- La edición de título actualiza el estado local del borrador y se usa al guardar, copiar o iniciar esa rutina desde el editor.
+- Esto reduce una brecha de paridad del CRUD de rutinas: el usuario no queda obligado a guardar primero y volver a la lista para corregir el nombre.

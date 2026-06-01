@@ -553,6 +553,81 @@ void main() {
     },
   );
 
+  testWidgets('library renames the active routine draft before saving', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    var editingTitle = 'Rutina editable';
+    const user = AppUser(
+      uid: 'library-rename-user',
+      displayName: 'Demo',
+      email: 'demo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => LibraryScreen(
+              user: user,
+              repository: DemoAgujetasRepository(),
+              exercises: seedWorkout(),
+              localSessions: const [],
+              routines: const [],
+              editingRoutineId: 'routine-edit',
+              editingRoutineTitle: editingTitle,
+              customExercises: const [],
+              onExercisesChanged: (_) {},
+              onStartRoutine: (_) {},
+              onEditRoutine: (_) {},
+              onCreateRoutine: (_) {},
+              onRenameEditingRoutine: (title) =>
+                  setState(() => editingTitle = title),
+              onSaveRoutine: (_) async {},
+              onSaveEditingRoutine: () async {},
+              onSaveEditingRoutineAsCopy: () async {},
+              onDeleteRoutine: (_) async {},
+              onDuplicateRoutine: (_) async {},
+              onMoveRoutine: (_, _) async {},
+              onSaveCustomExercise: (_) async {},
+              onDeleteCustomExercise: (_) async {},
+              localGalleryEnabled: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editando: Rutina editable'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('routine-rename-draft')));
+    await tester.pumpAndSettle();
+    expect(find.text('Renombrar rutina'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'Empuje sabado');
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Guardar'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(editingTitle, 'Empuje sabado');
+    expect(find.text('Editando: Empuje sabado'), findsOneWidget);
+    expect(find.text('Rutina renombrada a "Empuje sabado"'), findsOneWidget);
+  });
+
   testWidgets('library removes an exercise from the routine order', (
     tester,
   ) async {
@@ -589,6 +664,7 @@ void main() {
               onStartRoutine: (_) {},
               onEditRoutine: (_) {},
               onCreateRoutine: (_) {},
+              onRenameEditingRoutine: (_) {},
               onSaveRoutine: (_) async {},
               onSaveEditingRoutine: () async {},
               onSaveEditingRoutineAsCopy: () async {},
@@ -680,6 +756,7 @@ void main() {
             onStartRoutine: (_) {},
             onEditRoutine: (_) {},
             onCreateRoutine: (_) {},
+            onRenameEditingRoutine: (_) {},
             onSaveRoutine: (_) async {},
             onSaveEditingRoutine: () async {},
             onSaveEditingRoutineAsCopy: () async {},

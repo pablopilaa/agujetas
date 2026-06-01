@@ -34,7 +34,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Peso corporal con sincronización bidireccional local-first + Firestore: carga local inmediata, push best-effort de registros locales recientes y merge de snapshots remotos sin borrar entradas locales no sincronizadas.
 - Importacion local del historico exportado desde la app Expo legacy incluido en `assets/user_data`.
 - Importacion local de rutinas y sesiones personalizadas legacy desde `assets/user_data/catalogo_ejercicios_2026-05-13.json`.
-- CRUD local-first basico de rutinas: guardar, renombrar, duplicar, borrar y reordenar plantillas sin depender de Firestore.
+- CRUD local-first basico de rutinas: guardar, renombrar borrador activo, renombrar plantillas, duplicar, borrar y reordenar sin depender de Firestore.
 - Rutinas con sincronizacion bidireccional local-first + Firestore: carga local inmediata, push best-effort, merge de snapshots remotos por `ownerId`, orden remoto por `orderIndex` y eliminacion remota por ownership.
 - Editor local aislado de rutinas: abrir una plantilla importada, modificar su lista de ejercicios/orden/defaults de series, guardar cambios o guardar una copia sin tocar la sesion activa.
 - Ejercicios personalizados local-first: crear, editar, borrar, buscar, asociar imagen de galeria o asset interno propio, operar offline y sincronizar best-effort si hay backend disponible.

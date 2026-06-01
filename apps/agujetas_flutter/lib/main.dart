@@ -720,6 +720,7 @@ class _HomeShellState extends State<HomeShell> {
         onStartRoutine: _startRoutine,
         onEditRoutine: _editRoutine,
         onCreateRoutine: _createRoutine,
+        onRenameEditingRoutine: _renameEditingRoutineDraft,
         onSaveRoutine: _saveRoutine,
         onSaveEditingRoutine: _saveEditingRoutine,
         onSaveEditingRoutineAsCopy: _saveEditingRoutineAsCopy,
@@ -912,6 +913,15 @@ class _HomeShellState extends State<HomeShell> {
       _tab = 3;
       _notice =
           'Rutina "$normalizedTitle" creada como borrador local. Agregá ejercicios y guardala.';
+    });
+  }
+
+  void _renameEditingRoutineDraft(String title) {
+    final normalizedTitle = title.trim();
+    if (normalizedTitle.isEmpty || _editingRoutineId == null) return;
+    setState(() {
+      _editingRoutineTitle = normalizedTitle;
+      _notice = 'Rutina renombrada a "$normalizedTitle" en el borrador local.';
     });
   }
 
@@ -8077,6 +8087,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onStartRoutine,
     required this.onEditRoutine,
     required this.onCreateRoutine,
+    required this.onRenameEditingRoutine,
     required this.onSaveRoutine,
     required this.onSaveEditingRoutine,
     required this.onSaveEditingRoutineAsCopy,
@@ -8103,6 +8114,7 @@ class LibraryScreen extends StatefulWidget {
   final ValueChanged<RoutineTemplate> onStartRoutine;
   final ValueChanged<RoutineTemplate> onEditRoutine;
   final ValueChanged<String> onCreateRoutine;
+  final ValueChanged<String> onRenameEditingRoutine;
   final Future<void> Function(RoutineTemplate routine) onSaveRoutine;
   final Future<void> Function() onSaveEditingRoutine;
   final Future<void> Function() onSaveEditingRoutineAsCopy;
@@ -8303,6 +8315,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
+                      OutlinedButton.icon(
+                        key: const ValueKey('routine-rename-draft'),
+                        onPressed: () =>
+                            _renameEditingRoutineDraft(editingTitle),
+                        icon: const Icon(Icons.drive_file_rename_outline),
+                        label: const Text('Renombrar'),
+                      ),
                       FilledButton.icon(
                         key: const ValueKey('routine-save-changes'),
                         onPressed: _saveEditingRoutineFromLibrary,
@@ -8651,6 +8670,46 @@ class _LibraryScreenState extends State<LibraryScreen> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Rutina "$normalizedTitle" lista para editar')),
+    );
+  }
+
+  Future<void> _renameEditingRoutineDraft(String currentTitle) async {
+    final controller = TextEditingController(text: currentTitle);
+    final nextTitle = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Renombrar rutina'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(labelText: 'Nombre de la rutina'),
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+    final normalizedTitle = nextTitle?.trim();
+    if (normalizedTitle == null ||
+        normalizedTitle.isEmpty ||
+        normalizedTitle == currentTitle) {
+      return;
+    }
+    widget.onRenameEditingRoutine(normalizedTitle);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Rutina renombrada a "$normalizedTitle"')),
     );
   }
 

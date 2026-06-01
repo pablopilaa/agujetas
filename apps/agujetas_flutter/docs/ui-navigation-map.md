@@ -171,6 +171,7 @@ flowchart TD
 | Biblioteca | Elegir imagen del repositorio | Selector interno | `agujetas-image://...` asociado |
 | Biblioteca | Ejercicios personalizados | Sync remoto | Merge Firestore `customExercises` por `id` sin borrar registros offline |
 | Biblioteca | Nueva rutina | Diálogo de nombre | Borrador local editable en Mis ejercicios |
+| Biblioteca | Borrador de rutina | Renombrar | Actualiza el nombre del borrador activo antes de guardar |
 | Biblioteca | Agregar desde catálogo | Catálogo dentro de edición | Ejercicio agregado a la rutina en edición |
 | Biblioteca | Estrella de ejercicio | Marcar/quitar favorito | Persistencia local `favoriteExerciseIds` y filtro Favoritos |
 | Biblioteca | Guardar cambios | Persistir rutina local | Rutina disponible offline en Mis ejercicios |
