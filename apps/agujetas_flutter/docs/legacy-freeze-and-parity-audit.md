@@ -468,3 +468,9 @@ Trigésimo cuarto bloque Pro/Entitlements implementado:
 - Perfil suma la tarjeta `Plan y suscripción` y `Ver planes` abre un sheet real con Agujetas Free y Agujetas Pro.
 - La build demo permite activar Pro demo desde ese sheet para probar el panel entrenador sin cobrar ni conectar RevenueCat todavía.
 - Tests de modelo cubren entitlements Free/Pro; tests de widget cubren el sheet de planes y la activación Pro demo.
+
+Trigésimo quinto bloque Firestore seguridad implementado:
+
+- Las reglas de Firestore ahora exigen `plan == pro` y rol `trainer` en `users/{uid}` para crear/editar perfil de entrenador o invitaciones.
+- El acceso cruzado entrenador-entrenado sigue atado a `trainerClientLinks/{trainerId}_{clientId}` con `status: active`, pero ahora también exige entitlement Pro del entrenador.
+- Se agregó un test de contrato que inspecciona `firebase/firestore.rules` desde la suite Flutter para evitar que el gate Pro/Trainer se remueva sin romper CI.

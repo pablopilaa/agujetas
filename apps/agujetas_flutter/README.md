@@ -61,6 +61,7 @@ Las reglas estan en `firebase/firestore.rules`. Criterio:
 
 - Cada usuario lee/escribe sus datos.
 - Un entrenador solo accede a un entrenado si existe `trainerClientLinks/{trainerId}_{clientId}` con `status: active`.
+- Crear perfiles e invitaciones de entrenador requiere `plan == pro` y rol `trainer` en `users/{uid}`.
 - Catalogos publicos solo lectura: `publicExerciseCatalog`, `exerciseMediaIndex`, `appConfig`.
 - Escritura admin solo con custom claim `admin == true`.
 

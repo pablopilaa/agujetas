@@ -21,8 +21,20 @@ service cloud.firestore {
     function linkedTrainer(trainerId, clientId) {
       return signedIn()
         && trainerId == request.auth.uid
+        && canUseTrainerMode(trainerId)
         && exists(/databases/$(database)/documents/trainerClientLinks/$(linkId(trainerId, clientId)))
         && get(/databases/$(database)/documents/trainerClientLinks/$(linkId(trainerId, clientId))).data.status == 'active';
+    }
+
+    function userDoc(userId) {
+      return get(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function canUseTrainerMode(userId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(userId))
+        && userDoc(userId).data.plan == 'pro'
+        && userDoc(userId).data.roles.hasAny(['trainer']);
     }
 
     function ownerId(data) {
@@ -110,18 +122,26 @@ service cloud.firestore {
 
     match /trainerProfiles/{trainerId} {
       allow read: if signedIn();
-      allow create, update, delete: if isOwner(trainerId)
-        && request.resource.data.uid == trainerId;
+      allow create, update: if isOwner(trainerId)
+        && request.resource.data.uid == trainerId
+        && canUseTrainerMode(trainerId);
+      allow delete: if isOwner(trainerId)
+        && canUseTrainerMode(trainerId);
     }
 
     match /trainerInvites/{code} {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.trainerId == request.auth.uid
-        && request.resource.data.active == true;
-      allow update, delete: if signedIn()
+        && request.resource.data.active == true
+        && canUseTrainerMode(request.auth.uid);
+      allow update: if signedIn()
         && resource.data.trainerId == request.auth.uid
-        && request.resource.data.trainerId == resource.data.trainerId;
+        && request.resource.data.trainerId == resource.data.trainerId
+        && canUseTrainerMode(request.auth.uid);
+      allow delete: if signedIn()
+        && resource.data.trainerId == request.auth.uid
+        && canUseTrainerMode(request.auth.uid);
     }
 
     match /trainerClientLinks/{linkId} {
