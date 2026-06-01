@@ -4403,6 +4403,9 @@ class _RoutineExerciseDefaultsSheetState
                 set: _exercise.sets[i],
                 showDoneCheckbox: false,
                 onChanged: (updated) => _updateSet(i, updated),
+                onRemove: _exercise.sets.length <= 1
+                    ? null
+                    : () => _confirmRemoveSet(i),
               ),
             OutlinedButton.icon(
               onPressed: _addSet,
@@ -4425,7 +4428,9 @@ class _RoutineExerciseDefaultsSheetState
     final nextSets = [..._exercise.sets];
     if (index < 0 || index >= nextSets.length) return;
     nextSets[index] = updated.copyWith(done: false);
-    setState(() => _exercise = _exercise.copyWith(sets: nextSets));
+    setState(
+      () => _exercise = _exercise.copyWith(sets: _renumberSets(nextSets)),
+    );
   }
 
   void _addSet() {
@@ -4439,6 +4444,46 @@ class _RoutineExerciseDefaultsSheetState
       ),
     ];
     setState(() => _exercise = _exercise.copyWith(sets: nextSets));
+  }
+
+  Future<void> _confirmRemoveSet(int index) async {
+    if (_exercise.sets.length <= 1 ||
+        index < 0 ||
+        index >= _exercise.sets.length) {
+      return;
+    }
+    final set = _exercise.sets[index];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Quitar S${set.order}'),
+        content: const Text(
+          'Esto quita esta serie de los defaults de la rutina. '
+          'No modifica sesiones ya guardadas ni tu historial.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Quitar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final nextSets = [..._exercise.sets]..removeAt(index);
+    setState(
+      () => _exercise = _exercise.copyWith(sets: _renumberSets(nextSets)),
+    );
+  }
+
+  List<WorkoutSet> _renumberSets(List<WorkoutSet> sets) {
+    return [
+      for (var i = 0; i < sets.length; i++) sets[i].copyWith(order: i + 1),
+    ];
   }
 }
 
@@ -5279,11 +5324,13 @@ class SetEditor extends StatelessWidget {
     required this.set,
     required this.onChanged,
     this.showDoneCheckbox = true,
+    this.onRemove,
   });
 
   final WorkoutSet set;
   final ValueChanged<WorkoutSet> onChanged;
   final bool showDoneCheckbox;
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -5309,6 +5356,12 @@ class SetEditor extends StatelessWidget {
                 onChanged: (type) => onChanged(set.copyWith(setType: type)),
               ),
               const Spacer(),
+              if (onRemove != null)
+                IconButton(
+                  tooltip: 'Quitar serie S${set.order}',
+                  onPressed: onRemove,
+                  icon: const Icon(Icons.delete_outline),
+                ),
               if (showDoneCheckbox)
                 Checkbox(
                   value: set.done,

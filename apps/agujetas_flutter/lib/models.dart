@@ -283,13 +283,14 @@ class WorkoutSet {
   }
 
   WorkoutSet copyWith({
+    int? order,
     SetType? setType,
     List<WeightSegment>? segments,
     int? rir,
     bool? done,
   }) {
     return WorkoutSet(
-      order: order,
+      order: order ?? this.order,
       setType: setType ?? this.setType,
       segments: segments ?? this.segments,
       rir: rir ?? this.rir,

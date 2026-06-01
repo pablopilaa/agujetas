@@ -751,3 +751,9 @@ Septuagésimo bloque Descarte de edición de rutina:
 - El editor de Biblioteca ahora permite descartar explícitamente el borrador activo.
 - La acción pide confirmación, cierra el editor, limpia ejercicios/título del borrador y no toca la sesión activa ni las rutinas ya guardadas.
 - Esto evita que el usuario quede atrapado en modo edición después de abrir una plantilla o crear una rutina nueva.
+
+Septuagésimo primer bloque Defaults de rutina:
+
+- La hoja `Editar defaults` ahora permite quitar series completas de un ejercicio dentro del template.
+- La eliminación pide confirmación, renumera las series restantes y conserva al menos una serie para evitar defaults inválidos.
+- La acción afecta sólo al template en edición; no modifica sesiones históricas ni el catálogo base.

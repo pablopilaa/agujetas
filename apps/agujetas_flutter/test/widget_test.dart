@@ -963,11 +963,21 @@ void main() {
 
     expect(find.text('S4'), findsOneWidget);
 
+    await tester.tap(find.byTooltip('Quitar serie S2'));
+    await tester.pumpAndSettle();
+    expect(find.text('Quitar S2'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Quitar'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('S4'), findsNothing);
+    expect(find.text('S3'), findsOneWidget);
+
     await tester.tap(find.text('Guardar defaults'));
     await tester.pumpAndSettle();
 
     expect(saved, isNotNull);
-    expect(saved!.sets, hasLength(4));
+    expect(saved!.sets, hasLength(3));
+    expect(saved!.sets.map((set) => set.order), [1, 2, 3]);
   });
 
   testWidgets('body weight card saves through local-first callback', (

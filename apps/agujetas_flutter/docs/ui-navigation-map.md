@@ -174,6 +174,7 @@ flowchart TD
 | Biblioteca | Borrador de rutina | Renombrar | Actualiza el nombre del borrador activo antes de guardar |
 | Biblioteca | Borrador de rutina | Descartar | Cierra el editor y vuelve a Rutina base sin tocar sesión activa ni rutinas guardadas |
 | Biblioteca | Agregar desde catálogo | Catálogo dentro de edición | Ejercicio agregado a la rutina en edición |
+| Biblioteca | Defaults de ejercicio | Quitar serie | Elimina una serie del template y renumera S1/S2/S3 sin tocar historial |
 | Biblioteca | Estrella de ejercicio | Marcar/quitar favorito | Persistencia local `favoriteExerciseIds` y filtro Favoritos |
 | Biblioteca | Guardar cambios | Persistir rutina local | Rutina disponible offline en Mis ejercicios |
 | Biblioteca | Rutinas | Sync remoto | Merge Firestore `routineTemplates` por `ownerId` sin borrar plantillas offline |
