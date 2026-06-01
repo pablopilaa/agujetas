@@ -491,6 +491,67 @@ void main() {
     );
   });
 
+  testWidgets('body weight card shows local trend and recent history', (
+    tester,
+  ) async {
+    final baseDate = DateTime(2026, 5, 20, 9);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: BodyWeightCard(
+            user: const AppUser(
+              uid: 'weight-user',
+              displayName: 'Demo',
+              email: 'demo@agujetas.app',
+              photoUrl: null,
+              roles: {AppRole.normal},
+              activeRole: AppRole.normal,
+              plan: AppPlan.free,
+            ),
+            entries: [
+              BodyWeightEntry(
+                id: 'oldest',
+                userId: 'weight-user',
+                weightKg: 80,
+                recordedAt: baseDate,
+              ),
+              BodyWeightEntry(
+                id: 'latest',
+                userId: 'weight-user',
+                weightKg: 81.2,
+                recordedAt: baseDate.add(const Duration(days: 10)),
+              ),
+              BodyWeightEntry(
+                id: 'middle',
+                userId: 'weight-user',
+                weightKg: 80.6,
+                recordedAt: baseDate.add(const Duration(days: 5)),
+              ),
+            ],
+            alertsEnabled: true,
+            onSaved: (_) async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Último'), findsOneWidget);
+    expect(find.text('81.2 kg'), findsWidgets);
+    expect(find.text('Prom. reciente'), findsOneWidget);
+    expect(find.text('80.6 kg'), findsWidgets);
+    expect(
+      find.text('+0.6 kg respecto del registro anterior.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('+1.2 kg en los últimos 10 días registrados.'),
+      findsOneWidget,
+    );
+    expect(find.text('Historial reciente'), findsOneWidget);
+  });
+
   testWidgets('custom exercise sheet creates a local exercise with 3 sets', (
     tester,
   ) async {

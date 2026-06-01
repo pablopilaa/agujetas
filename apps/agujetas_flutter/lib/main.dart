@@ -3657,7 +3657,16 @@ class BodyWeightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final latest = entries.isEmpty ? null : entries.first;
+    final sortedEntries = [...entries]
+      ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    final latest = sortedEntries.isEmpty ? null : sortedEntries.first;
+    final previous = sortedEntries.length >= 2 ? sortedEntries[1] : null;
+    final recentWindow = _recentBodyWeightWindow(sortedEntries);
+    final recentAverage = recentWindow.isEmpty
+        ? null
+        : recentWindow.fold<double>(0, (sum, entry) => sum + entry.weightKg) /
+              recentWindow.length;
+    final oldestRecent = recentWindow.length >= 2 ? recentWindow.last : null;
     return DashboardCard(
       icon: Icons.monitor_weight_outlined,
       title: 'Peso corporal',
@@ -3671,18 +3680,52 @@ class BodyWeightCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (entries.length >= 2) ...[
-            _ProgressBar(
-              value: (entries.first.weightKg / entries[1].weightKg).clamp(
-                0.75,
-                1.25,
+          if (latest != null) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _BodyWeightMiniMetric(
+                    label: 'Último',
+                    value: '${latest.weightKg.toStringAsFixed(1)} kg',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _BodyWeightMiniMetric(
+                    label: 'Prom. reciente',
+                    value: recentAverage == null
+                        ? '-'
+                        : '${recentAverage.toStringAsFixed(1)} kg',
+                  ),
+                ),
+              ],
+            ),
+            if (previous != null) ...[
+              const SizedBox(height: 10),
+              _ProgressBar(value: _bodyWeightTrendValue(latest, previous)),
+              const SizedBox(height: 8),
+              Text(
+                _weightDeltaLabel(latest, previous),
+                style: Theme.of(context).textTheme.labelMedium,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _weightDeltaLabel(entries[0], entries[1]),
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
+            ],
+            if (oldestRecent != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _bodyWeightWindowLabel(latest, oldestRecent),
+                style: TextStyle(color: context.appColors.textSecondary),
+              ),
+            ],
+            if (sortedEntries.length >= 2) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Historial reciente',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: 6),
+              for (final entry in sortedEntries.take(5))
+                _BodyWeightHistoryRow(entry: entry),
+            ],
           ],
           const SizedBox(height: 8),
           OutlinedButton.icon(
@@ -3798,6 +3841,97 @@ class BodyWeightCard extends StatelessWidget {
     if (delta == 0) return 'Sin cambio respecto del registro anterior.';
     final sign = delta > 0 ? '+' : '';
     return '$sign${delta.toStringAsFixed(1)} kg respecto del registro anterior.';
+  }
+
+  List<BodyWeightEntry> _recentBodyWeightWindow(List<BodyWeightEntry> sorted) {
+    if (sorted.isEmpty) return const [];
+    final latestDate = sorted.first.recordedAt;
+    final cutoff = latestDate.subtract(const Duration(days: 30));
+    return sorted
+        .where((entry) => entry.recordedAt.isAfter(cutoff))
+        .take(10)
+        .toList();
+  }
+
+  double _bodyWeightTrendValue(
+    BodyWeightEntry latest,
+    BodyWeightEntry previous,
+  ) {
+    if (previous.weightKg <= 0) return 0.5;
+    final ratio = latest.weightKg / previous.weightKg;
+    return ((ratio - 0.95) / 0.1).clamp(0.0, 1.0);
+  }
+
+  String _bodyWeightWindowLabel(
+    BodyWeightEntry latest,
+    BodyWeightEntry oldest,
+  ) {
+    final days = latest.recordedAt.difference(oldest.recordedAt).inDays.abs();
+    final delta = latest.weightKg - oldest.weightKg;
+    if (delta == 0) return 'Sin cambio en los últimos $days días registrados.';
+    final sign = delta > 0 ? '+' : '';
+    return '$sign${delta.toStringAsFixed(1)} kg en los últimos $days días registrados.';
+  }
+}
+
+class _BodyWeightMiniMetric extends StatelessWidget {
+  const _BodyWeightMiniMetric({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.raised,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 4),
+          Text(value, style: Theme.of(context).textTheme.titleMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _BodyWeightHistoryRow extends StatelessWidget {
+  const _BodyWeightHistoryRow({required this.entry});
+
+  final BodyWeightEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Icon(
+            Icons.monitor_weight_outlined,
+            size: 16,
+            color: colors.primaryStrong,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              _shortDate(entry.recordedAt.toLocal()),
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+          ),
+          Text(
+            '${entry.weightKg.toStringAsFixed(1)} kg',
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ],
+      ),
+    );
   }
 }
 

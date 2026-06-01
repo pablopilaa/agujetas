@@ -446,3 +446,11 @@ Trigésimo primer bloque Progreso implementado:
 - El gráfico de volumen deja de etiquetar siempre `Press banca`; muestra `Historial local` y el ejercicio dominante por volumen de la semana.
 - La tarjeta de dropsets muestra `N de M series efectivas` en vez de una barra estática.
 - Test de widget cubre volumen semanal, comparación contra semana previa, ejercicio dominante, volumen efectivo y dropsets desde sesiones locales.
+
+Trigésimo segundo bloque Peso corporal implementado:
+
+- La tarjeta de peso corporal muestra último peso, promedio reciente, delta contra el registro anterior e historial local reciente.
+- El cálculo ordena los registros por fecha, por lo que funciona aunque el store entregue entradas desordenadas.
+- La tendencia de 30 días se muestra como cambio acumulado entre el último registro y el más antiguo de la ventana reciente.
+- El registro de peso sigue siendo local-first y la alerta diaria sigue respetando la preferencia de Perfil.
+- Test de widget cubre tendencia, promedio e historial local de peso.

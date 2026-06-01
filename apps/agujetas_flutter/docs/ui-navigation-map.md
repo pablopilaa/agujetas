@@ -52,6 +52,7 @@ flowchart TD
   G --> G7["Ejercicio dominante semanal"]
   G3 --> G4["Registrar peso"]
   G3 --> G5["Alerta diaria de peso"]
+  G3 --> G8["Historial y tendencia local"]
   G --> D
 
   D["Calendario mensual"] --> D1["Mes anterior / siguiente / hoy"]
@@ -105,6 +106,7 @@ flowchart TD
 | Entrenar | Timer descanso | Programar alerta | Notificación local |
 | Progreso | Bottom nav | Registrar peso | Bottom sheet de peso |
 | Progreso | Alertarme cada mañana | Programar alerta diaria | Notificación local diaria |
+| Progreso | Peso corporal | Ver tendencia | Último peso, promedio reciente, delta e historial local |
 | Progreso | Volumen semanal | Revisar tendencia local | Comparación con semana previa cuando existe historial |
 | Progreso | Dropsets | Revisar series efectivas | Conteo real desde sesiones locales o sesión activa |
 | Progreso | Calendario | Ver calendario mensual | Bottom sheet de calendario con sesiones históricas |
