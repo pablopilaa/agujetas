@@ -945,20 +945,23 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
         .collection('routineTemplates')
         .where('ownerId', isEqualTo: ownerId)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(
-                (doc) =>
-                    RoutineTemplate.fromJson({...doc.data(), 'id': doc.id}),
-              )
-              .where(
-                (routine) =>
-                    routine.id.isNotEmpty &&
-                    routine.ownerId == ownerId &&
-                    routine.exercises.isNotEmpty,
-              )
-              .toList(),
-        );
+        .map((snapshot) {
+          final routines =
+              snapshot.docs
+                  .map(
+                    (doc) =>
+                        RoutineTemplate.fromJson({...doc.data(), 'id': doc.id}),
+                  )
+                  .where(
+                    (routine) =>
+                        routine.id.isNotEmpty &&
+                        routine.ownerId == ownerId &&
+                        routine.exercises.isNotEmpty,
+                  )
+                  .toList()
+                ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+          return routines;
+        });
   }
 
   @override

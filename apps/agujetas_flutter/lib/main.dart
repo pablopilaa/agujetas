@@ -928,7 +928,7 @@ class _HomeShellState extends State<HomeShell> {
       }
     });
     if (_canSyncRemoteUserData) {
-      unawaited(_syncRoutineTemplateBestEffort(routine));
+      unawaited(_pushLocalRoutineTemplatesBestEffort(routines));
     }
   }
 
@@ -1012,13 +1012,14 @@ class _HomeShellState extends State<HomeShell> {
       userId: widget.user.uid,
       routines: next,
     );
+    final routines = await _localStore.loadRoutineTemplates(widget.user.uid);
     if (!mounted) return;
     setState(() {
-      _localRoutines = next;
+      _localRoutines = routines;
       _notice = 'Orden de rutinas actualizado.';
     });
     if (_canSyncRemoteUserData) {
-      unawaited(_pushLocalRoutineTemplatesBestEffort(next));
+      unawaited(_pushLocalRoutineTemplatesBestEffort(routines));
     }
   }
 
@@ -1318,21 +1319,6 @@ class _HomeShellState extends State<HomeShell> {
       setState(() {
         _notice =
             'Rutinas locales conservadas; la sincronización remota quedó pendiente.';
-      });
-    }
-  }
-
-  Future<void> _syncRoutineTemplateBestEffort(RoutineTemplate routine) async {
-    try {
-      await widget.repository.saveRoutineTemplate(
-        owner: widget.user,
-        routine: routine,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _notice =
-            'Rutina guardada localmente; la sincronización remota quedó pendiente.';
       });
     }
   }

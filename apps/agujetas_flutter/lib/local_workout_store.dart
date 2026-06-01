@@ -792,11 +792,16 @@ class LocalWorkoutStore {
     if (raw == null || raw.isEmpty) return const [];
     final decoded = jsonDecode(raw);
     if (decoded is! List) return const [];
-    return decoded
+    final routines = decoded
         .whereType<Map>()
         .map((item) => RoutineTemplate.fromJson(item.cast<String, Object?>()))
         .where((routine) => routine.ownerId == userId)
         .toList();
+    final normalized = <RoutineTemplate>[];
+    for (final routine in routines) {
+      normalized.add(routine.copyWith(orderIndex: normalized.length));
+    }
+    return normalized;
   }
 
   Future<void> saveRoutineTemplateLocal({
@@ -834,18 +839,25 @@ class LocalWorkoutStore {
     final previous = await loadRoutineTemplates(userId);
     final next = [...previous];
     var changed = 0;
+    final incoming = [...routines]
+      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
 
-    for (final routine in routines) {
+    for (final routine in incoming) {
       if (routine.id.isEmpty || routine.exercises.isEmpty) continue;
       final normalized = routine.copyWith(ownerId: userId);
       final index = next.indexWhere((item) => item.id == normalized.id);
       if (index == -1) {
-        next.insert(0, normalized);
+        next.insert(
+          normalized.orderIndex.clamp(0, next.length).toInt(),
+          normalized,
+        );
         changed++;
         continue;
       }
-      if (!_sameRoutineTemplate(next[index], normalized)) {
-        next[index] = normalized;
+      final previous = next.removeAt(index);
+      final targetIndex = normalized.orderIndex.clamp(0, next.length).toInt();
+      next.insert(targetIndex, normalized);
+      if (!_sameRoutineTemplate(previous, normalized) || index != targetIndex) {
         changed++;
       }
     }
@@ -861,10 +873,13 @@ class LocalWorkoutStore {
     required List<RoutineTemplate> routines,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final normalized = routines
-        .where((routine) => routine.exercises.isNotEmpty)
-        .map((routine) => routine.copyWith(ownerId: userId))
-        .toList();
+    final normalized = <RoutineTemplate>[];
+    for (final routine in routines) {
+      if (routine.exercises.isEmpty) continue;
+      normalized.add(
+        routine.copyWith(ownerId: userId, orderIndex: normalized.length),
+      );
+    }
     await prefs.setString(
       _routinesKey(userId),
       jsonEncode(normalized.map((item) => item.toJson()).toList()),
@@ -875,6 +890,7 @@ class LocalWorkoutStore {
     if (a.id != b.id ||
         a.ownerId != b.ownerId ||
         a.title != b.title ||
+        a.orderIndex != b.orderIndex ||
         a.assignedClientId != b.assignedClientId ||
         a.exercises.length != b.exercises.length) {
       return false;

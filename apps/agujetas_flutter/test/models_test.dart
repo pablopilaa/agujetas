@@ -1048,6 +1048,7 @@ void main() {
 
     final inserted = await store.loadRoutineTemplates('crud-user');
     expect(inserted.map((routine) => routine.id), ['routine-b', 'routine-a']);
+    expect(inserted.map((routine) => routine.orderIndex), [0, 1]);
     expect(inserted.every((routine) => routine.ownerId == 'crud-user'), true);
 
     await store.replaceRoutineTemplates(
@@ -1056,6 +1057,7 @@ void main() {
     );
     final reordered = await store.loadRoutineTemplates('crud-user');
     expect(reordered.map((routine) => routine.id), ['routine-a', 'routine-b']);
+    expect(reordered.map((routine) => routine.orderIndex), [0, 1]);
 
     await store.saveRoutineTemplateLocal(
       userId: 'crud-user',
@@ -1100,13 +1102,14 @@ void main() {
       final changed = await store.mergeRoutineTemplatesLocal(
         userId: 'routine-sync-user',
         routines: [
-          second.copyWith(title: 'Espalda y bíceps remoto'),
           RoutineTemplate(
             id: 'routine-c',
             ownerId: 'remote-owner',
             title: 'Push remoto',
             exercises: exercises.take(3).toList(),
+            orderIndex: 0,
           ),
+          second.copyWith(title: 'Espalda y bíceps remoto', orderIndex: 2),
         ],
       );
 
@@ -1117,6 +1120,7 @@ void main() {
         'routine-a',
         'routine-b',
       ]);
+      expect(routines.map((routine) => routine.orderIndex), [0, 1, 2]);
       expect(routines.last.title, 'Espalda y bíceps remoto');
       expect(
         routines.every((routine) => routine.ownerId == 'routine-sync-user'),
@@ -1124,6 +1128,27 @@ void main() {
       );
     },
   );
+
+  test('routine template serializes order index for remote sync', () {
+    final routine = RoutineTemplate(
+      id: 'routine-order',
+      ownerId: 'routine-owner',
+      title: 'Orden remota',
+      exercises: seedWorkout().take(1).toList(),
+      orderIndex: 7,
+    );
+
+    final decoded = RoutineTemplate.fromJson(routine.toJson());
+    final legacyDecoded = RoutineTemplate.fromJson({
+      'id': 'legacy-routine',
+      'ownerId': 'routine-owner',
+      'title': 'Legacy',
+      'exercises': <Object?>[],
+    });
+
+    expect(decoded.orderIndex, 7);
+    expect(legacyDecoded.orderIndex, greaterThan(1000));
+  });
 
   test('local backup exports and imports all local-first data', () async {
     SharedPreferences.setMockInitialValues({});

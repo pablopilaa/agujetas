@@ -175,7 +175,7 @@ flowchart TD
 | Biblioteca | Guardar cambios | Persistir rutina local | Rutina disponible offline en Mis ejercicios |
 | Biblioteca | Rutinas | Sync remoto | Merge Firestore `routineTemplates` por `ownerId` sin borrar plantillas offline |
 | Biblioteca | Agregar ejercicio | Agregar a rutina activa | Entrenamiento actual actualizado |
-| Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado |
+| Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado y sync remoto por `orderIndex` |
 | Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado, guardado local y sync `/users/{uid}/preferences/app` |
 | Perfil | Permisos | Cambiar alertas/galería | Guardado local y sync `/users/{uid}/preferences/app` |
 | Perfil | Plan y suscripción | Ver planes | Sheet Agujetas Free / Agujetas Pro |
@@ -215,8 +215,8 @@ flowchart TD
 - Las preferencias de Perfil se leen primero desde el dispositivo y después desde Firebase. Si Firebase falla, la app conserva el valor local y muestra aviso.
 - El peso corporal se muestra desde local inmediatamente, sube registros recientes a Firestore en segundo plano y fusiona snapshots remotos por `id`.
 - Los ejercicios personalizados siguen el mismo patrón local-first: catálogo local inmediato, sync Firestore por `ownerId`, delete remoto best-effort y sin Firebase Storage.
-- Las rutinas siguen el mismo patrón local-first: biblioteca local inmediata, sync Firestore por `ownerId`, delete remoto best-effort y sin bloquear la edición offline.
-- El orden local de rutinas se preserva al fusionar snapshots remotos; replicar ese orden entre dispositivos requiere un campo de orden remoto dedicado.
+- Las rutinas siguen el mismo patrón local-first: biblioteca local inmediata, sync Firestore por `ownerId`, `orderIndex` para replicar reorder entre dispositivos, delete remoto best-effort y sin bloquear la edición offline.
+- El orden local de rutinas se preserva al fusionar snapshots remotos y se replica entre dispositivos con `orderIndex`.
 - Las sesiones siguen el mismo patrón local-first: calendario/progreso leen del dispositivo, sync Firestore por `ownerId`, delete remoto best-effort y merge por `id`.
 - El `id` local de sesión es el `docId` remoto; no se usa `add()` para evitar duplicados imposibles de reconciliar.
 - Las asignaciones de entrenador viven en `assignedRoutines`, `tasks`, `schedules` y `goals`: el entrenador escribe sólo si tiene vínculo activo con el entrenado y el usuario normal lee sus rutinas/tareas/schedules/metas por `assignedClientId`.

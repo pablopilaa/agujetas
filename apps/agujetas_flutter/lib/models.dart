@@ -479,6 +479,7 @@ class RoutineTemplate {
     required this.ownerId,
     required this.title,
     required this.exercises,
+    this.orderIndex = 0,
     this.assignedClientId,
   });
 
@@ -486,6 +487,7 @@ class RoutineTemplate {
   final String ownerId;
   final String title;
   final List<WorkoutExercise> exercises;
+  final int orderIndex;
   final String? assignedClientId;
 
   Map<String, Object?> toJson() => {
@@ -493,6 +495,7 @@ class RoutineTemplate {
     'ownerId': ownerId,
     'title': title,
     'exercises': exercises.map((exercise) => exercise.toJson()).toList(),
+    'orderIndex': orderIndex,
     'assignedClientId': assignedClientId,
     'updatedAt': DateTime.now().toUtc().toIso8601String(),
   };
@@ -502,6 +505,7 @@ class RoutineTemplate {
     String? ownerId,
     String? title,
     List<WorkoutExercise>? exercises,
+    int? orderIndex,
     String? assignedClientId,
   }) {
     return RoutineTemplate(
@@ -509,6 +513,7 @@ class RoutineTemplate {
       ownerId: ownerId ?? this.ownerId,
       title: title ?? this.title,
       exercises: exercises ?? this.exercises,
+      orderIndex: orderIndex ?? this.orderIndex,
       assignedClientId: assignedClientId ?? this.assignedClientId,
     );
   }
@@ -523,6 +528,9 @@ class RoutineTemplate {
       ownerId: json['ownerId']?.toString() ?? '',
       title: json['title']?.toString() ?? 'Rutina importada',
       exercises: exercises,
+      orderIndex: json.containsKey('orderIndex')
+          ? _readInt(json['orderIndex'])
+          : 1 << 20,
       assignedClientId: json['assignedClientId']?.toString(),
     );
   }

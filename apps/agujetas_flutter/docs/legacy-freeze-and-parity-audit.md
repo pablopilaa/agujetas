@@ -563,7 +563,7 @@ Cuadragésimo sexto bloque Rutinas bidireccionales:
 - `watchRoutineTemplates` consulta `routineTemplates` por `ownerId`; cada documento remoto se normaliza con el id del documento para evitar ownership implícito incorrecto.
 - `LocalWorkoutStore.mergeRoutineTemplatesLocal` fusiona por `id`, actualiza cambios remotos y conserva plantillas offline no sincronizadas.
 - El borrado de una rutina local intenta eliminar también el documento remoto para que no reaparezca desde Firestore.
-- El orden local se preserva durante merges; queda pendiente modelar un `orderIndex` remoto si se quiere replicar reorder entre dispositivos.
+- El orden local se preserva durante merges; desde el sexagésimo cuarto bloque se modela `orderIndex` remoto para replicar reorder entre dispositivos.
 
 Cuadragésimo séptimo bloque Sesiones bidireccionales:
 
@@ -706,3 +706,9 @@ Sexagésimo tercer bloque Seguridad de cuenta accionable:
 - La fila `Cuenta Google verificada` en Perfil deja de ser no-op.
 - Ahora abre un sheet con email, nombre visible, UID copiable, plan, rol activo, estado de sincronización y permisos comerciales.
 - El sheet diferencia demo local de sesión autenticada para no prometer sync remoto en `demo-user`.
+
+Sexagésimo cuarto bloque Orden remoto de rutinas:
+
+- `RoutineTemplate` incorpora `orderIndex` serializable para Firestore y backups locales.
+- El store local normaliza índices al guardar, duplicar, borrar o reordenar rutinas.
+- El merge remoto respeta `orderIndex` entrante y el watcher Firebase devuelve rutinas ordenadas, cerrando la brecha de reorder multi-dispositivo.
