@@ -4089,6 +4089,17 @@ List<LocalWorkoutSession> _sessionsSince(
       .toList();
 }
 
+List<LocalWorkoutSession> _sessionsBetween(
+  List<LocalWorkoutSession> sessions,
+  DateTime start,
+  DateTime end,
+) {
+  return sessions.where((session) {
+    final finished = session.finishedAt.toLocal();
+    return finished.isAfter(start) && finished.isBefore(end);
+  }).toList();
+}
+
 List<WeeklyActivityDay> _weeklyActivity(List<LocalWorkoutSession> sessions) {
   final today = DateTime.now();
   final monday = DateTime(
@@ -4135,6 +4146,42 @@ List<double> _weeklyVolumePoints(List<LocalWorkoutSession> sessions) {
   );
   if (maxVolume <= 0) return List<double>.filled(7, 0);
   return volumes.map((volume) => volume / maxVolume).toList();
+}
+
+double _progressRatio({
+  required double value,
+  required double baseline,
+  required double fallbackMax,
+}) {
+  if (value <= 0) return 0;
+  if (baseline > 0) return (value / baseline / 1.25).clamp(0.05, 1.0);
+  return (value / fallbackMax).clamp(0.05, 1.0);
+}
+
+String _weeklyVolumeComparison(double current, double previous) {
+  if (previous <= 0) {
+    return 'Calculado desde sesiones guardadas localmente. Sin semana previa comparable.';
+  }
+  final delta = ((current - previous) / previous) * 100;
+  final prefix = delta >= 0 ? '+' : '';
+  return '$prefix${delta.toStringAsFixed(1)}% vs semana previa, desde historial local.';
+}
+
+String? _topExerciseByVolume(List<LocalWorkoutSession> sessions) {
+  final volumeByName = <String, double>{};
+  for (final session in sessions) {
+    for (final exercise in session.exercises) {
+      final volume = _exerciseVolume(exercise);
+      if (volume <= 0) continue;
+      volumeByName.update(
+        exercise.name,
+        (previous) => previous + volume,
+        ifAbsent: () => volume,
+      );
+    }
+  }
+  if (volumeByName.isEmpty) return null;
+  return volumeByName.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
 }
 
 int _trainingStreakDays(List<LocalWorkoutSession> sessions) {
@@ -4915,12 +4962,26 @@ class ProgressScreen extends StatelessWidget {
       localSessions,
       DateTime.now().subtract(const Duration(days: 7)),
     );
+    final previousSessions = _sessionsBetween(
+      localSessions,
+      DateTime.now().subtract(const Duration(days: 14)),
+      DateTime.now().subtract(const Duration(days: 7)),
+    );
     final activeVolume = _workoutVolume(exercises);
     final savedWeeklyVolume = recentSessions.fold<double>(
       0,
       (sum, session) => sum + _sessionVolume(session),
     );
+    final previousWeeklyVolume = previousSessions.fold<double>(
+      0,
+      (sum, session) => sum + _sessionVolume(session),
+    );
     final volume = savedWeeklyVolume > 0 ? savedWeeklyVolume : activeVolume;
+    final volumeProgress = _progressRatio(
+      value: volume,
+      baseline: previousWeeklyVolume,
+      fallbackMax: 12000,
+    );
     final workingSets = savedWeeklyVolume > 0
         ? recentSessions
               .expand((session) => session.exercises)
@@ -4931,10 +4992,17 @@ class ProgressScreen extends StatelessWidget {
               .expand((exercise) => exercise.sets)
               .where((set) => set.setType != SetType.warmup)
               .toList();
+    final dropSetCount = workingSets
+        .where((set) => set.setType == SetType.dropset)
+        .length;
+    final dropSetRatio = workingSets.isEmpty
+        ? 0.0
+        : dropSetCount / workingSets.length;
     final weeklyActivity = _weeklyActivity(localSessions);
     final streak = _trainingStreakDays(localSessions);
     final bestWeight = BestSetRecord.bestWeight(localSessions);
     final bestVolume = BestSetRecord.bestVolume(localSessions);
+    final topExercise = _topExerciseByVolume(recentSessions);
     return AppScaffold(
       title: 'Progreso',
       user: user,
@@ -4995,11 +5063,15 @@ class ProgressScreen extends StatelessWidget {
           icon: Icons.show_chart,
           title: 'Volumen semanal',
           subtitle: savedWeeklyVolume > 0
-              ? 'Calculado desde sesiones guardadas localmente.'
+              ? _weeklyVolumeComparison(volume, previousWeeklyVolume)
               : 'Todavía sin historial semanal; uso la sesión actual como vista previa.',
           child: _VolumeChartCard(
             volume: volume,
             points: _weeklyVolumePoints(localSessions),
+            primaryLabel: savedWeeklyVolume > 0
+                ? 'Historial local'
+                : 'Vista previa',
+            secondaryLabel: topExercise,
           ),
         ),
         const _CompactSectionTitle('Marcas personales'),
@@ -5022,7 +5094,7 @@ class ProgressScreen extends StatelessWidget {
           icon: Icons.monitor_weight_outlined,
           title: 'Volumen efectivo',
           subtitle: '${volume.round()} kg-reps sin contar calentamientos',
-          child: _ProgressBar(value: workingSets.isEmpty ? 0 : 0.68),
+          child: _ProgressBar(value: workingSets.isEmpty ? 0 : volumeProgress),
         ),
         const _CompactSectionTitle('Hitos recientes'),
         DashboardCard(
@@ -5040,9 +5112,8 @@ class ProgressScreen extends StatelessWidget {
         DashboardCard(
           icon: Icons.layers_outlined,
           title: 'Dropsets',
-          subtitle:
-              '${workingSets.where((set) => set.setType == SetType.dropset).length} series con reducción de peso',
-          child: const _ProgressBar(value: 0.42),
+          subtitle: '$dropSetCount de ${workingSets.length} series efectivas',
+          child: _ProgressBar(value: dropSetRatio),
         ),
         BodyWeightCard(
           user: user,
@@ -5160,10 +5231,17 @@ class _WeeklyActivityStrip extends StatelessWidget {
 }
 
 class _VolumeChartCard extends StatelessWidget {
-  const _VolumeChartCard({required this.volume, required this.points});
+  const _VolumeChartCard({
+    required this.volume,
+    required this.points,
+    required this.primaryLabel,
+    required this.secondaryLabel,
+  });
 
   final double volume;
   final List<double> points;
+  final String primaryLabel;
+  final String? secondaryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -5179,20 +5257,25 @@ class _VolumeChartCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _SoftChip(
-                label: 'General',
-                color: Colors.white,
-                background: colors.primaryContainer,
-              ),
-              const SizedBox(width: 6),
-              _SoftChip(
-                label: 'Press banca',
-                color: colors.primaryStrong,
-                background: colors.raised,
-              ),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _SoftChip(
+                  label: primaryLabel,
+                  color: Colors.white,
+                  background: colors.primaryContainer,
+                ),
+                if (secondaryLabel != null) ...[
+                  const SizedBox(width: 6),
+                  _SoftChip(
+                    label: secondaryLabel!,
+                    color: colors.primaryStrong,
+                    background: colors.raised,
+                  ),
+                ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(

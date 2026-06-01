@@ -438,3 +438,11 @@ Trigésimo bloque Biblioteca implementado:
 - El módulo de edición muestra un botón explícito `Guardar cambios` además de las acciones de copia, entrenamiento y agregar desde catálogo.
 - Si el catálogo JSON grande todavía no cargó, la pantalla muestra ejercicios semilla como fallback temporal para no quedar vacía.
 - Test de widget cubre crear borrador de rutina, pasar al catálogo y agregar un ejercicio.
+
+Trigésimo primer bloque Progreso implementado:
+
+- La pantalla Progreso elimina barras fijas: volumen efectivo y dropsets ahora usan proporciones calculadas desde sesiones locales o desde la sesión activa como vista previa.
+- El volumen semanal compara contra la semana previa cuando existe historial local comparable.
+- El gráfico de volumen deja de etiquetar siempre `Press banca`; muestra `Historial local` y el ejercicio dominante por volumen de la semana.
+- La tarjeta de dropsets muestra `N de M series efectivas` en vez de una barra estática.
+- Test de widget cubre volumen semanal, comparación contra semana previa, ejercicio dominante, volumen efectivo y dropsets desde sesiones locales.

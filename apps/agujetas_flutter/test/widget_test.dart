@@ -795,6 +795,109 @@ void main() {
     expect(find.text('00:30'), findsOneWidget);
   });
 
+  testWidgets(
+    'progress screen derives volume and dropsets from local sessions',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final now = DateTime.now().toUtc();
+      const user = AppUser(
+        uid: 'progress-user',
+        displayName: 'Demo',
+        email: 'demo@agujetas.app',
+        photoUrl: null,
+        roles: {AppRole.normal},
+        activeRole: AppRole.normal,
+        plan: AppPlan.free,
+      );
+      final current = LocalWorkoutSession(
+        id: 'current-week',
+        userId: user.uid,
+        sessionMode: 'Fuerza',
+        startedAt: now.subtract(const Duration(days: 1, minutes: 50)),
+        finishedAt: now.subtract(const Duration(days: 1)),
+        durationSeconds: 3000,
+        exercises: const [
+          WorkoutExercise(
+            id: 'bench',
+            name: 'Press banca',
+            muscleGroup: 'Pectoral',
+            isUnilateral: false,
+            sets: [
+              WorkoutSet(
+                order: 1,
+                setType: SetType.normal,
+                segments: [WeightSegment(weightKg: 100, reps: 5)],
+              ),
+              WorkoutSet(
+                order: 2,
+                setType: SetType.dropset,
+                segments: [WeightSegment(weightKg: 80, reps: 5)],
+              ),
+            ],
+          ),
+        ],
+      );
+      final previous = LocalWorkoutSession(
+        id: 'previous-week',
+        userId: user.uid,
+        sessionMode: 'Fuerza',
+        startedAt: now.subtract(const Duration(days: 8, minutes: 40)),
+        finishedAt: now.subtract(const Duration(days: 8)),
+        durationSeconds: 2400,
+        exercises: const [
+          WorkoutExercise(
+            id: 'bench',
+            name: 'Press banca',
+            muscleGroup: 'Pectoral',
+            isUnilateral: false,
+            sets: [
+              WorkoutSet(
+                order: 1,
+                setType: SetType.normal,
+                segments: [WeightSegment(weightKg: 50, reps: 5)],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AgujetasTheme.light(),
+          home: Scaffold(
+            body: ProgressScreen(
+              user: user,
+              repository: DemoAgujetasRepository(),
+              exercises: seedWorkout(),
+              localSessions: [current, previous],
+              bodyWeights: const [],
+              bodyWeightAlertsEnabled: false,
+              onOpenCalendar: () {},
+              onBodyWeightSaved: (_) async {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('+260.0% vs semana previa, desde historial local.'),
+        findsOneWidget,
+      );
+      expect(find.text('Historial local'), findsOneWidget);
+      expect(find.text('Press banca'), findsWidgets);
+      expect(
+        find.text('900 kg-reps sin contar calentamientos'),
+        findsOneWidget,
+      );
+      expect(find.text('1 de 2 series efectivas'), findsOneWidget);
+    },
+  );
+
   testWidgets('training mode dropdown confirms reset after session activity', (
     tester,
   ) async {
