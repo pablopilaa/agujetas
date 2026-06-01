@@ -115,11 +115,15 @@ flowchart TD
 | Inicio | Usuario Pro | Tocar Modo entrenador | Panel entrenador |
 | Inicio | Usuario vinculado | Rutinas asignadas | Lista desde Firestore `assignedRoutines` |
 | Inicio | Usuario vinculado | Tareas del entrenador | Lista desde Firestore `tasks` |
-| Inicio | Tarea asignada | Completar | Actualizar `tasks/{id}.status = completed` |
+| Inicio | Tarea asignada | Revisar | Hoja de accion con descripcion, vencimiento y completar |
+| Inicio | Tarea asignada | Marcar como completada | Actualizar `tasks/{id}.status = completed` |
 | Inicio | Usuario vinculado | Schedules asignados | Lista desde Firestore `schedules` |
-| Inicio | Schedule asignado | Cancelar | Actualizar `schedules/{id}.status = cancelled` |
+| Inicio | Schedule asignado | Gestionar | Hoja de accion con estado, nota, cancelar o reprogramar |
+| Inicio | Schedule asignado | Cancelar schedule | Actualizar `schedules/{id}.status = cancelled` |
+| Inicio | Schedule asignado | Reprogramar | Actualizar `schedules/{id}.scheduledFor` y mantener `status = scheduled` |
 | Inicio | Usuario vinculado | Metas del entrenador | Lista desde Firestore `goals` con progreso |
-| Inicio | Meta asignada | +25% | Actualizar `goals/{id}.currentValue` y completar si llega al objetivo |
+| Inicio | Meta asignada | Actualizar | Dialog con valor manual de progreso |
+| Inicio | Meta asignada | Guardar valor | Actualizar `goals/{id}.currentValue` y completar si llega al objetivo |
 | Inicio | Selector Fuerza / Hipertrofia / Técnica / Libre | Elegir modo de sesión | Entrenar con modo elegido |
 | Inicio | CTA iniciar entrenamiento | Iniciar sesión recomendada | Entrenar |
 | Inicio | Card calendario | Ver calendario mensual | Bottom sheet de calendario con navegación por mes |
@@ -139,7 +143,7 @@ flowchart TD
 | Progreso | Calendario | Ver calendario mensual | Bottom sheet de calendario con sesiones históricas |
 | Calendario mensual | Flechas mes anterior/siguiente | Cambiar mes visible | Misma pantalla con resumen mensual actualizado |
 | Calendario mensual | Día con sesiones | Revisar entrenos del día | Hoja con sesiones de esa fecha |
-| Calendario mensual | Día con schedule | Revisar sesión planificada | Hoja con schedule, nota y rutina sugerida |
+| Calendario mensual | Día con schedule | Revisar sesión planificada | Hoja con schedule, estado, nota y rutina sugerida |
 | Calendario mensual | Sesión histórica | Ver detalle completo | Hoja con ejercicios, series, kg, reps, RIR y segmentos |
 | Calendario mensual | Sesiones | Sync remoto | Merge Firestore `sessions` por `ownerId` sin borrar historial offline |
 | Calendario mensual | Schedules | Sync remoto | Leer Firestore `schedules` por `assignedClientId` |
@@ -197,7 +201,7 @@ flowchart TD
 - Las sesiones siguen el mismo patrón local-first: calendario/progreso leen del dispositivo, sync Firestore por `ownerId`, delete remoto best-effort y merge por `id`.
 - El `id` local de sesión es el `docId` remoto; no se usa `add()` para evitar duplicados imposibles de reconciliar.
 - Las asignaciones de entrenador viven en `assignedRoutines`, `tasks`, `schedules` y `goals`: el entrenador escribe sólo si tiene vínculo activo con el entrenado y el usuario normal lee sus rutinas/tareas/schedules/metas por `assignedClientId`.
-- Las acciones del entrenado sobre asignaciones no deben mutar UI solamente: completado de tarea, cancelación de schedule y avance de meta deben pasar por `AgujetasRepository` y escribir Firestore/demo.
+- Las acciones del entrenado sobre asignaciones no deben mutar UI solamente: completado de tarea, cancelacion/reprogramacion de schedule y progreso manual de meta deben pasar por `AgujetasRepository` y escribir Firestore/demo.
 
 ## Pendientes UX
 

@@ -89,6 +89,7 @@ abstract class AgujetasRepository {
     required AppUser user,
     required AssignedSchedule schedule,
     required String status,
+    DateTime? scheduledFor,
   });
   Future<AssignedGoal> assignGoalToClient({
     required AppUser trainer,
@@ -566,12 +567,15 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     required AppUser user,
     required AssignedSchedule schedule,
     required String status,
+    DateTime? scheduledFor,
   }) async {
     if (schedule.assignedClientId != user.uid) {
       throw StateError('Este schedule no pertenece al usuario actual.');
     }
     await _firestore.collection('schedules').doc(schedule.id).update({
       'status': status,
+      if (scheduledFor != null)
+        'scheduledFor': scheduledFor.toUtc().toIso8601String(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -1155,9 +1159,13 @@ class DemoAgujetasRepository implements AgujetasRepository {
     required AppUser user,
     required AssignedSchedule schedule,
     required String status,
+    DateTime? scheduledFor,
   }) async {
     _assignedScheduleItems.removeWhere((item) => item.id == schedule.id);
-    _assignedScheduleItems.insert(0, schedule.copyWith(status: status));
+    _assignedScheduleItems.insert(
+      0,
+      schedule.copyWith(status: status, scheduledFor: scheduledFor),
+    );
     _assignedSchedules.add(List.unmodifiable(_assignedScheduleItems));
   }
 

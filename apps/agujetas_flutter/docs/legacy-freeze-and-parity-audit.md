@@ -619,3 +619,12 @@ Quincuagésimo segundo bloque Acciones del entrenado sobre asignaciones:
 - La demo actualiza sus listas en memoria y emite streams para que preview/tests no dependan de Firestore.
 - El usuario normal puede tocar `Completar` en una tarea, `Cancelar` en un schedule y `+25%` en una meta.
 - Quedan pendientes edición fina: comentarios de entrega, reprogramación de schedule, input manual de progreso de meta y auditoría de cambios por entrenador.
+
+Quincuagésimo tercer bloque Acciones detalladas y calendario de schedules:
+
+- Las tareas asignadas ya no se completan desde un botón rápido: abren una hoja de revisión con descripción, vencimiento y acción explícita.
+- Los schedules asignados abren una hoja de gestión con estado, nota, cancelación y reprogramación mediante selector de fecha/hora.
+- `updateAssignedScheduleStatus` acepta `scheduledFor` opcional para persistir reprogramaciones en Firestore/demo sin crear documentos duplicados.
+- Las metas asignadas reemplazan el avance fijo `+25%` por un diálogo de carga manual del valor actual y completan la meta si alcanza el objetivo.
+- El calendario mensual diferencia schedules planificados, completados y cancelados con chips/resumen de estado y marcas de color por día.
+- Quedan pendientes comentarios/evidencia de entrega por tarea, auditoría visible para entrenador y recordatorios locales de schedules planificados.

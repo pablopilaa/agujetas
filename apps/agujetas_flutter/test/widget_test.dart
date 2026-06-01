@@ -258,21 +258,28 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Completar'));
-    await tester.tap(find.text('Completar'));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.ensureVisible(find.text('Revisar'));
+    await tester.tap(find.text('Revisar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Marcar como completada'));
+    await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Cancelar'));
-    await tester.tap(find.text('Cancelar'));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.ensureVisible(find.text('Gestionar'));
+    await tester.tap(find.text('Gestionar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancelar schedule'));
+    await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('+25%'));
-    await tester.tap(find.text('+25%'));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.ensureVisible(find.text('Actualizar'));
+    await tester.tap(find.text('Actualizar'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '9000');
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
 
     expect(repository.updatedTaskStatus, 'completed');
     expect(repository.updatedScheduleStatus, 'cancelled');
-    expect(repository.updatedGoalValue, 4500);
+    expect(repository.updatedGoalValue, 9000);
     expect(notices, contains('Tarea "Registrar peso corporal" completada.'));
     expect(notices, contains('Schedule "Sesión técnica" cancelado.'));
     expect(notices, contains('Meta "Volumen semanal" actualizada.'));
@@ -2092,6 +2099,7 @@ class _AssignmentActionRepository extends DemoAgujetasRepository {
     required AppUser user,
     required AssignedSchedule schedule,
     required String status,
+    DateTime? scheduledFor,
   }) async {
     updatedScheduleStatus = status;
   }

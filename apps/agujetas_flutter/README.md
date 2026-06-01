@@ -43,7 +43,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.
 - Vinculacion entrenador-entrenado por codigo de invitacion.
 - Modo entrenador Pro con primera asignacion real de rutinas, tareas, schedules y metas: el entrenador puede asignar una plantilla existente a un entrenado vinculado, enviar una tarea puntual, agendar una sesion, asignar una meta medible y el usuario normal ve rutinas/tareas/schedules/metas asignados desde `assignedRoutines`, `tasks`, `schedules` y `goals`.
-- El usuario normal puede accionar asignaciones recibidas: completar tareas, cancelar schedules y actualizar progreso de metas con persistencia en Firestore/demo.
+- El usuario normal puede accionar asignaciones recibidas desde flujos detallados: completar tareas, cancelar o reprogramar schedules y actualizar progreso de metas con valor manual persistido en Firestore/demo.
 - Series con:
   - `setType`: `normal`, `warmup`, `dropset`.
   - `segments`: pesos/reps multiples, por ejemplo `20 kg x 8 + 10 kg x 6`.
@@ -133,7 +133,7 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 - Convertir importaciones legacy en flujo visible/configurable antes de publicar una build comercial.
 - Mejorar ergonomia del editor profundo de rutinas y peso corporal en Android real: gestos, foco de campos y acciones mas visibles.
 - Ejecutar tests de reglas con Firebase Emulator Suite.
-- Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
+- Completar auditoria de cambios por entrenador para tareas/schedules/metas.
 - Reemplazar el contrato técnico preliminar de consentimiento por términos y política de privacidad finales con asesoría legal antes de producción.
 - Crear Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente.
 - Definir política de conflictos de sesiones si dos dispositivos editan la misma nota/título offline antes de sincronizar.

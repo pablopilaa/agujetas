@@ -2189,8 +2189,9 @@ class _AthletePanel extends StatelessWidget {
                             trailing: task.status == 'completed'
                                 ? const Icon(Icons.check_circle)
                                 : TextButton(
-                                    onPressed: () => _completeTask(task),
-                                    child: const Text('Completar'),
+                                    onPressed: () =>
+                                        _openTaskAction(context, task),
+                                    child: const Text('Revisar'),
                                   ),
                           ),
                       ],
@@ -2217,14 +2218,13 @@ class _AthletePanel extends StatelessWidget {
                         title: Text(schedule.title),
                         subtitle: Text(
                           '${_scheduleSubtitle(schedule)}'
-                          '${schedule.status == 'cancelled' ? ' · cancelado' : ''}',
+                          ' · ${_scheduleStatusLabel(schedule.status)}',
                         ),
-                        trailing: schedule.status == 'cancelled'
-                            ? const Icon(Icons.event_busy)
-                            : TextButton(
-                                onPressed: () => _cancelSchedule(schedule),
-                                child: const Text('Cancelar'),
-                              ),
+                        trailing: TextButton(
+                          onPressed: () =>
+                              _openScheduleAction(context, schedule),
+                          child: const Text('Gestionar'),
+                        ),
                       ),
                   ],
                 ),
@@ -2257,14 +2257,152 @@ class _AthletePanel extends StatelessWidget {
                         trailing: TextButton(
                           onPressed: goal.status == 'completed'
                               ? null
-                              : () => _advanceGoal(goal),
-                          child: const Text('+25%'),
+                              : () => _openGoalProgressEditor(context, goal),
+                          child: const Text('Actualizar'),
                         ),
                       ),
                   ],
                 ),
         ),
       ],
+    );
+  }
+
+  void _openTaskAction(BuildContext context, AssignedTask task) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Text(task.title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(task.description),
+            if (task.dueAt != null) ...[
+              const SizedBox(height: 10),
+              _SoftChip(
+                label: 'Vence ${_formatShortDateTime(task.dueAt!)}',
+                color: context.appColors.primaryStrong,
+                background: context.appColors.raised,
+              ),
+            ],
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(sheetContext).pop();
+                _completeTask(task);
+              },
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Marcar como completada'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openScheduleAction(BuildContext context, AssignedSchedule schedule) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Text(schedule.title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(_scheduleSubtitle(schedule)),
+            const SizedBox(height: 10),
+            _SoftChip(
+              label: _scheduleStatusLabel(schedule.status),
+              color: _scheduleStatusColor(context, schedule.status),
+              background: _scheduleStatusColor(
+                context,
+                schedule.status,
+              ).withValues(alpha: 0.12),
+            ),
+            if (schedule.note != null && schedule.note!.trim().isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(schedule.note!),
+            ],
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: schedule.status == 'cancelled'
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      _rescheduleSchedule(context, schedule);
+                    },
+              icon: const Icon(Icons.edit_calendar_outlined),
+              label: const Text('Reprogramar'),
+            ),
+            const SizedBox(height: 8),
+            FilledButton.tonalIcon(
+              onPressed: schedule.status == 'cancelled'
+                  ? null
+                  : () {
+                      Navigator.of(sheetContext).pop();
+                      _cancelSchedule(schedule);
+                    },
+              icon: const Icon(Icons.event_busy_outlined),
+              label: const Text('Cancelar schedule'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openGoalProgressEditor(BuildContext context, AssignedGoal goal) {
+    final controller = TextEditingController(
+      text: _formatKg(goal.currentValue),
+    );
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(goal.title),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_goalSubtitle(goal)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Valor actual (${goal.unit})',
+                helperText: 'Objetivo: ${_formatKg(goal.targetValue)}',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = double.tryParse(
+                controller.text.trim().replaceAll(',', '.'),
+              );
+              if (value == null) {
+                onNotice('Ingresá un valor numérico para la meta.');
+                return;
+              }
+              Navigator.of(dialogContext).pop();
+              _updateGoalProgress(goal, value);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2294,12 +2432,47 @@ class _AthletePanel extends StatelessWidget {
     }
   }
 
-  Future<void> _advanceGoal(AssignedGoal goal) async {
-    final increment = goal.targetValue * 0.25;
-    final nextValue = (goal.currentValue + increment).clamp(
-      0,
-      goal.targetValue,
+  Future<void> _rescheduleSchedule(
+    BuildContext context,
+    AssignedSchedule schedule,
+  ) async {
+    final local = schedule.scheduledFor.toLocal();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: local,
+      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
     );
+    if (date == null || !context.mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(local),
+    );
+    if (time == null) return;
+    final scheduledFor = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    try {
+      await repository.updateAssignedScheduleStatus(
+        user: user,
+        schedule: schedule,
+        status: 'scheduled',
+        scheduledFor: scheduledFor,
+      );
+      onNotice(
+        'Schedule "${schedule.title}" reprogramado para ${_formatShortDateTime(scheduledFor)}.',
+      );
+    } catch (error) {
+      onNotice('No pude reprogramar el schedule: $error');
+    }
+  }
+
+  Future<void> _updateGoalProgress(AssignedGoal goal, double value) async {
+    final nextValue = value.clamp(0, goal.targetValue);
     final nextStatus = nextValue >= goal.targetValue ? 'completed' : 'active';
     try {
       await repository.updateAssignedGoalProgress(
@@ -5389,6 +5562,24 @@ String _scheduleSubtitle(AssignedSchedule schedule) {
   return '${_formatShortDateTime(schedule.scheduledFor)}$routineLabel';
 }
 
+String _scheduleStatusLabel(String status) {
+  return switch (status) {
+    'completed' => 'completado',
+    'cancelled' => 'cancelado',
+    'scheduled' => 'planificado',
+    _ => status,
+  };
+}
+
+Color _scheduleStatusColor(BuildContext context, String status) {
+  final colors = context.appColors;
+  return switch (status) {
+    'completed' => colors.primaryStrong,
+    'cancelled' => Theme.of(context).colorScheme.error,
+    _ => colors.amber,
+  };
+}
+
 String _goalSubtitle(AssignedGoal goal) {
   final current = _formatDecimal(goal.currentValue);
   final target = _formatDecimal(goal.targetValue);
@@ -5509,6 +5700,15 @@ class _MonthlySessionCalendarSheetState
               schedule.scheduledFor.toLocal().month == _visibleMonth.month,
         )
         .toList();
+    final scheduledCount = monthSchedules
+        .where((schedule) => schedule.status == 'scheduled')
+        .length;
+    final completedScheduleCount = monthSchedules
+        .where((schedule) => schedule.status == 'completed')
+        .length;
+    final cancelledScheduleCount = monthSchedules
+        .where((schedule) => schedule.status == 'cancelled')
+        .length;
     final recentSessions = _sessions.take(6).toList();
     final monthVolume = monthSessions.fold<double>(
       0,
@@ -5563,6 +5763,33 @@ class _MonthlySessionCalendarSheetState
             icon: const Icon(Icons.today),
             label: const Text('Hoy'),
           ),
+          child: monthSchedules.isEmpty
+              ? null
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _SoftChip(
+                      label: '$scheduledCount planificado',
+                      color: colors.amber,
+                      background: colors.amberContainer.withValues(alpha: 0.45),
+                    ),
+                    _SoftChip(
+                      label: '$completedScheduleCount completado',
+                      color: colors.primaryStrong,
+                      background: colors.primaryContainer.withValues(
+                        alpha: 0.22,
+                      ),
+                    ),
+                    _SoftChip(
+                      label: '$cancelledScheduleCount cancelado',
+                      color: Theme.of(context).colorScheme.error,
+                      background: Theme.of(
+                        context,
+                      ).colorScheme.error.withValues(alpha: 0.10),
+                    ),
+                  ],
+                ),
         ),
         const SizedBox(height: 14),
         Row(
@@ -5598,6 +5825,12 @@ class _MonthlySessionCalendarSheetState
             final hasSchedules =
                 daySchedules != null && daySchedules.isNotEmpty;
             final hasEntries = hasSessions || hasSchedules;
+            final scheduleStatus = hasSchedules
+                ? _dominantScheduleStatus(daySchedules)
+                : null;
+            final scheduleColor = scheduleStatus == null
+                ? colors.amber
+                : _scheduleStatusColor(context, scheduleStatus);
             return InkWell(
               borderRadius: BorderRadius.circular(8),
               onTap: !hasEntries
@@ -5614,7 +5847,7 @@ class _MonthlySessionCalendarSheetState
                       ? colors.raised.withValues(alpha: inMonth ? 1 : 0.35)
                       : hasSessions
                       ? colors.primaryContainer
-                      : colors.amberContainer,
+                      : scheduleColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isToday ? colors.primaryStrong : colors.divider,
@@ -5632,7 +5865,7 @@ class _MonthlySessionCalendarSheetState
                           color: hasSessions
                               ? Colors.white
                               : hasSchedules
-                              ? colors.amber
+                              ? scheduleColor
                               : inMonth
                               ? colors.text
                               : colors.textSecondary.withValues(alpha: 0.45),
@@ -5669,7 +5902,7 @@ class _MonthlySessionCalendarSheetState
                         child: Icon(
                           Icons.event_available,
                           size: 13,
-                          color: hasSessions ? Colors.white : colors.amber,
+                          color: hasSessions ? Colors.white : scheduleColor,
                         ),
                       ),
                   ],
@@ -5720,9 +5953,14 @@ class _MonthlySessionCalendarSheetState
           for (final schedule in monthSchedules)
             Card(
               child: ListTile(
-                leading: const Icon(Icons.event_available),
+                leading: Icon(
+                  Icons.event_available,
+                  color: _scheduleStatusColor(context, schedule.status),
+                ),
                 title: Text(schedule.title),
-                subtitle: Text(_scheduleSubtitle(schedule)),
+                subtitle: Text(
+                  '${_scheduleSubtitle(schedule)} · ${_scheduleStatusLabel(schedule.status)}',
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openScheduleDetail(context, schedule),
               ),
@@ -5789,6 +6027,19 @@ class _MonthlySessionCalendarSheetState
     return grouped;
   }
 
+  static String _dominantScheduleStatus(List<AssignedSchedule> schedules) {
+    if (schedules.any((schedule) => schedule.status == 'scheduled')) {
+      return 'scheduled';
+    }
+    if (schedules.any((schedule) => schedule.status == 'completed')) {
+      return 'completed';
+    }
+    if (schedules.any((schedule) => schedule.status == 'cancelled')) {
+      return 'cancelled';
+    }
+    return schedules.first.status;
+  }
+
   void _openDayDetail(
     BuildContext context,
     DateTime date,
@@ -5819,7 +6070,9 @@ class _MonthlySessionCalendarSheetState
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.event_available),
                 title: Text(schedule.title),
-                subtitle: Text(_scheduleSubtitle(schedule)),
+                subtitle: Text(
+                  '${_scheduleSubtitle(schedule)} · ${_scheduleStatusLabel(schedule.status)}',
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _openScheduleDetail(context, schedule),
               ),
@@ -5856,6 +6109,15 @@ class _MonthlySessionCalendarSheetState
             Text(
               _scheduleSubtitle(schedule),
               style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 10),
+            _SoftChip(
+              label: _scheduleStatusLabel(schedule.status),
+              color: _scheduleStatusColor(context, schedule.status),
+              background: _scheduleStatusColor(
+                context,
+                schedule.status,
+              ).withValues(alpha: 0.12),
             ),
             if (schedule.note != null && schedule.note!.trim().isNotEmpty) ...[
               const SizedBox(height: 10),

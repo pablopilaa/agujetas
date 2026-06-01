@@ -246,6 +246,7 @@ void main() {
       repository,
       contains(".collection('schedules').doc(schedule.id).update"),
     );
+    expect(repository, contains("'scheduledFor': scheduledFor.toUtc()"));
     expect(repository, contains('updateAssignedGoalProgress'));
     expect(repository, contains(".collection('goals').doc(goal.id).update"));
     expect(repository, contains("'currentValue': currentValue"));
