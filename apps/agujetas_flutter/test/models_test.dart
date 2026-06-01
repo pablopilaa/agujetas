@@ -456,6 +456,54 @@ void main() {
     expect(sessions, isEmpty);
   });
 
+  test(
+    'local workout store merges remote sessions without losing offline history',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = LocalWorkoutStore.instance;
+      final exercises = seedWorkout();
+      final local = await store.saveSession(
+        userId: 'session-sync-user',
+        sessionMode: 'Fuerza',
+        exercises: exercises,
+        duration: const Duration(minutes: 35),
+      );
+      final remote = LocalWorkoutSession(
+        id: 'remote-session',
+        userId: 'other-owner',
+        sessionMode: 'Hipertrofia',
+        exercises: exercises.take(2).toList(),
+        startedAt: DateTime.utc(2026, 5, 31, 10),
+        finishedAt: DateTime.utc(2026, 5, 31, 10, 50),
+        durationSeconds: 3000,
+        title: 'Push remoto',
+      );
+
+      final changed = await store.mergeSessionsLocal(
+        userId: 'session-sync-user',
+        sessions: [
+          local.copyWith(note: 'Nota remota corregida'),
+          remote,
+        ],
+      );
+
+      final sessions = await store.loadSessions('session-sync-user');
+      expect(changed, 2);
+      expect(
+        sessions.map((session) => session.id),
+        containsAll(['remote-session', local.id]),
+      );
+      expect(
+        sessions.every((session) => session.userId == 'session-sync-user'),
+        true,
+      );
+      expect(
+        sessions.firstWhere((session) => session.id == local.id).note,
+        'Nota remota corregida',
+      );
+    },
+  );
+
   test('local workout store persists body weight history by user', () async {
     SharedPreferences.setMockInitialValues({});
     final store = LocalWorkoutStore.instance;

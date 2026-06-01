@@ -598,6 +598,7 @@ class _HomeShellState extends State<HomeShell> {
   List<RoutineTemplate> _localRoutines = const [];
   List<BodyWeightEntry> _localBodyWeights = const [];
   List<ExerciseCatalogEntry> _localCustomExercises = const [];
+  StreamSubscription<List<LocalWorkoutSession>>? _sessionsSubscription;
   StreamSubscription<List<RoutineTemplate>>? _routineTemplatesSubscription;
   StreamSubscription<List<BodyWeightEntry>>? _bodyWeightsSubscription;
   StreamSubscription<List<ExerciseCatalogEntry>>? _customExercisesSubscription;
@@ -629,6 +630,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    unawaited(_sessionsSubscription?.cancel());
     unawaited(_routineTemplatesSubscription?.cancel());
     unawaited(_bodyWeightsSubscription?.cancel());
     unawaited(_customExercisesSubscription?.cancel());
@@ -832,6 +834,9 @@ class _HomeShellState extends State<HomeShell> {
       _localSessions = sessions;
       _notice = 'Sesión histórica actualizada localmente.';
     });
+    if (_canSyncRemoteUserData) {
+      unawaited(_syncSessionBestEffort(session));
+    }
   }
 
   Future<void> _deleteHistoricalSession(LocalWorkoutSession session) async {
@@ -845,6 +850,9 @@ class _HomeShellState extends State<HomeShell> {
       _localSessions = sessions;
       _notice = 'Sesión histórica eliminada de este dispositivo.';
     });
+    if (_canSyncRemoteUserData) {
+      unawaited(_deleteSessionBestEffort(session));
+    }
   }
 
   void _editRoutine(RoutineTemplate routine) {
@@ -1059,6 +1067,10 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (!mounted) return;
     setState(() => _localSessions = sessions);
+    if (_canSyncRemoteUserData) {
+      unawaited(_pushLocalSessionsBestEffort(sessions));
+      _startSessionSync();
+    }
   }
 
   Future<void> _loadLocalRoutines() async {
@@ -1141,6 +1153,82 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   bool get _canSyncRemoteUserData => widget.user.uid != 'demo-user';
+
+  void _startSessionSync() {
+    _sessionsSubscription ??= widget.repository
+        .watchSessions(widget.user.uid)
+        .listen(
+          (sessions) => unawaited(_mergeRemoteSessions(sessions)),
+          onError: (_) {
+            if (!mounted) return;
+            setState(() {
+              _notice =
+                  'No pude leer sesiones remotas; sigo con historial local.';
+            });
+          },
+        );
+  }
+
+  Future<void> _mergeRemoteSessions(List<LocalWorkoutSession> sessions) async {
+    final changed = await _localStore.mergeSessionsLocal(
+      userId: widget.user.uid,
+      sessions: sessions,
+    );
+    final merged = await _localStore.loadSessions(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localSessions = merged;
+      if (changed > 0) {
+        _notice = 'Sincronicé $changed sesiones históricas.';
+      }
+    });
+  }
+
+  Future<void> _pushLocalSessionsBestEffort(
+    List<LocalWorkoutSession> sessions,
+  ) async {
+    try {
+      for (final session in sessions.take(250)) {
+        await widget.repository.saveSession(
+          user: widget.user,
+          session: session,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Historial local conservado; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  Future<void> _syncSessionBestEffort(LocalWorkoutSession session) async {
+    try {
+      await widget.repository.saveSession(user: widget.user, session: session);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Sesión guardada localmente; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  Future<void> _deleteSessionBestEffort(LocalWorkoutSession session) async {
+    try {
+      await widget.repository.deleteSession(
+        user: widget.user,
+        session: session,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Sesión eliminada localmente; la eliminación remota quedó pendiente.';
+      });
+    }
+  }
 
   void _startRoutineTemplateSync() {
     _routineTemplatesSubscription ??= widget.repository
@@ -1291,7 +1379,7 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_persistActiveDraft());
   }
 
-  Future<void> _saveSessionLocally(
+  Future<LocalWorkoutSession> _saveSessionLocally(
     Duration totalElapsed,
     List<WorkoutExercise> exercises,
   ) async {
@@ -1302,7 +1390,7 @@ class _HomeShellState extends State<HomeShell> {
       duration: totalElapsed,
     );
     await _localStore.clearActiveDraft(widget.user.uid);
-    if (!mounted) return;
+    if (!mounted) return savedSession;
     setState(() {
       _workout = seedWorkout();
       _activeRoutineTitle = 'Empuje A';
@@ -1321,6 +1409,7 @@ class _HomeShellState extends State<HomeShell> {
       _restRunning = false;
       _notice = 'Sesión guardada en el historial local.';
     });
+    return savedSession;
   }
 
   Future<void> _saveBodyWeightLocally(BodyWeightEntry entry) async {
@@ -1541,6 +1630,9 @@ class _HomeShellState extends State<HomeShell> {
       _localCustomExercises = customExercises;
       _notice = 'Respaldo local importado: ${result.summary}.';
     });
+    if (_canSyncRemoteUserData) {
+      unawaited(_pushLocalSessionsBestEffort(sessions));
+    }
     return result;
   }
 
@@ -1576,6 +1668,9 @@ class _HomeShellState extends State<HomeShell> {
       _localRoutines = localRoutines;
       _notice = result.summary;
     });
+    if (_canSyncRemoteUserData) {
+      unawaited(_pushLocalSessionsBestEffort(sessions));
+    }
     return result;
   }
 }
@@ -2215,7 +2310,7 @@ class TrainScreen extends StatefulWidget {
   )
   onTimerStateChanged;
   final ValueChanged<String> onSessionModeChanged;
-  final Future<void> Function(
+  final Future<LocalWorkoutSession> Function(
     Duration totalElapsed,
     List<WorkoutExercise> exercises,
   )
@@ -2627,12 +2722,15 @@ class _TrainScreenState extends State<TrainScreen> {
     final exercisesSnapshot = List<WorkoutExercise>.unmodifiable(
       widget.exercises,
     );
-    await widget.onSessionSavedLocally(_totalElapsed, exercisesSnapshot);
+    final savedSession = await widget.onSessionSavedLocally(
+      _totalElapsed,
+      exercisesSnapshot,
+    );
     var synced = true;
     try {
       await widget.repository.saveSession(
         user: widget.user,
-        exercises: exercisesSnapshot,
+        session: savedSession,
       );
     } catch (_) {
       synced = false;

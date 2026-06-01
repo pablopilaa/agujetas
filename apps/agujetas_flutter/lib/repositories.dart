@@ -57,9 +57,14 @@ abstract class AgujetasRepository {
   Stream<List<TrainerClientLink>> watchTrainerClients(String trainerId);
   Future<void> saveSession({
     required AppUser user,
-    required List<WorkoutExercise> exercises,
+    required LocalWorkoutSession session,
     String? trainerId,
   });
+  Future<void> deleteSession({
+    required AppUser user,
+    required LocalWorkoutSession session,
+  });
+  Stream<List<LocalWorkoutSession>> watchSessions(String userId);
   Future<void> saveRoutineTemplate({
     required AppUser owner,
     required RoutineTemplate routine,
@@ -330,16 +335,51 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
   @override
   Future<void> saveSession({
     required AppUser user,
-    required List<WorkoutExercise> exercises,
+    required LocalWorkoutSession session,
     String? trainerId,
   }) async {
-    await _firestore.collection('sessions').add({
+    final normalized = session.copyWith(userId: user.uid);
+    await _firestore.collection('sessions').doc(normalized.id).set({
+      ...normalized.toJson(),
       'ownerId': user.uid,
       'trainerId': trainerId,
+      'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
-      'exercises': exercises.map((exercise) => exercise.toJson()).toList(),
       'schemaVersion': 2,
-    });
+    }, SetOptions(merge: true));
+  }
+
+  @override
+  Future<void> deleteSession({
+    required AppUser user,
+    required LocalWorkoutSession session,
+  }) async {
+    await _firestore.collection('sessions').doc(session.id).delete();
+  }
+
+  @override
+  Stream<List<LocalWorkoutSession>> watchSessions(String userId) {
+    return _firestore
+        .collection('sessions')
+        .where('ownerId', isEqualTo: userId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => LocalWorkoutSession.fromJson({
+                  ...doc.data(),
+                  'id': doc.id,
+                  'userId': doc.data()['userId'] ?? doc.data()['ownerId'],
+                }),
+              )
+              .where(
+                (session) =>
+                    session.id.isNotEmpty &&
+                    session.userId == userId &&
+                    session.exercises.isNotEmpty,
+              )
+              .toList(),
+        );
   }
 
   @override
@@ -693,9 +733,20 @@ class DemoAgujetasRepository implements AgujetasRepository {
   @override
   Future<void> saveSession({
     required AppUser user,
-    required List<WorkoutExercise> exercises,
+    required LocalWorkoutSession session,
     String? trainerId,
   }) async {}
+
+  @override
+  Future<void> deleteSession({
+    required AppUser user,
+    required LocalWorkoutSession session,
+  }) async {}
+
+  @override
+  Stream<List<LocalWorkoutSession>> watchSessions(String userId) {
+    return const Stream.empty();
+  }
 
   @override
   Future<void> setActiveRole(AppUser user, AppRole role) async {

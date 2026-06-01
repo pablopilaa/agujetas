@@ -101,6 +101,24 @@ void main() {
     );
   });
 
+  test('session sync uses stable ids and owner scoped Firestore records', () {
+    final repository = _readRepositorySource();
+    final rules = _readFirestoreRules();
+
+    expect(repository, contains(".collection('sessions').doc(normalized.id)"));
+    expect(repository, contains(".where('ownerId', isEqualTo: userId)"));
+    expect(repository, contains("'ownerId': user.uid"));
+    expect(repository, contains('deleteSession'));
+    expect(repository, contains('watchSessions'));
+    expect(repository, contains("'id': doc.id"));
+    expect(
+      rules,
+      contains(
+        'allow create: if signedIn()\n        && (ownerId(request.resource.data) == request.auth.uid',
+      ),
+    );
+  });
+
   test('custom exercise sync uses owner scoped Firestore records', () {
     final repository = _readRepositorySource();
     final rules = _readFirestoreRules();

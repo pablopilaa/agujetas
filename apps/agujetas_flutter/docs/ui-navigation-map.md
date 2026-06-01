@@ -109,7 +109,7 @@ flowchart TD
 | Entrenar | Menú mover | Mover arriba / abajo | Misma pantalla, orden actualizado |
 | Entrenar | Detalle de ejercicio | Ver historial local | Ficha con mejores marcas y registros recientes |
 | Entrenar | Usar último | Copiar último registro | Defaults de series del ejercicio activo actualizados |
-| Entrenar | Guardar | Persistir sesión | Firestore `sessions` y snackbar |
+| Entrenar | Guardar | Persistir sesión | Guardado local inmediato, sync Firestore `sessions` best-effort y snackbar |
 | Entrenar | Timer descanso | Programar alerta | Notificación local |
 | Progreso | Bottom nav | Registrar peso | Bottom sheet de peso |
 | Progreso | Alertarme cada mañana | Programar alerta diaria | Notificación local diaria |
@@ -121,6 +121,7 @@ flowchart TD
 | Calendario mensual | Flechas mes anterior/siguiente | Cambiar mes visible | Misma pantalla con resumen mensual actualizado |
 | Calendario mensual | Día con sesiones | Revisar entrenos del día | Hoja con sesiones de esa fecha |
 | Calendario mensual | Sesión histórica | Ver detalle completo | Hoja con ejercicios, series, kg, reps, RIR y segmentos |
+| Calendario mensual | Sesiones | Sync remoto | Merge Firestore `sessions` por `ownerId` sin borrar historial offline |
 | Detalle de sesión histórica | Repetir sesión | Cargar entrenamiento activo | Entrenar con ejercicios históricos |
 | Detalle de sesión histórica | Guardar rutina | Crear plantilla local | Biblioteca / Mis ejercicios |
 | Detalle de sesión histórica | Editar nota | Corregir nombre o nota | Historial local actualizado |
@@ -168,6 +169,8 @@ flowchart TD
 - Los ejercicios personalizados siguen el mismo patrón local-first: catálogo local inmediato, sync Firestore por `ownerId`, delete remoto best-effort y sin Firebase Storage.
 - Las rutinas siguen el mismo patrón local-first: biblioteca local inmediata, sync Firestore por `ownerId`, delete remoto best-effort y sin bloquear la edición offline.
 - El orden local de rutinas se preserva al fusionar snapshots remotos; replicar ese orden entre dispositivos requiere un campo de orden remoto dedicado.
+- Las sesiones siguen el mismo patrón local-first: calendario/progreso leen del dispositivo, sync Firestore por `ownerId`, delete remoto best-effort y merge por `id`.
+- El `id` local de sesión es el `docId` remoto; no se usa `add()` para evitar duplicados imposibles de reconciliar.
 
 ## Pendientes UX
 

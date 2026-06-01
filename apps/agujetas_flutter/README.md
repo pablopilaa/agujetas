@@ -20,6 +20,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Persistencia local-first base con `shared_preferences` para borrador de sesion activa e historial local minimo.
 - Calendario mensual navegable, progreso y tarjetas de entrenamiento conectados al historial local guardado en el dispositivo, con detalle de sesión, series, segmentos y RIR.
 - El historial local permite repetir una sesión guardada como entrenamiento activo o guardarla como rutina local reutilizable.
+- Sesiones/historial con sincronizacion bidireccional local-first + Firestore: carga local inmediata, push best-effort, merge de snapshots remotos por `ownerId` y eliminacion remota por ownership.
 - La ficha de ejercicio muestra historial local profundo, mejores marcas y permite aplicar el último registro como defaults en Entrenar.
 - El historial local permite editar nombre/nota de una sesión guardada y borrar sesiones locales con confirmación.
 - Perfil permite exportar/importar un respaldo JSON local con sesiones, rutinas, peso corporal y ejercicios personalizados.
@@ -133,6 +134,6 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 - Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
 - Reemplazar el contrato técnico preliminar de consentimiento por términos y política de privacidad finales con asesoría legal antes de producción.
 - Crear Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente.
-- Migrar progresivamente sesiones al mismo patron local-first + Firestore con resolucion de conflictos explicita.
+- Definir política de conflictos de sesiones si dos dispositivos editan la misma nota/título offline antes de sincronizar.
 - Mejorar el contrato de orden remoto de rutinas si se quiere que el reorder se replique 1:1 entre dispositivos.
 - Cuando exista Apple Developer: agregar workflow macOS firmado y TestFlight.

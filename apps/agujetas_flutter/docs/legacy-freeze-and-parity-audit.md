@@ -564,3 +564,13 @@ Cuadragésimo sexto bloque Rutinas bidireccionales:
 - `LocalWorkoutStore.mergeRoutineTemplatesLocal` fusiona por `id`, actualiza cambios remotos y conserva plantillas offline no sincronizadas.
 - El borrado de una rutina local intenta eliminar también el documento remoto para que no reaparezca desde Firestore.
 - El orden local se preserva durante merges; queda pendiente modelar un `orderIndex` remoto si se quiere replicar reorder entre dispositivos.
+
+Cuadragésimo séptimo bloque Sesiones bidireccionales:
+
+- `AgujetasRepository.saveSession` dejó de usar `add()` y ahora escribe `sessions/{session.id}` para que el id local sea el id remoto estable.
+- `AgujetasRepository` expone `watchSessions` y `deleteSession`, completando el contrato remoto de historial.
+- `HomeShell` carga historial local inmediatamente, sube sesiones recientes best-effort a Firestore y escucha snapshots remotos para usuarios reales.
+- Editar o borrar una sesión histórica desde calendario actualiza primero el dispositivo y luego intenta sincronizar el cambio remoto.
+- `LocalWorkoutStore.mergeSessionsLocal` fusiona por `id`, normaliza `userId`, conserva historial offline no sincronizado y evita renderizar sesiones remotas sin ejercicios.
+- Importar backup local o datos legacy refresca la UI y empuja sesiones locales best-effort si el usuario está autenticado.
+- Queda pendiente definir política de conflictos más fina para edición simultánea de título/nota entre dos dispositivos offline.

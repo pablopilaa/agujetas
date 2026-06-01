@@ -124,7 +124,7 @@ class LocalWorkoutSession {
         .toList();
     return LocalWorkoutSession(
       id: json['id']?.toString() ?? '',
-      userId: json['userId']?.toString() ?? '',
+      userId: json['userId']?.toString() ?? json['ownerId']?.toString() ?? '',
       sessionMode: json['sessionMode']?.toString() ?? 'Fuerza',
       exercises: exercises,
       startedAt:
@@ -485,6 +485,38 @@ class LocalWorkoutStore {
     await _replaceSessions(userId: userId, sessions: next);
   }
 
+  Future<int> mergeSessionsLocal({
+    required String userId,
+    required List<LocalWorkoutSession> sessions,
+  }) async {
+    if (sessions.isEmpty) return 0;
+    final previous = await loadSessions(userId);
+    final byId = <String, LocalWorkoutSession>{
+      for (final session in previous) session.id: session,
+    };
+    var changed = 0;
+
+    for (final session in sessions) {
+      if (session.id.isEmpty || session.exercises.isEmpty) continue;
+      final normalized = session.copyWith(userId: userId);
+      final previousSession = byId[normalized.id];
+      byId[normalized.id] = normalized;
+      if (previousSession == null ||
+          !_sameWorkoutSession(previousSession, normalized)) {
+        changed++;
+      }
+    }
+
+    if (changed > 0) {
+      await _replaceSessions(
+        userId: userId,
+        sessions: byId.values.toList()
+          ..sort((a, b) => b.finishedAt.compareTo(a.finishedAt)),
+      );
+    }
+    return changed;
+  }
+
   Future<void> _replaceSessions({
     required String userId,
     required List<LocalWorkoutSession> sessions,
@@ -498,6 +530,29 @@ class LocalWorkoutStore {
       _sessionsKey(userId),
       jsonEncode(normalized.map((item) => item.toJson()).toList()),
     );
+  }
+
+  bool _sameWorkoutSession(LocalWorkoutSession a, LocalWorkoutSession b) {
+    if (a.id != b.id ||
+        a.userId != b.userId ||
+        a.sessionMode != b.sessionMode ||
+        a.startedAt.toUtc().toIso8601String() !=
+            b.startedAt.toUtc().toIso8601String() ||
+        a.finishedAt.toUtc().toIso8601String() !=
+            b.finishedAt.toUtc().toIso8601String() ||
+        a.durationSeconds != b.durationSeconds ||
+        a.title != b.title ||
+        a.note != b.note ||
+        a.exercises.length != b.exercises.length) {
+      return false;
+    }
+    for (var i = 0; i < a.exercises.length; i++) {
+      if (jsonEncode(a.exercises[i].toJson()) !=
+          jsonEncode(b.exercises[i].toJson())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<List<BodyWeightEntry>> loadBodyWeights(String userId) async {
