@@ -161,6 +161,11 @@ void main() {
     );
     expect(find.textContaining('enviada a Sofia Demo'), findsOneWidget);
     expect(find.text('0/1 tareas completas'), findsOneWidget);
+    expect(find.text('Último cambio'), findsOneWidget);
+    expect(
+      find.textContaining('asignó Registrar peso corporal'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('trainer dashboard schedules a client session', (tester) async {

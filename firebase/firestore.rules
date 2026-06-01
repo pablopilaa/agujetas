@@ -253,6 +253,13 @@ service cloud.firestore {
           || trainerCanAccessRecord(request.resource.data));
     }
 
+    match /assignmentEvents/{docId} {
+      allow read, update, delete: if canAccessRecord(resource.data);
+      allow create: if signedIn()
+        && (ownsRecord(request.resource.data)
+          || trainerCanAccessRecord(request.resource.data));
+    }
+
     match /publicExerciseCatalog/{exerciseId} {
       allow read: if true;
       allow write: if isAdmin();

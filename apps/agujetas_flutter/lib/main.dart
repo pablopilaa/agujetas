@@ -2111,6 +2111,7 @@ class _TrainerClientAssignmentPreviewState
   late Stream<List<AssignedTask>> _taskStream;
   late Stream<List<AssignedSchedule>> _scheduleStream;
   late Stream<List<AssignedGoal>> _goalStream;
+  late Stream<List<AssignmentEvent>> _eventStream;
 
   @override
   void initState() {
@@ -2135,6 +2136,9 @@ class _TrainerClientAssignmentPreviewState
       widget.client.clientId,
     );
     _goalStream = widget.repository.watchAssignedGoalsForClient(
+      widget.client.clientId,
+    );
+    _eventStream = widget.repository.watchAssignmentEventsForClient(
       widget.client.clientId,
     );
   }
@@ -2208,6 +2212,21 @@ class _TrainerClientAssignmentPreviewState
               );
             },
           ),
+          StreamBuilder<List<AssignmentEvent>>(
+            stream: _eventStream,
+            builder: (context, snapshot) {
+              final events = snapshot.data ?? const <AssignmentEvent>[];
+              return _AssignmentSummaryLine(
+                icon: Icons.history,
+                label: events.isEmpty
+                    ? 'Sin actividad reciente'
+                    : 'Último cambio',
+                detail: events.isEmpty
+                    ? null
+                    : _eventTimelineLabel(events.first),
+              );
+            },
+          ),
         ],
       ),
     );
@@ -2264,6 +2283,84 @@ class _AssignmentSummaryLine extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class AssignmentTimelineCard extends StatefulWidget {
+  const AssignmentTimelineCard({
+    super.key,
+    required this.repository,
+    required this.clientId,
+    this.compact = false,
+  });
+
+  final AgujetasRepository repository;
+  final String clientId;
+  final bool compact;
+
+  @override
+  State<AssignmentTimelineCard> createState() => _AssignmentTimelineCardState();
+}
+
+class _AssignmentTimelineCardState extends State<AssignmentTimelineCard> {
+  late Stream<List<AssignmentEvent>> _eventsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _eventsStream = widget.repository.watchAssignmentEventsForClient(
+      widget.clientId,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant AssignmentTimelineCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.clientId != widget.clientId ||
+        oldWidget.repository != widget.repository) {
+      _eventsStream = widget.repository.watchAssignmentEventsForClient(
+        widget.clientId,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<AssignmentEvent>>(
+      stream: _eventsStream,
+      builder: (context, snapshot) {
+        final events = snapshot.data ?? const <AssignmentEvent>[];
+        if (widget.compact && events.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final visibleEvents = events.take(widget.compact ? 2 : 4).toList();
+        return DashboardCard(
+          icon: Icons.history,
+          title: 'Actividad de asignaciones',
+          subtitle: events.isEmpty
+              ? 'Cuando haya tareas, schedules o metas, los cambios quedan registrados acá.'
+              : '${events.length} evento${events.length == 1 ? '' : 's'} reciente${events.length == 1 ? '' : 's'}',
+          child: events.isEmpty
+              ? null
+              : Column(
+                  children: [
+                    for (final event in visibleEvents)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          child: Icon(_assignmentEventIcon(event.targetType)),
+                        ),
+                        title: Text(_eventTimelineLabel(event)),
+                        subtitle: Text(
+                          '${_formatShortDateTime(event.occurredAt)} · ${_eventActorLabel(event.actorRole)}',
+                        ),
+                      ),
+                  ],
+                ),
+        );
+      },
     );
   }
 }
@@ -2380,6 +2477,7 @@ class _AthletePanel extends StatelessWidget {
             );
           },
         ),
+        AssignmentTimelineCard(repository: repository, clientId: user.uid),
         DashboardCard(
           icon: Icons.event_available_outlined,
           title: 'Schedules asignados',
@@ -5795,6 +5893,40 @@ String _goalSubtitle(AssignedGoal goal) {
   final target = _formatDecimal(goal.targetValue);
   final due = goal.dueAt == null ? '' : ' · vence ${_shortDate(goal.dueAt!)}';
   return '$current / $target ${goal.unit}$due';
+}
+
+String _eventTimelineLabel(AssignmentEvent event) {
+  final action = switch (event.action) {
+    'assigned' => 'asignó',
+    'scheduled' => 'agendó',
+    'completed' => 'completó',
+    'cancelled' => 'canceló',
+    'rescheduled' => 'reprogramó',
+    'progress_updated' => 'actualizó',
+    _ => 'actualizó',
+  };
+  final summary = event.summary?.trim();
+  return summary == null || summary.isEmpty
+      ? '$action ${event.title}'
+      : '$action ${event.title} · $summary';
+}
+
+String _eventActorLabel(String actorRole) {
+  return switch (actorRole) {
+    'trainer' => 'Entrenador',
+    'client' => 'Entrenado',
+    _ => 'Sistema',
+  };
+}
+
+IconData _assignmentEventIcon(String targetType) {
+  return switch (targetType) {
+    'routine' => Icons.fitness_center,
+    'task' => Icons.task_alt_outlined,
+    'schedule' => Icons.event_available_outlined,
+    'goal' => Icons.flag_outlined,
+    _ => Icons.history,
+  };
 }
 
 String _dateKey(DateTime value) =>

@@ -21,7 +21,30 @@ const Map<String, List<String>> _accountDeletionRootFieldQueries = {
   'tasks': ['ownerId', 'clientId', 'assignedClientId'],
   'schedules': ['ownerId', 'clientId', 'assignedClientId'],
   'goals': ['ownerId', 'clientId', 'assignedClientId'],
+  'assignmentEvents': ['ownerId', 'clientId', 'assignedClientId'],
 };
+
+String _assignmentStatusLabel(String status) {
+  return switch (status) {
+    'completed' => 'completada',
+    'cancelled' => 'cancelado',
+    'scheduled' => 'planificado',
+    _ => status,
+  };
+}
+
+String _formatEventDateTime(DateTime value) {
+  final local = value.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '${local.day}/${local.month}/${local.year} $hour:$minute';
+}
+
+String _formatEventNumber(double value) {
+  return value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
+}
 
 const List<String> _accountDeletionUserSubcollections = [
   'sessions',
@@ -110,6 +133,7 @@ abstract class AgujetasRepository {
     required double currentValue,
     required String status,
   });
+  Stream<List<AssignmentEvent>> watchAssignmentEventsForClient(String clientId);
   Future<void> saveSession({
     required AppUser user,
     required LocalWorkoutSession session,
@@ -410,6 +434,17 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
       'clientId': client.clientId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _recordAssignmentEvent(
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      targetType: 'routine',
+      targetId: id,
+      title: routine.title,
+      action: 'assigned',
+      actorId: trainer.uid,
+      actorRole: 'trainer',
+      summary: '${routine.exercises.length} ejercicios',
+    );
     return assigned;
   }
 
@@ -462,6 +497,17 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
       'clientId': client.clientId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _recordAssignmentEvent(
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      targetType: 'task',
+      targetId: id,
+      title: title,
+      action: 'assigned',
+      actorId: trainer.uid,
+      actorRole: 'trainer',
+      summary: 'Tarea enviada',
+    );
     return assigned;
   }
 
@@ -507,6 +553,19 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
           : normalizedNote,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _recordAssignmentEvent(
+      trainerId: task.trainerId,
+      assignedClientId: task.assignedClientId,
+      targetType: 'task',
+      targetId: task.id,
+      title: task.title,
+      action: status == 'completed' ? 'completed' : 'updated',
+      actorId: user.uid,
+      actorRole: 'client',
+      summary: normalizedNote == null || normalizedNote.isEmpty
+          ? 'Tarea ${_assignmentStatusLabel(status)}'
+          : normalizedNote,
+    );
   }
 
   @override
@@ -537,6 +596,17 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
       'clientId': client.clientId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _recordAssignmentEvent(
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      targetType: 'schedule',
+      targetId: id,
+      title: title,
+      action: 'scheduled',
+      actorId: trainer.uid,
+      actorRole: 'trainer',
+      summary: _formatEventDateTime(scheduledFor),
+    );
     return assigned;
   }
 
@@ -584,6 +654,19 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
         'scheduledFor': scheduledFor.toUtc().toIso8601String(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _recordAssignmentEvent(
+      trainerId: schedule.trainerId,
+      assignedClientId: schedule.assignedClientId,
+      targetType: 'schedule',
+      targetId: schedule.id,
+      title: schedule.title,
+      action: scheduledFor == null ? status : 'rescheduled',
+      actorId: user.uid,
+      actorRole: 'client',
+      summary: scheduledFor == null
+          ? 'Schedule ${_assignmentStatusLabel(status)}'
+          : 'Reprogramado para ${_formatEventDateTime(scheduledFor)}',
+    );
   }
 
   @override
@@ -619,6 +702,17 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
       'clientId': client.clientId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    await _recordAssignmentEvent(
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      targetType: 'goal',
+      targetId: id,
+      title: title,
+      action: 'assigned',
+      actorId: trainer.uid,
+      actorRole: 'trainer',
+      summary: 'Objetivo ${_formatEventNumber(targetValue)} $unit',
+    );
     return assigned;
   }
 
@@ -659,6 +753,77 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     await _firestore.collection('goals').doc(goal.id).update({
       'currentValue': currentValue,
       'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await _recordAssignmentEvent(
+      trainerId: goal.trainerId,
+      assignedClientId: goal.assignedClientId,
+      targetType: 'goal',
+      targetId: goal.id,
+      title: goal.title,
+      action: status == 'completed' ? 'completed' : 'progress_updated',
+      actorId: user.uid,
+      actorRole: 'client',
+      summary:
+          '${_formatEventNumber(currentValue)} / ${_formatEventNumber(goal.targetValue)} ${goal.unit}',
+    );
+  }
+
+  @override
+  Stream<List<AssignmentEvent>> watchAssignmentEventsForClient(
+    String clientId,
+  ) {
+    return _firestore
+        .collection('assignmentEvents')
+        .where('assignedClientId', isEqualTo: clientId)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map(
+                    (doc) =>
+                        AssignmentEvent.fromJson({...doc.data(), 'id': doc.id}),
+                  )
+                  .where(
+                    (event) =>
+                        event.id.isNotEmpty &&
+                        event.assignedClientId == clientId &&
+                        event.targetId.isNotEmpty,
+                  )
+                  .toList()
+                ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt)),
+        );
+  }
+
+  Future<void> _recordAssignmentEvent({
+    required String trainerId,
+    required String assignedClientId,
+    required String targetType,
+    required String targetId,
+    required String title,
+    required String action,
+    required String actorId,
+    required String actorRole,
+    String? summary,
+  }) async {
+    final id = _uuid.v4();
+    final event = AssignmentEvent(
+      id: id,
+      trainerId: trainerId,
+      assignedClientId: assignedClientId,
+      targetType: targetType,
+      targetId: targetId,
+      title: title,
+      action: action,
+      actorId: actorId,
+      actorRole: actorRole,
+      occurredAt: DateTime.now().toUtc(),
+      summary: summary,
+    );
+    await _firestore.collection('assignmentEvents').doc(id).set({
+      ...event.toJson(),
+      'ownerId': trainerId,
+      'clientId': assignedClientId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -921,6 +1086,7 @@ class DemoAgujetasRepository implements AgujetasRepository {
   final _assignedSchedules =
       StreamController<List<AssignedSchedule>>.broadcast();
   final _assignedGoals = StreamController<List<AssignedGoal>>.broadcast();
+  final _assignmentEvents = StreamController<List<AssignmentEvent>>.broadcast();
   final _customExercises =
       StreamController<List<ExerciseCatalogEntry>>.broadcast();
   final _bodyWeights = StreamController<List<BodyWeightEntry>>.broadcast();
@@ -930,6 +1096,7 @@ class DemoAgujetasRepository implements AgujetasRepository {
   final List<AssignedTask> _assignedTaskItems = [];
   final List<AssignedSchedule> _assignedScheduleItems = [];
   final List<AssignedGoal> _assignedGoalItems = [];
+  final List<AssignmentEvent> _assignmentEventItems = [];
   LocalUserPreferences _preferences = const LocalUserPreferences();
 
   AppUser? _user = const AppUser(
@@ -999,6 +1166,7 @@ class DemoAgujetasRepository implements AgujetasRepository {
     _assignedTaskItems.clear();
     _assignedScheduleItems.clear();
     _assignedGoalItems.clear();
+    _assignmentEventItems.clear();
     _customExercises.add(const []);
     _bodyWeights.add(const []);
     _clients.add(const []);
@@ -1006,6 +1174,7 @@ class DemoAgujetasRepository implements AgujetasRepository {
     _assignedTasks.add(const []);
     _assignedSchedules.add(const []);
     _assignedGoals.add(const []);
+    _assignmentEvents.add(const []);
     _controller.add(null);
   }
 
@@ -1044,6 +1213,17 @@ class DemoAgujetasRepository implements AgujetasRepository {
     );
     _assignedRoutineItems.insert(0, assigned);
     _assignedRoutines.add(List.unmodifiable(_assignedRoutineItems));
+    _recordDemoAssignmentEvent(
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      targetType: 'routine',
+      targetId: assigned.id,
+      title: routine.title,
+      action: 'assigned',
+      actorId: trainer.uid,
+      actorRole: 'trainer',
+      summary: '${routine.exercises.length} ejercicios',
+    );
     return assigned;
   }
 
@@ -1085,6 +1265,17 @@ class DemoAgujetasRepository implements AgujetasRepository {
     );
     _assignedTaskItems.insert(0, assigned);
     _assignedTasks.add(List.unmodifiable(_assignedTaskItems));
+    _recordDemoAssignmentEvent(
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      targetType: 'task',
+      targetId: assigned.id,
+      title: title,
+      action: 'assigned',
+      actorId: trainer.uid,
+      actorRole: 'trainer',
+      summary: 'Tarea enviada',
+    );
     return assigned;
   }
 
@@ -1123,6 +1314,19 @@ class DemoAgujetasRepository implements AgujetasRepository {
       ),
     );
     _assignedTasks.add(List.unmodifiable(_assignedTaskItems));
+    _recordDemoAssignmentEvent(
+      trainerId: task.trainerId,
+      assignedClientId: task.assignedClientId,
+      targetType: 'task',
+      targetId: task.id,
+      title: task.title,
+      action: status == 'completed' ? 'completed' : 'updated',
+      actorId: user.uid,
+      actorRole: 'client',
+      summary: normalizedNote == null || normalizedNote.isEmpty
+          ? 'Tarea ${_assignmentStatusLabel(status)}'
+          : normalizedNote,
+    );
   }
 
   @override
@@ -1148,6 +1352,17 @@ class DemoAgujetasRepository implements AgujetasRepository {
     );
     _assignedScheduleItems.insert(0, assigned);
     _assignedSchedules.add(List.unmodifiable(_assignedScheduleItems));
+    _recordDemoAssignmentEvent(
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      targetType: 'schedule',
+      targetId: assigned.id,
+      title: title,
+      action: 'scheduled',
+      actorId: trainer.uid,
+      actorRole: 'trainer',
+      summary: _formatEventDateTime(scheduledFor),
+    );
     return assigned;
   }
 
@@ -1184,6 +1399,19 @@ class DemoAgujetasRepository implements AgujetasRepository {
       schedule.copyWith(status: status, scheduledFor: scheduledFor),
     );
     _assignedSchedules.add(List.unmodifiable(_assignedScheduleItems));
+    _recordDemoAssignmentEvent(
+      trainerId: schedule.trainerId,
+      assignedClientId: schedule.assignedClientId,
+      targetType: 'schedule',
+      targetId: schedule.id,
+      title: schedule.title,
+      action: scheduledFor == null ? status : 'rescheduled',
+      actorId: user.uid,
+      actorRole: 'client',
+      summary: scheduledFor == null
+          ? 'Schedule ${_assignmentStatusLabel(status)}'
+          : 'Reprogramado para ${_formatEventDateTime(scheduledFor)}',
+    );
   }
 
   @override
@@ -1214,6 +1442,17 @@ class DemoAgujetasRepository implements AgujetasRepository {
     );
     _assignedGoalItems.insert(0, assigned);
     _assignedGoals.add(List.unmodifiable(_assignedGoalItems));
+    _recordDemoAssignmentEvent(
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      targetType: 'goal',
+      targetId: assigned.id,
+      title: title,
+      action: 'assigned',
+      actorId: trainer.uid,
+      actorRole: 'trainer',
+      summary: 'Objetivo ${_formatEventNumber(targetValue)} $unit',
+    );
     return assigned;
   }
 
@@ -1245,6 +1484,64 @@ class DemoAgujetasRepository implements AgujetasRepository {
       goal.copyWith(currentValue: currentValue, status: status),
     );
     _assignedGoals.add(List.unmodifiable(_assignedGoalItems));
+    _recordDemoAssignmentEvent(
+      trainerId: goal.trainerId,
+      assignedClientId: goal.assignedClientId,
+      targetType: 'goal',
+      targetId: goal.id,
+      title: goal.title,
+      action: status == 'completed' ? 'completed' : 'progress_updated',
+      actorId: user.uid,
+      actorRole: 'client',
+      summary:
+          '${_formatEventNumber(currentValue)} / ${_formatEventNumber(goal.targetValue)} ${goal.unit}',
+    );
+  }
+
+  @override
+  Stream<List<AssignmentEvent>> watchAssignmentEventsForClient(
+    String clientId,
+  ) {
+    scheduleMicrotask(
+      () => _assignmentEvents.add(
+        _assignmentEventItems
+            .where((event) => event.assignedClientId == clientId)
+            .toList(),
+      ),
+    );
+    return _assignmentEvents.stream.map(
+      (items) =>
+          items.where((event) => event.assignedClientId == clientId).toList()
+            ..sort((a, b) => b.occurredAt.compareTo(a.occurredAt)),
+    );
+  }
+
+  void _recordDemoAssignmentEvent({
+    required String trainerId,
+    required String assignedClientId,
+    required String targetType,
+    required String targetId,
+    required String title,
+    required String action,
+    required String actorId,
+    required String actorRole,
+    String? summary,
+  }) {
+    final event = AssignmentEvent(
+      id: 'demo-event-${_assignmentEventItems.length + 1}',
+      trainerId: trainerId,
+      assignedClientId: assignedClientId,
+      targetType: targetType,
+      targetId: targetId,
+      title: title,
+      action: action,
+      actorId: actorId,
+      actorRole: actorRole,
+      occurredAt: DateTime.now().toUtc(),
+      summary: summary,
+    );
+    _assignmentEventItems.insert(0, event);
+    _assignmentEvents.add(List.unmodifiable(_assignmentEventItems));
   }
 
   @override

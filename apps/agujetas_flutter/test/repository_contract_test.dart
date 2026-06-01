@@ -35,6 +35,12 @@ void main() {
       repository,
       contains("'goals': ['ownerId', 'clientId', 'assignedClientId']"),
     );
+    expect(
+      repository,
+      contains(
+        "'assignmentEvents': ['ownerId', 'clientId', 'assignedClientId']",
+      ),
+    );
   });
 
   test('account deletion clears known user subcollections before user doc', () {
@@ -251,10 +257,19 @@ void main() {
     expect(repository, contains('updateAssignedGoalProgress'));
     expect(repository, contains(".collection('goals').doc(goal.id).update"));
     expect(repository, contains("'currentValue': currentValue"));
+    expect(repository, contains('watchAssignmentEventsForClient'));
+    expect(repository, contains(".collection('assignmentEvents')"));
+    expect(repository, contains('_recordAssignmentEvent'));
     expect(
       rules,
       contains(
         'allow read, update, delete: if canAccessRecord(resource.data);',
+      ),
+    );
+    expect(
+      rules,
+      contains(
+        'match /assignmentEvents/{docId} {\n      allow read, update, delete: if canAccessRecord(resource.data);',
       ),
     );
   });

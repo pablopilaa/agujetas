@@ -889,6 +889,67 @@ class AssignedGoal {
   }
 }
 
+class AssignmentEvent {
+  const AssignmentEvent({
+    required this.id,
+    required this.trainerId,
+    required this.assignedClientId,
+    required this.targetType,
+    required this.targetId,
+    required this.title,
+    required this.action,
+    required this.actorId,
+    required this.actorRole,
+    required this.occurredAt,
+    this.summary,
+  });
+
+  final String id;
+  final String trainerId;
+  final String assignedClientId;
+  final String targetType;
+  final String targetId;
+  final String title;
+  final String action;
+  final String actorId;
+  final String actorRole;
+  final DateTime occurredAt;
+  final String? summary;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'trainerId': trainerId,
+    'assignedClientId': assignedClientId,
+    'targetType': targetType,
+    'targetId': targetId,
+    'title': title,
+    'action': action,
+    'actorId': actorId,
+    'actorRole': actorRole,
+    'occurredAt': occurredAt.toUtc().toIso8601String(),
+    'summary': summary,
+    'schemaVersion': 1,
+  };
+
+  factory AssignmentEvent.fromJson(Map<String, Object?> json) {
+    return AssignmentEvent(
+      id: json['id']?.toString() ?? '',
+      trainerId: json['trainerId']?.toString() ?? '',
+      assignedClientId: json['assignedClientId']?.toString() ?? '',
+      targetType: json['targetType']?.toString() ?? '',
+      targetId: json['targetId']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Asignación',
+      action: json['action']?.toString() ?? 'updated',
+      actorId: json['actorId']?.toString() ?? '',
+      actorRole: json['actorRole']?.toString() ?? '',
+      occurredAt:
+          DateTime.tryParse(json['occurredAt']?.toString() ?? '') ??
+          DateTime.now().toUtc(),
+      summary: json['summary']?.toString(),
+    );
+  }
+}
+
 List<WorkoutSet> defaultWorkoutSets() => const [
   WorkoutSet(
     order: 1,

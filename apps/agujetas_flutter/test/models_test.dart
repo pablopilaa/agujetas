@@ -177,6 +177,33 @@ void main() {
     expect(restored.dueAt, DateTime.utc(2026, 6, 15));
   });
 
+  test('assignment event serializes trainer client audit payload', () {
+    final event = AssignmentEvent(
+      id: 'event-1',
+      trainerId: 'trainer-1',
+      assignedClientId: 'client-1',
+      targetType: 'task',
+      targetId: 'task-1',
+      title: 'Registrar peso corporal',
+      action: 'completed',
+      actorId: 'client-1',
+      actorRole: 'client',
+      occurredAt: DateTime.utc(2026, 6, 9, 20),
+      summary: 'Peso cargado sin molestias.',
+    );
+
+    final restored = AssignmentEvent.fromJson(event.toJson());
+
+    expect(restored.id, 'event-1');
+    expect(restored.trainerId, 'trainer-1');
+    expect(restored.assignedClientId, 'client-1');
+    expect(restored.targetType, 'task');
+    expect(restored.action, 'completed');
+    expect(restored.actorRole, 'client');
+    expect(restored.occurredAt, DateTime.utc(2026, 6, 9, 20));
+    expect(restored.summary, 'Peso cargado sin molestias.');
+  });
+
   test('legacy single weight fields migrate into segments', () {
     final set = WorkoutSet.fromJson({
       'order': 2,

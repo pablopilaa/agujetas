@@ -636,3 +636,12 @@ Quincuagésimo cuarto bloque Seguimiento visible para entrenador:
 - Cada entrenado activo en el panel entrenador muestra un bloque `Seguimiento` con tareas completas, schedules activos y avance de metas usando los streams existentes por `assignedClientId`.
 - El entrenador puede ver el último comentario de una tarea completada sin salir del panel principal.
 - Quedan pendientes adjuntos reales de evidencia, historial cronológico/auditoría de cambios y respuestas del entrenador sobre cada tarea.
+
+Quincuagésimo quinto bloque Auditoría cronológica de asignaciones:
+
+- Se agregó `AssignmentEvent` como contrato de auditoría para rutinas, tareas, schedules y metas asignadas.
+- Firestore/demo crean eventos en `assignmentEvents` cuando el entrenador asigna rutina/tarea/schedule/meta y cuando el entrenado completa, cancela, reprograma o actualiza progreso.
+- `AgujetasRepository.watchAssignmentEventsForClient` expone el timeline por `assignedClientId`, ordenado de más reciente a más antiguo.
+- Las reglas Firestore permiten leer/escribir `assignmentEvents` con el mismo criterio de vínculo activo usado en asignaciones.
+- El usuario normal ve una tarjeta `Actividad de asignaciones`; el panel entrenador muestra el último cambio dentro de `Seguimiento`.
+- Quedan pendientes respuestas del entrenador por evento, adjuntos/evidencia real y una pantalla completa de auditoría filtrable.

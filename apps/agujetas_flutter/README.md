@@ -64,6 +64,7 @@ Colecciones principales:
 - `tasks`
 - `schedules`
 - `goals`
+- `assignmentEvents`
 - `sessions`
 
 Las reglas estan en `firebase/firestore.rules`. Criterio:
@@ -74,6 +75,7 @@ Las reglas estan en `firebase/firestore.rules`. Criterio:
 - El cliente no puede autoasignarse `plan` ni `roles`; Pro queda reservado para backend/admin/RevenueCat.
 - El borrado de perfil/invitaciones/vínculos de entrenador permite limpieza de privacidad aunque el usuario pierda Pro; crear/editar sigue bloqueado por entitlement.
 - Catalogos publicos solo lectura: `publicExerciseCatalog`, `exerciseMediaIndex`, `appConfig`.
+- Los eventos de asignaciones se guardan en `assignmentEvents` con `trainerId`, `assignedClientId`, `targetType`, `targetId`, `action`, `actorRole` y resumen legible.
 - Escritura admin solo con custom claim `admin == true`.
 
 ## Desarrollo local
@@ -133,7 +135,7 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 - Convertir importaciones legacy en flujo visible/configurable antes de publicar una build comercial.
 - Mejorar ergonomia del editor profundo de rutinas y peso corporal en Android real: gestos, foco de campos y acciones mas visibles.
 - Ejecutar tests de reglas con Firebase Emulator Suite.
-- Completar historial/auditoria cronologica de cambios para tareas/schedules/metas.
+- Expandir historial/auditoria con respuestas del entrenador y adjuntos reales de evidencia.
 - Reemplazar el contrato técnico preliminar de consentimiento por términos y política de privacidad finales con asesoría legal antes de producción.
 - Crear Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente.
 - Definir política de conflictos de sesiones si dos dispositivos editan la misma nota/título offline antes de sincronizar.
