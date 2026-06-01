@@ -736,6 +736,6 @@ Sexagésimo séptimo bloque Alertas automáticas de peso:
 Sexagésimo octavo bloque Corrección de peso corporal:
 
 - El historial reciente de `Peso corporal` ahora muestra acciones para editar o eliminar registros cargados.
-- Editar conserva el mismo `id` y la fecha original, por lo que corrige el registro local y sincroniza el mismo documento remoto si hay sesión Google.
+- Editar conserva el mismo `id`, permite corregir fecha, kg y nota, y sincroniza el mismo documento remoto si hay sesión Google.
 - Borrar elimina local-first y luego intenta borrar `bodyWeights/{id}` en Firestore para usuarios autenticados.
 - `LocalWorkoutStore` suma `deleteBodyWeightLocal`; `AgujetasRepository` suma `deleteBodyWeight` con implementación Firebase y demo.

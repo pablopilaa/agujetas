@@ -5731,65 +5731,95 @@ class BodyWeightCard extends StatelessWidget {
       text: initial == null ? '' : initial.weightKg.toStringAsFixed(1),
     );
     final noteController = TextEditingController(text: initial?.note ?? '');
+    var selectedDate = (initial?.recordedAt ?? DateTime.now()).toLocal();
     final entry = await showModalBottomSheet<BodyWeightEntry>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) {
+      builder: (sheetContext) {
         final bottom = MediaQuery.of(context).viewInsets.bottom;
-        return Padding(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                initial == null ? 'Registrar peso' : 'Editar peso',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Peso corporal kg',
-                  prefixIcon: Icon(Icons.monitor_weight_outlined),
+        return StatefulBuilder(
+          builder: (context, setSheetState) => Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  initial == null ? 'Registrar peso' : 'Editar peso',
+                  style: Theme.of(context).textTheme.titleLarge,
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: noteController,
-                minLines: 1,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Nota opcional',
-                  prefixIcon: Icon(Icons.notes_outlined),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Peso corporal kg',
+                    prefixIcon: Icon(Icons.monitor_weight_outlined),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () {
-                  final weight = double.tryParse(
-                    controller.text.replaceAll(',', '.'),
-                  );
-                  if (weight == null || weight <= 0) return;
-                  final note = noteController.text.trim();
-                  Navigator.of(context).pop(
-                    BodyWeightEntry(
-                      id: initial?.id ?? const Uuid().v4(),
-                      userId: user.uid,
-                      weightKg: weight,
-                      recordedAt: initial?.recordedAt ?? DateTime.now(),
-                      note: note.isEmpty ? null : note,
-                    ),
-                  );
-                },
-                child: Text(
-                  initial == null ? 'Guardar peso' : 'Guardar cambio',
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final now = DateTime.now();
+                    final picked = await showDatePicker(
+                      context: sheetContext,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(now.year - 5),
+                      lastDate: DateTime(now.year + 1),
+                    );
+                    if (picked == null) return;
+                    setSheetState(() => selectedDate = picked);
+                  },
+                  icon: const Icon(Icons.calendar_today_outlined),
+                  label: Text('Fecha: ${_shortDate(selectedDate)}'),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteController,
+                  minLines: 1,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Nota opcional',
+                    prefixIcon: Icon(Icons.notes_outlined),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () {
+                    final weight = double.tryParse(
+                      controller.text.replaceAll(',', '.'),
+                    );
+                    if (weight == null || weight <= 0) return;
+                    final note = noteController.text.trim();
+                    final timeSource = (initial?.recordedAt ?? DateTime.now())
+                        .toLocal();
+                    Navigator.of(context).pop(
+                      BodyWeightEntry(
+                        id: initial?.id ?? const Uuid().v4(),
+                        userId: user.uid,
+                        weightKg: weight,
+                        recordedAt: DateTime(
+                          selectedDate.year,
+                          selectedDate.month,
+                          selectedDate.day,
+                          timeSource.hour,
+                          timeSource.minute,
+                          timeSource.second,
+                          timeSource.millisecond,
+                          timeSource.microsecond,
+                        ),
+                        note: note.isEmpty ? null : note,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    initial == null ? 'Guardar peso' : 'Guardar cambio',
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

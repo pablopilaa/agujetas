@@ -1025,13 +1025,22 @@ void main() {
     await tester.tap(find.byTooltip('Editar peso'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, '81,5');
+    await tester.tap(find.text('Fecha: 20/5'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('15').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Guardar cambio'));
     await tester.pumpAndSettle();
 
     expect(saved, isNotNull);
     expect(saved!.id, 'weight-entry');
     expect(saved!.weightKg, 81.5);
-    expect(saved!.recordedAt, entry.recordedAt);
+    expect(saved!.recordedAt.year, 2026);
+    expect(saved!.recordedAt.month, 5);
+    expect(saved!.recordedAt.day, 15);
+    expect(saved!.recordedAt.hour, entry.recordedAt.hour);
 
     await tester.tap(find.byTooltip('Eliminar peso'));
     await tester.pumpAndSettle();
