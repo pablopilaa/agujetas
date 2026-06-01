@@ -91,9 +91,12 @@ flowchart TD
   E4 --> E5["Firestore assignedRoutines"]
   E2 --> E6["Enviar tarea"]
   E6 --> E7["Firestore tasks"]
+  E2 --> E8["Agendar sesión"]
+  E8 --> E9["Firestore schedules"]
   E --> E3["Metas y tareas"]
   B --> B2["Rutinas asignadas por entrenador"]
   B --> B3["Tareas del entrenador"]
+  B --> B4["Schedules asignados"]
 ```
 
 ## Pantallas Principales
@@ -109,6 +112,7 @@ flowchart TD
 | Inicio | Usuario Pro | Tocar Modo entrenador | Panel entrenador |
 | Inicio | Usuario vinculado | Rutinas asignadas | Lista desde Firestore `assignedRoutines` |
 | Inicio | Usuario vinculado | Tareas del entrenador | Lista desde Firestore `tasks` |
+| Inicio | Usuario vinculado | Schedules asignados | Lista desde Firestore `schedules` |
 | Inicio | Selector Fuerza / Hipertrofia / Técnica / Libre | Elegir modo de sesión | Entrenar con modo elegido |
 | Inicio | CTA iniciar entrenamiento | Iniciar sesión recomendada | Entrenar |
 | Inicio | Card calendario | Ver calendario mensual | Bottom sheet de calendario con navegación por mes |
@@ -128,8 +132,10 @@ flowchart TD
 | Progreso | Calendario | Ver calendario mensual | Bottom sheet de calendario con sesiones históricas |
 | Calendario mensual | Flechas mes anterior/siguiente | Cambiar mes visible | Misma pantalla con resumen mensual actualizado |
 | Calendario mensual | Día con sesiones | Revisar entrenos del día | Hoja con sesiones de esa fecha |
+| Calendario mensual | Día con schedule | Revisar sesión planificada | Hoja con schedule, nota y rutina sugerida |
 | Calendario mensual | Sesión histórica | Ver detalle completo | Hoja con ejercicios, series, kg, reps, RIR y segmentos |
 | Calendario mensual | Sesiones | Sync remoto | Merge Firestore `sessions` por `ownerId` sin borrar historial offline |
+| Calendario mensual | Schedules | Sync remoto | Leer Firestore `schedules` por `assignedClientId` |
 | Detalle de sesión histórica | Repetir sesión | Cargar entrenamiento activo | Entrenar con ejercicios históricos |
 | Detalle de sesión histórica | Guardar rutina | Crear plantilla local | Biblioteca / Mis ejercicios |
 | Detalle de sesión histórica | Editar nota | Corregir nombre o nota | Historial local actualizado |
@@ -158,6 +164,7 @@ flowchart TD
 | Panel entrenador | Modo entrenador Pro | Ver entrenados activos | Lista desde `trainerClientLinks` |
 | Panel entrenador | Entrenado activo | Asignar rutina | Crear `assignedRoutines/{id}` con `trainerId`, `assignedClientId` y snapshot de ejercicios |
 | Panel entrenador | Entrenado activo | Enviar tarea | Crear `tasks/{id}` con `trainerId`, `assignedClientId`, descripción y vencimiento opcional |
+| Panel entrenador | Entrenado activo | Agendar | Crear `schedules/{id}` con `trainerId`, `assignedClientId`, fecha, nota y rutina opcional |
 
 ## Reglas De Interacción
 
@@ -181,7 +188,7 @@ flowchart TD
 - El orden local de rutinas se preserva al fusionar snapshots remotos; replicar ese orden entre dispositivos requiere un campo de orden remoto dedicado.
 - Las sesiones siguen el mismo patrón local-first: calendario/progreso leen del dispositivo, sync Firestore por `ownerId`, delete remoto best-effort y merge por `id`.
 - El `id` local de sesión es el `docId` remoto; no se usa `add()` para evitar duplicados imposibles de reconciliar.
-- Las asignaciones de entrenador viven en `assignedRoutines` y `tasks`: el entrenador escribe sólo si tiene vínculo activo con el entrenado y el usuario normal lee sus rutinas/tareas por `assignedClientId`.
+- Las asignaciones de entrenador viven en `assignedRoutines`, `tasks` y `schedules`: el entrenador escribe sólo si tiene vínculo activo con el entrenado y el usuario normal lee sus rutinas/tareas/schedules por `assignedClientId`.
 
 ## Pendientes UX
 

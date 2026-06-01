@@ -592,3 +592,13 @@ Cuadragésimo noveno bloque Tareas entrenador-entrenado:
 - El panel entrenador muestra `Enviar tarea` por entrenado activo y crea una tarea de control de peso semanal.
 - El usuario normal tiene una sección `Tareas del entrenador` que lee `tasks` por `assignedClientId`.
 - Quedan pendientes edición de tareas, marcar completada, comentarios de seguimiento y schedules/metas con calendario.
+
+Quincuagésimo bloque Schedules entrenador-entrenado:
+
+- Se agregó el modelo `AssignedSchedule` como contrato de sesión planificada por entrenador.
+- `AgujetasRepository` expone `assignScheduleToClient` y `watchAssignedSchedulesForClient`.
+- Firebase escribe schedules en `schedules/{id}` con `trainerId`, `ownerId`, `clientId`, `assignedClientId`, fecha `scheduledFor`, nota y rutina opcional.
+- El panel entrenador muestra `Agendar` por entrenado activo y crea una sesión planificada.
+- El usuario normal tiene una sección `Schedules asignados` y el calendario mensual recibe esos schedules por `assignedClientId`.
+- El calendario mensual ahora marca días con schedules, lista los schedules del mes y abre detalle con nota y rutina sugerida.
+- Quedan pendientes edición/cancelación de schedules, recordatorios push/locales de schedule y conflicto visual cuando una sesión planificada ya fue completada.

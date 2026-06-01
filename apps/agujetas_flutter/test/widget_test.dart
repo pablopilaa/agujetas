@@ -121,9 +121,9 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.text('Modo entrenador').first);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.tap(find.text('Activar Pro demo'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.ensureVisible(find.text('Asignar rutina').first);
@@ -146,9 +146,9 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.text('Modo entrenador').first);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.tap(find.text('Activar Pro demo'));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.ensureVisible(find.text('Enviar tarea').first);
@@ -160,6 +160,32 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('enviada a Sofia Demo'), findsOneWidget);
+  });
+
+  testWidgets('trainer dashboard schedules a client session', (tester) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Modo entrenador').first);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Activar Pro demo'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.ensureVisible(find.text('Agendar').first);
+    await tester.tap(find.text('Agendar').first);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(
+      find.textContaining('Schedule "Sesión planificada"'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('agendado para Sofia Demo'), findsOneWidget);
   });
 
   testWidgets('profile plan sheet exposes Pro contract and demo activation', (
@@ -1170,7 +1196,7 @@ void main() {
     expect(find.text('Calendario mensual'), findsOneWidget);
     expect(
       find.text(
-        'Tocá un día con marca para revisar entrenamientos guardados en este dispositivo.',
+        'Tocá un día con marca para revisar entrenamientos guardados y sesiones planificadas.',
       ),
       findsOneWidget,
     );
@@ -1243,7 +1269,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('1 sesión en ${_monthNameForTest(previousMonth.month)}'),
+        find.text(
+          '1 sesión y 0 schedules en ${_monthNameForTest(previousMonth.month)}',
+        ),
         findsOneWidget,
       );
       expect(find.textContaining('Fuerza · Press banca'), findsWidgets);
@@ -1256,6 +1284,54 @@ void main() {
       expect(find.textContaining('kg x'), findsWidgets);
     },
   );
+
+  testWidgets('monthly calendar shows assigned schedules', (tester) async {
+    tester.view.physicalSize = const Size(900, 1600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final now = DateTime.now();
+    final scheduleDate = DateTime(now.year, now.month, 18, 19);
+    final schedule = AssignedSchedule(
+      id: 'schedule-widget',
+      trainerId: 'trainer-1',
+      assignedClientId: 'calendar-user',
+      title: 'Sesión técnica',
+      scheduledFor: scheduleDate.toUtc(),
+      status: 'scheduled',
+      assignedAt: DateTime.now().toUtc(),
+      note: 'Revisar técnica y RIR.',
+      routineTitle: 'Empuje A',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: MonthlySessionCalendarSheet(
+            sessions: const [],
+            schedules: [schedule],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('1 schedule'), findsOneWidget);
+    expect(
+      find.text('Schedules de ${_monthNameForTest(now.month)}'),
+      findsOneWidget,
+    );
+    expect(find.text('Sesión técnica'), findsOneWidget);
+
+    await tester.tap(find.text('Sesión técnica').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rutina sugerida'), findsOneWidget);
+    expect(find.text('Empuje A'), findsWidgets);
+    expect(find.textContaining('Revisar técnica'), findsOneWidget);
+  });
 
   testWidgets('session history can be repeated as active workout', (
     tester,

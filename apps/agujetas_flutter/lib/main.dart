@@ -598,10 +598,12 @@ class _HomeShellState extends State<HomeShell> {
   List<RoutineTemplate> _localRoutines = const [];
   List<BodyWeightEntry> _localBodyWeights = const [];
   List<ExerciseCatalogEntry> _localCustomExercises = const [];
+  List<AssignedSchedule> _assignedSchedules = const [];
   StreamSubscription<List<LocalWorkoutSession>>? _sessionsSubscription;
   StreamSubscription<List<RoutineTemplate>>? _routineTemplatesSubscription;
   StreamSubscription<List<BodyWeightEntry>>? _bodyWeightsSubscription;
   StreamSubscription<List<ExerciseCatalogEntry>>? _customExercisesSubscription;
+  StreamSubscription<List<AssignedSchedule>>? _assignedSchedulesSubscription;
   String _sessionMode = 'Fuerza';
   String _activeRoutineTitle = 'Empuje A';
   String? _editingRoutineId;
@@ -624,6 +626,7 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_loadLocalRoutines());
     unawaited(_loadLocalBodyWeights());
     unawaited(_loadLocalCustomExercises());
+    _watchAssignedSchedules();
     unawaited(_loadUserPreferences());
     unawaited(_restoreActiveDraft());
   }
@@ -634,6 +637,7 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_routineTemplatesSubscription?.cancel());
     unawaited(_bodyWeightsSubscription?.cancel());
     unawaited(_customExercisesSubscription?.cancel());
+    unawaited(_assignedSchedulesSubscription?.cancel());
     super.dispose();
   }
 
@@ -655,6 +659,7 @@ class _HomeShellState extends State<HomeShell> {
         onNotice: (notice) => setState(() => _notice = notice),
         selectedSessionMode: _sessionMode,
         routines: _localRoutines,
+        assignedSchedules: _assignedSchedules,
         onSessionModeSelected: _selectSessionMode,
         onStartWorkout: () => _startWorkout(_sessionMode),
         onStartRoutine: _startRoutine,
@@ -743,6 +748,7 @@ class _HomeShellState extends State<HomeShell> {
       showDragHandle: true,
       builder: (_) => MonthlySessionCalendarSheet(
         sessions: _localSessions,
+        schedules: _assignedSchedules,
         onRepeatSession: _repeatHistoricalSession,
         onSaveSessionAsRoutine: _saveHistoricalSessionAsRoutine,
         onUpdateSession: _updateHistoricalSession,
@@ -753,6 +759,15 @@ class _HomeShellState extends State<HomeShell> {
 
   void _selectSessionMode(String mode) {
     _startWorkout(mode);
+  }
+
+  void _watchAssignedSchedules() {
+    _assignedSchedulesSubscription = widget.repository
+        .watchAssignedSchedulesForClient(widget.user.uid)
+        .listen((schedules) {
+          if (!mounted) return;
+          setState(() => _assignedSchedules = schedules);
+        });
   }
 
   void _startWorkout(String mode) {
@@ -1720,6 +1735,7 @@ class HomeDashboard extends StatefulWidget {
     required this.onNotice,
     required this.selectedSessionMode,
     required this.routines,
+    required this.assignedSchedules,
     required this.onSessionModeSelected,
     required this.onStartWorkout,
     required this.onStartRoutine,
@@ -1734,6 +1750,7 @@ class HomeDashboard extends StatefulWidget {
   final ValueChanged<String> onNotice;
   final String selectedSessionMode;
   final List<RoutineTemplate> routines;
+  final List<AssignedSchedule> assignedSchedules;
   final ValueChanged<String> onSessionModeSelected;
   final VoidCallback onStartWorkout;
   final ValueChanged<RoutineTemplate> onStartRoutine;
@@ -1826,6 +1843,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
           _AthletePanel(
             user: widget.user,
             repository: widget.repository,
+            schedules: widget.assignedSchedules,
             controller: _inviteController,
             busy: _busy,
             onAcceptInvite: _acceptInvite,
@@ -1927,22 +1945,25 @@ class _TrainerPanel extends StatelessWidget {
                                 'Rutinas, tareas, schedules y metas',
                               ),
                             ),
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
-                                Expanded(
-                                  child: FilledButton.tonal(
-                                    onPressed: routines.isEmpty
-                                        ? null
-                                        : () => _assignFirstRoutine(client),
-                                    child: const Text('Asignar rutina'),
-                                  ),
+                                FilledButton.tonal(
+                                  onPressed: routines.isEmpty
+                                      ? null
+                                      : () => _assignFirstRoutine(client),
+                                  child: const Text('Asignar rutina'),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: OutlinedButton(
-                                    onPressed: () => _assignDefaultTask(client),
-                                    child: const Text('Enviar tarea'),
-                                  ),
+                                OutlinedButton(
+                                  onPressed: () => _assignDefaultTask(client),
+                                  child: const Text('Enviar tarea'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _assignDefaultSchedule(client),
+                                  icon: const Icon(Icons.event_available),
+                                  label: const Text('Agendar'),
                                 ),
                               ],
                             ),
@@ -2000,12 +2021,35 @@ class _TrainerPanel extends StatelessWidget {
       onNotice('No pude enviar la tarea: $error');
     }
   }
+
+  Future<void> _assignDefaultSchedule(TrainerClientLink client) async {
+    final scheduledFor = DateTime.now()
+        .toLocal()
+        .add(const Duration(days: 2))
+        .copyWith(hour: 18, minute: 0, second: 0, millisecond: 0);
+    try {
+      final schedule = await repository.assignScheduleToClient(
+        trainer: user,
+        client: client,
+        title: 'Sesión planificada',
+        scheduledFor: scheduledFor,
+        note: 'Revisar técnica y completar RIR en todas las series.',
+        routine: routines.isEmpty ? null : routines.first,
+      );
+      onNotice(
+        'Schedule "${schedule.title}" agendado para ${client.clientName}.',
+      );
+    } catch (error) {
+      onNotice('No pude agendar la sesión: $error');
+    }
+  }
 }
 
 class _AthletePanel extends StatelessWidget {
   const _AthletePanel({
     required this.user,
     required this.repository,
+    required this.schedules,
     required this.controller,
     required this.busy,
     required this.onAcceptInvite,
@@ -2013,6 +2057,7 @@ class _AthletePanel extends StatelessWidget {
 
   final AppUser user;
   final AgujetasRepository repository;
+  final List<AssignedSchedule> schedules;
   final TextEditingController controller;
   final bool busy;
   final VoidCallback onAcceptInvite;
@@ -2100,6 +2145,28 @@ class _AthletePanel extends StatelessWidget {
                     ),
             );
           },
+        ),
+        DashboardCard(
+          icon: Icons.event_available_outlined,
+          title: 'Schedules asignados',
+          subtitle: schedules.isEmpty
+              ? 'Las sesiones planificadas por tu entrenador aparecen acá y en el calendario.'
+              : '${schedules.length} sesión${schedules.length == 1 ? '' : 'es'} planificada${schedules.length == 1 ? '' : 's'}',
+          child: schedules.isEmpty
+              ? null
+              : Column(
+                  children: [
+                    for (final schedule in schedules.take(3))
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.calendar_today_outlined),
+                        ),
+                        title: Text(schedule.title),
+                        subtitle: Text(_scheduleSubtitle(schedule)),
+                      ),
+                  ],
+                ),
         ),
       ],
     );
@@ -5174,10 +5241,23 @@ String _sessionSubtitle(LocalWorkoutSession session) {
       '${_formatCompactVolume(_sessionVolume(session))}';
 }
 
+String _scheduleSubtitle(AssignedSchedule schedule) {
+  final routine = schedule.routineTitle?.trim();
+  final routineLabel = routine == null || routine.isEmpty ? '' : ' · $routine';
+  return '${_formatShortDateTime(schedule.scheduledFor)}$routineLabel';
+}
+
 String _dateKey(DateTime value) =>
     '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 
 String _shortDate(DateTime value) => '${value.day}/${value.month}';
+
+String _formatShortDateTime(DateTime value) {
+  final local = value.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '${local.day}/${local.month} $hour:$minute';
+}
 
 String _formatDuration(Duration duration) {
   final hours = duration.inHours;
@@ -5206,6 +5286,7 @@ class MonthlySessionCalendarSheet extends StatefulWidget {
   const MonthlySessionCalendarSheet({
     super.key,
     required this.sessions,
+    this.schedules = const [],
     this.onRepeatSession,
     this.onSaveSessionAsRoutine,
     this.onUpdateSession,
@@ -5213,6 +5294,7 @@ class MonthlySessionCalendarSheet extends StatefulWidget {
   });
 
   final List<LocalWorkoutSession> sessions;
+  final List<AssignedSchedule> schedules;
   final ValueChanged<LocalWorkoutSession>? onRepeatSession;
   final Future<void> Function(LocalWorkoutSession session)?
   onSaveSessionAsRoutine;
@@ -5228,6 +5310,7 @@ class _MonthlySessionCalendarSheetState
     extends State<MonthlySessionCalendarSheet> {
   late DateTime _visibleMonth;
   late List<LocalWorkoutSession> _sessions;
+  late List<AssignedSchedule> _schedules;
 
   @override
   void initState() {
@@ -5235,6 +5318,18 @@ class _MonthlySessionCalendarSheetState
     final now = DateTime.now();
     _visibleMonth = DateTime(now.year, now.month);
     _sessions = widget.sessions;
+    _schedules = widget.schedules;
+  }
+
+  @override
+  void didUpdateWidget(covariant MonthlySessionCalendarSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sessions != widget.sessions) {
+      _sessions = widget.sessions;
+    }
+    if (oldWidget.schedules != widget.schedules) {
+      _schedules = widget.schedules;
+    }
   }
 
   @override
@@ -5246,11 +5341,19 @@ class _MonthlySessionCalendarSheetState
       Duration(days: monthStart.weekday - 1),
     );
     final sessionsByDay = _sessionsByDay(_sessions);
+    final schedulesByDay = _schedulesByDay(_schedules);
     final monthSessions = _sessions
         .where(
           (session) =>
               session.finishedAt.toLocal().year == _visibleMonth.year &&
               session.finishedAt.toLocal().month == _visibleMonth.month,
+        )
+        .toList();
+    final monthSchedules = _schedules
+        .where(
+          (schedule) =>
+              schedule.scheduledFor.toLocal().year == _visibleMonth.year &&
+              schedule.scheduledFor.toLocal().month == _visibleMonth.month,
         )
         .toList();
     final recentSessions = _sessions.take(6).toList();
@@ -5292,14 +5395,14 @@ class _MonthlySessionCalendarSheetState
         ),
         const SizedBox(height: 6),
         Text(
-          'Tocá un día con marca para revisar entrenamientos guardados en este dispositivo.',
+          'Tocá un día con marca para revisar entrenamientos guardados y sesiones planificadas.',
           style: Theme.of(context).textTheme.labelMedium,
         ),
         const SizedBox(height: 12),
         DashboardCard(
           icon: Icons.calendar_month,
           title:
-              '${monthSessions.length} sesión${monthSessions.length == 1 ? '' : 'es'} en ${_monthName(_visibleMonth.month)}',
+              '${monthSessions.length} sesión${monthSessions.length == 1 ? '' : 'es'} y ${monthSchedules.length} schedule${monthSchedules.length == 1 ? '' : 's'} en ${_monthName(_visibleMonth.month)}',
           subtitle:
               '${_formatDuration(monthDuration)} acumulados · ${_formatCompactVolume(monthVolume)}',
           action: TextButton.icon(
@@ -5335,19 +5438,30 @@ class _MonthlySessionCalendarSheetState
           itemBuilder: (context, index) {
             final day = firstGridDay.add(Duration(days: index));
             final daySessions = sessionsByDay[_dateKey(day)];
-            final inMonth = day.month == now.month;
+            final daySchedules = schedulesByDay[_dateKey(day)];
+            final inMonth = day.month == _visibleMonth.month;
             final isToday = _isSameDay(day, now);
             final hasSessions = daySessions != null && daySessions.isNotEmpty;
+            final hasSchedules =
+                daySchedules != null && daySchedules.isNotEmpty;
+            final hasEntries = hasSessions || hasSchedules;
             return InkWell(
               borderRadius: BorderRadius.circular(8),
-              onTap: !hasSessions
+              onTap: !hasEntries
                   ? null
-                  : () => _openDayDetail(context, day, daySessions),
+                  : () => _openDayDetail(
+                      context,
+                      day,
+                      daySessions ?? const [],
+                      daySchedules ?? const [],
+                    ),
               child: Container(
                 decoration: BoxDecoration(
-                  color: !hasSessions
+                  color: !hasEntries
                       ? colors.raised.withValues(alpha: inMonth ? 1 : 0.35)
-                      : colors.primaryContainer,
+                      : hasSessions
+                      ? colors.primaryContainer
+                      : colors.amberContainer,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isToday ? colors.primaryStrong : colors.divider,
@@ -5364,6 +5478,8 @@ class _MonthlySessionCalendarSheetState
                         style: TextStyle(
                           color: hasSessions
                               ? Colors.white
+                              : hasSchedules
+                              ? colors.amber
                               : inMonth
                               ? colors.text
                               : colors.textSecondary.withValues(alpha: 0.45),
@@ -5391,6 +5507,16 @@ class _MonthlySessionCalendarSheetState
                               fontWeight: FontWeight.w900,
                             ),
                           ),
+                        ),
+                      ),
+                    if (hasSchedules)
+                      Positioned(
+                        left: 6,
+                        bottom: 5,
+                        child: Icon(
+                          Icons.event_available,
+                          size: 13,
+                          color: hasSessions ? Colors.white : colors.amber,
                         ),
                       ),
                   ],
@@ -5422,6 +5548,30 @@ class _MonthlySessionCalendarSheetState
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () =>
                     _openSessionDetail(context, session.finishedAt, session),
+              ),
+            ),
+        const SizedBox(height: 16),
+        Text(
+          'Schedules de ${_monthName(_visibleMonth.month)}',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        if (monthSchedules.isEmpty)
+          DashboardCard(
+            icon: Icons.event_available_outlined,
+            title: 'Sin sesiones planificadas',
+            subtitle:
+                'Cuando un entrenador agende sesiones, van a aparecer en este mes.',
+          )
+        else
+          for (final schedule in monthSchedules)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.event_available),
+                title: Text(schedule.title),
+                subtitle: Text(_scheduleSubtitle(schedule)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openScheduleDetail(context, schedule),
               ),
             ),
         const SizedBox(height: 16),
@@ -5475,10 +5625,22 @@ class _MonthlySessionCalendarSheetState
     return grouped;
   }
 
+  static Map<String, List<AssignedSchedule>> _schedulesByDay(
+    List<AssignedSchedule> schedules,
+  ) {
+    final grouped = <String, List<AssignedSchedule>>{};
+    for (final schedule in schedules) {
+      final key = _dateKey(schedule.scheduledFor.toLocal());
+      grouped.putIfAbsent(key, () => []).add(schedule);
+    }
+    return grouped;
+  }
+
   void _openDayDetail(
     BuildContext context,
     DateTime date,
     List<LocalWorkoutSession> sessions,
+    List<AssignedSchedule> schedules,
   ) {
     showModalBottomSheet<void>(
       context: context,
@@ -5495,10 +5657,19 @@ class _MonthlySessionCalendarSheetState
             ),
             const SizedBox(height: 4),
             Text(
-              '${sessions.length} sesión${sessions.length == 1 ? '' : 'es'} guardada${sessions.length == 1 ? '' : 's'}',
+              '${sessions.length} sesión${sessions.length == 1 ? '' : 'es'} guardada${sessions.length == 1 ? '' : 's'} · ${schedules.length} schedule${schedules.length == 1 ? '' : 's'}',
               style: Theme.of(context).textTheme.labelMedium,
             ),
             const SizedBox(height: 12),
+            for (final schedule in schedules)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.event_available),
+                title: Text(schedule.title),
+                subtitle: Text(_scheduleSubtitle(schedule)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _openScheduleDetail(context, schedule),
+              ),
             for (final session in sessions)
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -5512,6 +5683,39 @@ class _MonthlySessionCalendarSheetState
                   session,
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openScheduleDetail(BuildContext context, AssignedSchedule schedule) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Text(schedule.title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              _scheduleSubtitle(schedule),
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            if (schedule.note != null && schedule.note!.trim().isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(schedule.note!),
+            ],
+            if (schedule.routineTitle != null) ...[
+              const SizedBox(height: 12),
+              DashboardCard(
+                icon: Icons.fitness_center,
+                title: 'Rutina sugerida',
+                subtitle: schedule.routineTitle!,
+              ),
+            ],
           ],
         ),
       ),

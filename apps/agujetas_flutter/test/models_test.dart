@@ -122,6 +122,30 @@ void main() {
     expect(restored.dueAt, DateTime.utc(2026, 6, 8));
   });
 
+  test('assigned schedule serializes trainer client calendar payload', () {
+    final schedule = AssignedSchedule(
+      id: 'schedule-1',
+      trainerId: 'trainer-1',
+      assignedClientId: 'client-1',
+      title: 'Sesión técnica',
+      scheduledFor: DateTime.utc(2026, 6, 9, 21),
+      status: 'scheduled',
+      assignedAt: DateTime.utc(2026, 6, 1),
+      note: 'Revisar tempo y RIR.',
+      routineTemplateId: 'routine-1',
+      routineTitle: 'Empuje A',
+    );
+
+    final restored = AssignedSchedule.fromJson(schedule.toJson());
+
+    expect(restored.id, 'schedule-1');
+    expect(restored.trainerId, 'trainer-1');
+    expect(restored.assignedClientId, 'client-1');
+    expect(restored.title, 'Sesión técnica');
+    expect(restored.scheduledFor, DateTime.utc(2026, 6, 9, 21));
+    expect(restored.routineTitle, 'Empuje A');
+  });
+
   test('legacy single weight fields migrate into segments', () {
     final set = WorkoutSet.fromJson({
       'order': 2,

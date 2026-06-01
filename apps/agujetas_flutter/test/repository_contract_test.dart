@@ -196,6 +196,25 @@ void main() {
       ),
     );
   });
+
+  test('trainer schedule assignment uses linked client scoped records', () {
+    final repository = _readRepositorySource();
+    final rules = _readFirestoreRules();
+
+    expect(repository, contains(".collection('schedules').doc(id)"));
+    expect(repository, contains('assignScheduleToClient'));
+    expect(repository, contains('trainerId: trainer.uid'));
+    expect(repository, contains('assignedClientId: client.clientId'));
+    expect(repository, contains("'ownerId': trainer.uid"));
+    expect(repository, contains("'clientId': client.clientId"));
+    expect(repository, contains('watchAssignedSchedulesForClient'));
+    expect(
+      rules,
+      contains(
+        'match /schedules/{docId} {\n      allow read, update, delete: if canAccessRecord(resource.data);',
+      ),
+    );
+  });
 }
 
 String _readRepositorySource() {

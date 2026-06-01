@@ -69,6 +69,17 @@ abstract class AgujetasRepository {
     DateTime? dueAt,
   });
   Stream<List<AssignedTask>> watchAssignedTasksForClient(String clientId);
+  Future<AssignedSchedule> assignScheduleToClient({
+    required AppUser trainer,
+    required TrainerClientLink client,
+    required String title,
+    required DateTime scheduledFor,
+    String? note,
+    RoutineTemplate? routine,
+  });
+  Stream<List<AssignedSchedule>> watchAssignedSchedulesForClient(
+    String clientId,
+  );
   Future<void> saveSession({
     required AppUser user,
     required LocalWorkoutSession session,
@@ -446,6 +457,65 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
   }
 
   @override
+  Future<AssignedSchedule> assignScheduleToClient({
+    required AppUser trainer,
+    required TrainerClientLink client,
+    required String title,
+    required DateTime scheduledFor,
+    String? note,
+    RoutineTemplate? routine,
+  }) async {
+    final id = _uuid.v4();
+    final assigned = AssignedSchedule(
+      id: id,
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      title: title,
+      scheduledFor: scheduledFor.toUtc(),
+      status: 'scheduled',
+      assignedAt: DateTime.now().toUtc(),
+      note: note,
+      routineTemplateId: routine?.id,
+      routineTitle: routine?.title,
+    );
+    await _firestore.collection('schedules').doc(id).set({
+      ...assigned.toJson(),
+      'ownerId': trainer.uid,
+      'clientId': client.clientId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return assigned;
+  }
+
+  @override
+  Stream<List<AssignedSchedule>> watchAssignedSchedulesForClient(
+    String clientId,
+  ) {
+    return _firestore
+        .collection('schedules')
+        .where('assignedClientId', isEqualTo: clientId)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs
+                  .map(
+                    (doc) => AssignedSchedule.fromJson({
+                      ...doc.data(),
+                      'id': doc.id,
+                    }),
+                  )
+                  .where(
+                    (schedule) =>
+                        schedule.id.isNotEmpty &&
+                        schedule.assignedClientId == clientId &&
+                        schedule.title.isNotEmpty,
+                  )
+                  .toList()
+                ..sort((a, b) => a.scheduledFor.compareTo(b.scheduledFor)),
+        );
+  }
+
+  @override
   Future<void> saveSession({
     required AppUser user,
     required LocalWorkoutSession session,
@@ -700,6 +770,8 @@ class DemoAgujetasRepository implements AgujetasRepository {
   final _clients = StreamController<List<TrainerClientLink>>.broadcast();
   final _assignedRoutines = StreamController<List<AssignedRoutine>>.broadcast();
   final _assignedTasks = StreamController<List<AssignedTask>>.broadcast();
+  final _assignedSchedules =
+      StreamController<List<AssignedSchedule>>.broadcast();
   final _customExercises =
       StreamController<List<ExerciseCatalogEntry>>.broadcast();
   final _bodyWeights = StreamController<List<BodyWeightEntry>>.broadcast();
@@ -707,6 +779,7 @@ class DemoAgujetasRepository implements AgujetasRepository {
   final List<BodyWeightEntry> _bodyWeightItems = [];
   final List<AssignedRoutine> _assignedRoutineItems = [];
   final List<AssignedTask> _assignedTaskItems = [];
+  final List<AssignedSchedule> _assignedScheduleItems = [];
   LocalUserPreferences _preferences = const LocalUserPreferences();
 
   AppUser? _user = const AppUser(
@@ -774,11 +847,13 @@ class DemoAgujetasRepository implements AgujetasRepository {
     _bodyWeightItems.clear();
     _assignedRoutineItems.clear();
     _assignedTaskItems.clear();
+    _assignedScheduleItems.clear();
     _customExercises.add(const []);
     _bodyWeights.add(const []);
     _clients.add(const []);
     _assignedRoutines.add(const []);
     _assignedTasks.add(const []);
+    _assignedSchedules.add(const []);
     _controller.add(null);
   }
 
@@ -873,6 +948,52 @@ class DemoAgujetasRepository implements AgujetasRepository {
     return _assignedTasks.stream.map(
       (items) =>
           items.where((task) => task.assignedClientId == clientId).toList(),
+    );
+  }
+
+  @override
+  Future<AssignedSchedule> assignScheduleToClient({
+    required AppUser trainer,
+    required TrainerClientLink client,
+    required String title,
+    required DateTime scheduledFor,
+    String? note,
+    RoutineTemplate? routine,
+  }) async {
+    final assigned = AssignedSchedule(
+      id: 'demo-schedule-${_assignedScheduleItems.length + 1}',
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      title: title,
+      scheduledFor: scheduledFor.toUtc(),
+      status: 'scheduled',
+      assignedAt: DateTime.now().toUtc(),
+      note: note,
+      routineTemplateId: routine?.id,
+      routineTitle: routine?.title,
+    );
+    _assignedScheduleItems.insert(0, assigned);
+    _assignedSchedules.add(List.unmodifiable(_assignedScheduleItems));
+    return assigned;
+  }
+
+  @override
+  Stream<List<AssignedSchedule>> watchAssignedSchedulesForClient(
+    String clientId,
+  ) {
+    scheduleMicrotask(
+      () => _assignedSchedules.add(
+        _assignedScheduleItems
+            .where((schedule) => schedule.assignedClientId == clientId)
+            .toList(),
+      ),
+    );
+    return _assignedSchedules.stream.map(
+      (items) =>
+          items
+              .where((schedule) => schedule.assignedClientId == clientId)
+              .toList()
+            ..sort((a, b) => a.scheduledFor.compareTo(b.scheduledFor)),
     );
   }
 
