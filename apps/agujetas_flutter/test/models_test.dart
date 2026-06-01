@@ -1166,15 +1166,24 @@ void main() {
         isCustom: true,
       ),
     );
+    await store.saveFavoriteExerciseIds(
+      userId: 'backup-source',
+      exerciseIds: {'bench_press', 'backup-custom'},
+    );
 
     final rawJson = await store.exportBackupJson('backup-source');
     final decoded = jsonDecode(rawJson) as Map<String, Object?>;
 
     expect(decoded['schema'], 'agujetas.localBackup');
-    expect(decoded['schemaVersion'], 1);
+    expect(decoded['schemaVersion'], 2);
     expect(decoded['sessions'], isA<List<dynamic>>());
+    expect(decoded['favoriteExerciseIds'], ['backup-custom', 'bench_press']);
 
     SharedPreferences.setMockInitialValues({});
+    await store.saveFavoriteExerciseIds(
+      userId: 'backup-target',
+      exerciseIds: {'preexisting-favorite'},
+    );
     final result = await store.importBackupJson(
       userId: 'backup-target',
       rawJson: rawJson,
@@ -1184,12 +1193,14 @@ void main() {
     expect(result.routines, 1);
     expect(result.bodyWeights, 1);
     expect(result.customExercises, 1);
-    expect(result.total, 4);
+    expect(result.favoriteExercises, 2);
+    expect(result.total, 6);
 
     final sessions = await store.loadSessions('backup-target');
     final routines = await store.loadRoutineTemplates('backup-target');
     final bodyWeights = await store.loadBodyWeights('backup-target');
     final customExercises = await store.loadCustomExercises('backup-target');
+    final favoriteIds = await store.loadFavoriteExerciseIds('backup-target');
 
     expect(sessions.single.userId, 'backup-target');
     expect(sessions.single.title, 'Push pesado');
@@ -1197,6 +1208,11 @@ void main() {
     expect(bodyWeights.single.userId, 'backup-target');
     expect(customExercises.single.isCustom, isTrue);
     expect(customExercises.single.imageUri, 'agujetas-image://ag_backup_row');
+    expect(favoriteIds, {
+      'bench_press',
+      'backup-custom',
+      'preexisting-favorite',
+    });
   });
 
   test('local backup rejects non Agujetas JSON', () async {

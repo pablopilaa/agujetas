@@ -23,7 +23,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Sesiones/historial con sincronizacion bidireccional local-first + Firestore: carga local inmediata, push best-effort, merge de snapshots remotos por `ownerId` y eliminacion remota por ownership.
 - La ficha de ejercicio muestra historial local profundo, mejores marcas y permite aplicar el último registro como defaults en Entrenar.
 - El historial local permite editar nombre/nota de una sesión guardada y borrar sesiones locales con confirmación.
-- Perfil permite exportar/importar un respaldo JSON local con sesiones, rutinas, peso corporal y ejercicios personalizados.
+- Perfil permite exportar/importar un respaldo JSON local con sesiones, rutinas, peso corporal, ejercicios personalizados y favoritos.
 - Perfil permite reimportar manualmente los datos legacy incluidos de Agujetas 1.x, con deduplicación local.
 - Perfil permite eliminar cuenta con reautenticación Google, borrado local, limpieza de documentos remotos conocidos, subcolecciones conocidas de `users/{uid}` y eliminación de Firebase Auth.
 - El borrador de sesión activa persiste y restaura relojes de tiempo total/descanso, incluyendo timers que estaban corriendo.

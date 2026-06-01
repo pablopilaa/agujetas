@@ -181,8 +181,8 @@ flowchart TD
 | Perfil | Plan y suscripción | Ver planes | Sheet Agujetas Free / Agujetas Pro |
 | Planes Agujetas | Agujetas Pro demo | Elegir Agujetas Pro | Activa Pro demo y modo entrenador |
 | Perfil | Privacidad y datos | Auditoría de imágenes | Sheet con cobertura del manifest, prioridad de revisión, pendientes y placeholders |
-| Perfil | Privacidad y datos | Exportar mis datos | Dialog con JSON local y acción de copiar |
-| Perfil | Privacidad y datos | Importar respaldo | Pegar JSON Agujetas y fusionar datos locales |
+| Perfil | Privacidad y datos | Exportar mis datos | Dialog con JSON local de sesiones, rutinas, peso, ejercicios propios y favoritos |
+| Perfil | Privacidad y datos | Importar respaldo | Pegar JSON Agujetas y fusionar datos locales, incluidos favoritos |
 | Perfil | Privacidad y datos | Importar datos legacy incluidos | Releer assets legacy incluidos y agregar sesiones/rutinas faltantes |
 | Perfil | Privacidad y datos | Eliminar cuenta | Confirmación, reautenticación Google, borrado local, limpieza Firestore conocida, subcolecciones de usuario y eliminación Firebase Auth |
 | Perfil | Cerrar sesión | Sign out | Login |

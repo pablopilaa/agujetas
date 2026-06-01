@@ -170,18 +170,21 @@ class LocalBackupImportResult {
     required this.routines,
     required this.bodyWeights,
     required this.customExercises,
+    this.favoriteExercises = 0,
   });
 
   final int sessions;
   final int routines;
   final int bodyWeights;
   final int customExercises;
+  final int favoriteExercises;
 
-  int get total => sessions + routines + bodyWeights + customExercises;
+  int get total =>
+      sessions + routines + bodyWeights + customExercises + favoriteExercises;
 
   String get summary =>
       '$sessions sesiones, $routines rutinas, $bodyWeights pesos y '
-      '$customExercises ejercicios propios';
+      '$customExercises ejercicios propios, $favoriteExercises favoritos';
 }
 
 class LocalUserPreferences {
@@ -946,7 +949,7 @@ class LocalWorkoutStore {
   Future<String> exportBackupJson(String userId) async {
     final snapshot = {
       'schema': 'agujetas.localBackup',
-      'schemaVersion': 1,
+      'schemaVersion': 2,
       'userId': userId,
       'exportedAt': DateTime.now().toUtc().toIso8601String(),
       'sessions': (await loadSessions(
@@ -961,6 +964,8 @@ class LocalWorkoutStore {
       'customExercises': (await loadCustomExercises(
         userId,
       )).map((entry) => entry.toJson()).toList(),
+      'favoriteExerciseIds': (await loadFavoriteExerciseIds(userId)).toList()
+        ..sort(),
     };
     return const JsonEncoder.withIndent('  ').convert(snapshot);
   }
@@ -1017,11 +1022,17 @@ class LocalWorkoutStore {
             .where((entry) => entry.id.isNotEmpty)
             .map((entry) => entry.copyWith(isCustom: true))
             .toList();
+    final importedFavoriteExerciseIds =
+        (json['favoriteExerciseIds'] as List<dynamic>? ?? const [])
+            .map((value) => value.toString().trim())
+            .where((value) => value.isNotEmpty)
+            .toSet();
 
     final previousSessions = await loadSessions(userId);
     final previousRoutines = await loadRoutineTemplates(userId);
     final previousBodyWeights = await loadBodyWeights(userId);
     final previousCustomExercises = await loadCustomExercises(userId);
+    final previousFavoriteExerciseIds = await loadFavoriteExerciseIds(userId);
 
     await _replaceSessions(
       userId: userId,
@@ -1055,12 +1066,20 @@ class LocalWorkoutStore {
         (item) => item.id,
       ),
     );
+    await saveFavoriteExerciseIds(
+      userId: userId,
+      exerciseIds: {
+        ...previousFavoriteExerciseIds,
+        ...importedFavoriteExerciseIds,
+      },
+    );
 
     return LocalBackupImportResult(
       sessions: importedSessions.length,
       routines: importedRoutines.length,
       bodyWeights: importedBodyWeights.length,
       customExercises: importedCustomExercises.length,
+      favoriteExercises: importedFavoriteExerciseIds.length,
     );
   }
 

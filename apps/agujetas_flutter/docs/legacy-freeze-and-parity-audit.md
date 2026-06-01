@@ -339,7 +339,7 @@ Decimoséptimo bloque local-first implementado:
 
 Decimoctavo bloque local-first implementado:
 
-- `LocalWorkoutStore` exporta un respaldo JSON versionado con sesiones, rutinas, peso corporal y ejercicios personalizados.
+- `LocalWorkoutStore` exporta un respaldo JSON versionado con sesiones, rutinas, peso corporal, ejercicios personalizados y favoritos.
 - `LocalWorkoutStore` importa ese respaldo y normaliza la pertenencia al usuario/dispositivo que lo restaura.
 - La importación fusiona por `id` para no pisar datos locales no relacionados y mantiene la app operativa sin Firestore ni Storage.
 - Perfil expone acciones visibles para exportar el JSON, copiarlo y pegar un respaldo para restaurarlo.
@@ -694,3 +694,9 @@ Sexagésimo primer bloque Favoritos reales en Biblioteca:
 - El chip `Favoritos` deja de significar “usados” y pasa a filtrar sólo ejercicios favoritos reales.
 - El mismo filtro aplica a ejercicios personalizados; sus opciones permiten agregarlos o quitarlos de favoritos.
 - La preferencia local se borra al eliminar cuenta desde Perfil y no depende de Firestore.
+
+Sexagésimo segundo bloque Favoritos en backup local:
+
+- El respaldo local sube a `schemaVersion: 2` e incluye `favoriteExerciseIds`.
+- Importar un respaldo fusiona favoritos entrantes con favoritos existentes del usuario destino.
+- El resultado de importación y el texto de Perfil ahora contabilizan favoritos junto a sesiones, rutinas, peso corporal y ejercicios propios.

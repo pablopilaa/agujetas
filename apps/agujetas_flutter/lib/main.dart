@@ -9802,7 +9802,8 @@ class ProfileScreen extends StatelessWidget {
               _ProfileActionRow(
                 icon: Icons.download_outlined,
                 title: 'Exportar mis datos',
-                subtitle: 'Sesiones, rutinas, peso corporal y progreso.',
+                subtitle:
+                    'Sesiones, rutinas, peso corporal, favoritos y progreso.',
                 onTap: () => _exportBackup(context),
               ),
               _ProfileActionRow(
@@ -9884,7 +9885,7 @@ class ProfileScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Copiá el JSON y guardalo fuera del dispositivo. Este respaldo permite restaurar sesiones, rutinas, peso corporal y ejercicios propios.',
+                  'Copiá el JSON y guardalo fuera del dispositivo. Este respaldo permite restaurar sesiones, rutinas, peso corporal, ejercicios propios y favoritos.',
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
