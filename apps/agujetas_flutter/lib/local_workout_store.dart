@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import 'legal_contract.dart';
 import 'models.dart';
 
 class ActiveWorkoutDraft {
@@ -233,16 +234,24 @@ class LocalPrivacyConsent {
   const LocalPrivacyConsent({
     required this.acceptedAt,
     this.schemaVersion = currentSchemaVersion,
+    this.termsVersion = AgujetasLegalContract.termsVersion,
+    this.privacyVersion = AgujetasLegalContract.privacyVersion,
+    this.dataPolicyVersion = AgujetasLegalContract.dataPolicyVersion,
+    this.notificationsVersion = AgujetasLegalContract.notificationsVersion,
     this.termsAccepted = true,
     this.firebaseSyncAccepted = true,
     this.localMediaAcknowledged = true,
     this.notificationsAcknowledged = true,
   });
 
-  static const currentSchemaVersion = 1;
+  static const currentSchemaVersion = AgujetasLegalContract.schemaVersion;
 
   final DateTime acceptedAt;
   final int schemaVersion;
+  final String termsVersion;
+  final String privacyVersion;
+  final String dataPolicyVersion;
+  final String notificationsVersion;
   final bool termsAccepted;
   final bool firebaseSyncAccepted;
   final bool localMediaAcknowledged;
@@ -250,6 +259,10 @@ class LocalPrivacyConsent {
 
   bool get isCurrent =>
       schemaVersion >= currentSchemaVersion &&
+      termsVersion == AgujetasLegalContract.termsVersion &&
+      privacyVersion == AgujetasLegalContract.privacyVersion &&
+      dataPolicyVersion == AgujetasLegalContract.dataPolicyVersion &&
+      notificationsVersion == AgujetasLegalContract.notificationsVersion &&
       termsAccepted &&
       firebaseSyncAccepted &&
       localMediaAcknowledged &&
@@ -258,6 +271,10 @@ class LocalPrivacyConsent {
   Map<String, Object?> toJson() => {
     'acceptedAt': acceptedAt.toUtc().toIso8601String(),
     'schemaVersion': schemaVersion,
+    'termsVersion': termsVersion,
+    'privacyVersion': privacyVersion,
+    'dataPolicyVersion': dataPolicyVersion,
+    'notificationsVersion': notificationsVersion,
     'termsAccepted': termsAccepted,
     'firebaseSyncAccepted': firebaseSyncAccepted,
     'localMediaAcknowledged': localMediaAcknowledged,
@@ -269,10 +286,11 @@ class LocalPrivacyConsent {
       acceptedAt:
           DateTime.tryParse(json['acceptedAt']?.toString() ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-      schemaVersion: _readIntWithDefault(
-        json['schemaVersion'],
-        currentSchemaVersion,
-      ),
+      schemaVersion: _readIntWithDefault(json['schemaVersion'], 0),
+      termsVersion: json['termsVersion']?.toString() ?? '',
+      privacyVersion: json['privacyVersion']?.toString() ?? '',
+      dataPolicyVersion: json['dataPolicyVersion']?.toString() ?? '',
+      notificationsVersion: json['notificationsVersion']?.toString() ?? '',
       termsAccepted: _readBoolWithDefault(json['termsAccepted'], false),
       firebaseSyncAccepted: _readBoolWithDefault(
         json['firebaseSyncAccepted'],

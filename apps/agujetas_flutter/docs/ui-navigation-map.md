@@ -96,7 +96,7 @@ flowchart TD
 | --- | --- | --- | --- |
 | Login | App sin usuario autenticado | Continuar con Google | Inicio autenticado |
 | Login | App sin usuario autenticado | Ver demo sin guardar | Inicio con `DemoAgujetasRepository` |
-| Consentimiento | Usuario autenticado sin aceptación vigente | Aceptar y continuar | Guardar consentimiento local y entrar a Inicio |
+| Consentimiento | Usuario autenticado sin aceptación vigente | Aceptar y continuar | Guardar consentimiento local versionado y entrar a Inicio |
 | Consentimiento | Usuario autenticado sin aceptación vigente | Cerrar sesión | Login |
 | Inicio | Login, bottom nav | Cambiar a Modo usuario | Inicio normal |
 | Inicio | Usuario Free | Tocar Modo entrenador | Popup de upgrade Pro |
@@ -158,6 +158,7 @@ flowchart TD
 - Todo reorder debe tener alternativa accesible: mover arriba y mover abajo.
 - Cada tarjeta clicable debe tener feedback visual y destino claro.
 - El consentimiento post-login se guarda localmente por usuario y bloquea Inicio hasta aceptar términos, sync Firebase, galería local y notificaciones.
+- Cada consentimiento guarda versión de esquema, términos, privacidad, datos y notificaciones. Si una versión cambia, el usuario real debe volver a aceptar.
 
 ## Pendientes UX
 

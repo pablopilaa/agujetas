@@ -1,4 +1,5 @@
 import 'package:agujetas_flutter/app_theme.dart';
+import 'package:agujetas_flutter/legal_contract.dart';
 import 'package:agujetas_flutter/local_workout_store.dart';
 import 'package:agujetas_flutter/main.dart';
 import 'package:agujetas_flutter/models.dart';
@@ -42,7 +43,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Privacidad y datos'), findsOneWidget);
+    expect(
+      find.textContaining(AgujetasLegalContract.effectiveDateLabel),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(AgujetasLegalContract.legalReviewNotice),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining(AgujetasLegalContract.termsVersion),
+      findsOneWidget,
+    );
     expect(find.text('Aceptar y continuar'), findsOneWidget);
+    await tester.ensureVisible(find.text('Aceptar y continuar'));
     await tester.tap(find.text('Aceptar y continuar'));
     await tester.pumpAndSettle();
     expect(
@@ -56,10 +70,12 @@ void main() {
       'Entiendo el uso de imágenes locales',
       'Entiendo el uso de notificaciones',
     ]) {
+      await tester.ensureVisible(find.text(label));
       await tester.tap(find.text(label));
       await tester.pumpAndSettle();
     }
 
+    await tester.ensureVisible(find.text('Aceptar y continuar'));
     await tester.tap(find.text('Aceptar y continuar'));
     await tester.pumpAndSettle();
 
@@ -67,6 +83,7 @@ void main() {
       user.uid,
     );
     expect(consent?.isCurrent, isTrue);
+    expect(consent?.schemaVersion, AgujetasLegalContract.schemaVersion);
     expect(find.text('Modo de cuenta'), findsOneWidget);
   });
 

@@ -523,3 +523,11 @@ Cuadragésimo primer bloque Consentimiento implementado:
 - La demo conserva navegación directa para no romper la experiencia de preview sin guardado.
 - Tests unitarios cubren persistencia/limpieza del consentimiento y tests de widget cubren que Home queda bloqueado hasta aceptar.
 - Queda pendiente reemplazar estos textos internos por términos y política de privacidad legales finales antes de producción.
+
+Cuadragésimo segundo bloque Contrato de consentimiento versionado:
+
+- Se agregó `legal_contract.dart` como fuente técnica única de versiones vigentes: términos, privacidad, datos y notificaciones.
+- `LocalPrivacyConsent.isCurrent` ya no depende sólo de booleans; también exige que las versiones aceptadas coincidan con el contrato actual.
+- Un consentimiento viejo, sin versión o con términos anteriores vuelve a bloquear `HomeShell` y fuerza reaceptación.
+- `docs/legal-consent-contract.md` documenta las reglas para humanos e IA: no bypass para usuarios reales, no aceptación parcial, no cloud de imágenes sin consentimiento nuevo y no Lyfta en builds comerciales.
+- Tests unitarios y widget tests verifican versión vigente, consentimiento viejo inválido y bloqueo post-login.

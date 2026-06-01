@@ -15,7 +15,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Android package: `com.pablopilaa.Agujetas`.
 - iOS bundle id: `com.pablopilaa.agujetas`.
 - Login con Google mediante Firebase Auth.
-- Consentimiento post-login local-first para términos, privacidad, sincronización Firebase, galería local y notificaciones antes de entrar a la app comercial.
+- Consentimiento post-login local-first y versionado para términos, privacidad, sincronización Firebase, galería local y notificaciones antes de entrar a la app comercial. Contrato técnico documentado en `docs/legal-consent-contract.md`.
 - Persistencia local-first base con `shared_preferences` para borrador de sesion activa e historial local minimo.
 - Calendario mensual navegable, progreso y tarjetas de entrenamiento conectados al historial local guardado en el dispositivo, con detalle de sesión, series, segmentos y RIR.
 - El historial local permite repetir una sesión guardada como entrenamiento activo o guardarla como rutina local reutilizable.
@@ -127,6 +127,6 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 - Mejorar ergonomia del editor profundo de rutinas y peso corporal en Android real: gestos, foco de campos y acciones mas visibles.
 - Ejecutar tests de reglas con Firebase Emulator Suite.
 - Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
-- Redactar textos legales finales de términos y política de privacidad con asesoría legal antes de producción.
+- Reemplazar el contrato técnico preliminar de consentimiento por términos y política de privacidad finales con asesoría legal antes de producción.
 - Crear Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente.
 - Cuando exista Apple Developer: agregar workflow macOS firmado y TestFlight.

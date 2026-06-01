@@ -13,6 +13,7 @@ import 'app_theme.dart';
 import 'exercise_image_resolver.dart';
 import 'firebase_options.dart';
 import 'legacy_history_importer.dart';
+import 'legal_contract.dart';
 import 'local_workout_store.dart';
 import 'models.dart';
 import 'notification_service.dart';
@@ -253,37 +254,37 @@ class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Versión ${AgujetasLegalContract.effectiveDateLabel}. ${AgujetasLegalContract.legalReviewNotice}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                   const SizedBox(height: 18),
                   _ConsentTile(
                     value: _termsAccepted,
                     onChanged: (value) =>
                         setState(() => _termsAccepted = value),
-                    title: 'Acepto términos y política de privacidad',
-                    subtitle:
-                        'Tus sesiones, rutinas, peso corporal y ejercicios propios pertenecen a tu cuenta.',
+                    requirement: AgujetasLegalContract.requirements[0],
                   ),
                   _ConsentTile(
                     value: _syncAccepted,
                     onChanged: (value) => setState(() => _syncAccepted = value),
-                    title: 'Entiendo la sincronización con Firebase',
-                    subtitle:
-                        'Si iniciás sesión con Google, Agujetas puede guardar datos propios en Firebase Auth y Firestore. No usa Firebase Storage en el plan gratuito.',
+                    requirement: AgujetasLegalContract.requirements[1],
                   ),
                   _ConsentTile(
                     value: _mediaAcknowledged,
                     onChanged: (value) =>
                         setState(() => _mediaAcknowledged = value),
-                    title: 'Entiendo el uso de imágenes locales',
-                    subtitle:
-                        'La galería sólo se solicita si querés asociar una imagen a un ejercicio personalizado.',
+                    requirement: AgujetasLegalContract.requirements[2],
                   ),
                   _ConsentTile(
                     value: _notificationsAcknowledged,
                     onChanged: (value) =>
                         setState(() => _notificationsAcknowledged = value),
-                    title: 'Entiendo el uso de notificaciones',
-                    subtitle:
-                        'Los avisos de descanso o peso se piden cuando activás esas funciones, no al abrir la app.',
+                    requirement: AgujetasLegalContract.requirements[3],
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -337,22 +338,30 @@ class _ConsentTile extends StatelessWidget {
   const _ConsentTile({
     required this.value,
     required this.onChanged,
-    required this.title,
-    required this.subtitle,
+    required this.requirement,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
-  final String title;
-  final String subtitle;
+  final ConsentRequirement requirement;
 
   @override
   Widget build(BuildContext context) {
     return CheckboxListTile(
       value: value,
       onChanged: (next) => onChanged(next ?? false),
-      title: Text(title),
-      subtitle: Text(subtitle),
+      title: Text(requirement.title),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(requirement.subtitle),
+          const SizedBox(height: 4),
+          Text(
+            'Versión: ${requirement.version}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
       controlAffinity: ListTileControlAffinity.leading,
       contentPadding: EdgeInsets.zero,
     );

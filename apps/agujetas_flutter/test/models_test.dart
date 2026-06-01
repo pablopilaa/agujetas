@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:agujetas_flutter/exercise_image_resolver.dart';
 import 'package:agujetas_flutter/legacy_history_importer.dart';
+import 'package:agujetas_flutter/legal_contract.dart';
 import 'package:agujetas_flutter/local_workout_store.dart';
 import 'package:agujetas_flutter/models.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -244,7 +245,33 @@ void main() {
     expect(consent, isNotNull);
     expect(consent!.isCurrent, isTrue);
     expect(consent.acceptedAt, DateTime.utc(2026, 6, 1));
+    expect(consent.schemaVersion, AgujetasLegalContract.schemaVersion);
+    expect(consent.termsVersion, AgujetasLegalContract.termsVersion);
+    expect(consent.privacyVersion, AgujetasLegalContract.privacyVersion);
+    expect(consent.dataPolicyVersion, AgujetasLegalContract.dataPolicyVersion);
+    expect(
+      consent.notificationsVersion,
+      AgujetasLegalContract.notificationsVersion,
+    );
     expect(otherConsent, isNull);
+  });
+
+  test('privacy consent becomes stale when legal versions change', () {
+    final oldSchema = LocalPrivacyConsent.fromJson({
+      'acceptedAt': '2026-06-01T00:00:00.000Z',
+      'schemaVersion': 1,
+      'termsAccepted': true,
+      'firebaseSyncAccepted': true,
+      'localMediaAcknowledged': true,
+      'notificationsAcknowledged': true,
+    });
+    final oldTerms = LocalPrivacyConsent(
+      acceptedAt: DateTime.utc(2026, 6, 1),
+      termsVersion: 'terms-old',
+    );
+
+    expect(oldSchema.isCurrent, isFalse);
+    expect(oldTerms.isCurrent, isFalse);
   });
 
   test('local workout store clears all local data for one user', () async {
