@@ -721,6 +721,7 @@ class _HomeShellState extends State<HomeShell> {
         onEditRoutine: _editRoutine,
         onCreateRoutine: _createRoutine,
         onRenameEditingRoutine: _renameEditingRoutineDraft,
+        onCancelEditingRoutine: _cancelEditingRoutineDraft,
         onSaveRoutine: _saveRoutine,
         onSaveEditingRoutine: _saveEditingRoutine,
         onSaveEditingRoutineAsCopy: _saveEditingRoutineAsCopy,
@@ -922,6 +923,16 @@ class _HomeShellState extends State<HomeShell> {
     setState(() {
       _editingRoutineTitle = normalizedTitle;
       _notice = 'Rutina renombrada a "$normalizedTitle" en el borrador local.';
+    });
+  }
+
+  void _cancelEditingRoutineDraft() {
+    if (_editingRoutineId == null) return;
+    setState(() {
+      _editingRoutineId = null;
+      _editingRoutineTitle = null;
+      _routineEditorExercises = const [];
+      _notice = 'Edición de rutina descartada. Tu sesión activa no cambió.';
     });
   }
 
@@ -8088,6 +8099,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onEditRoutine,
     required this.onCreateRoutine,
     required this.onRenameEditingRoutine,
+    required this.onCancelEditingRoutine,
     required this.onSaveRoutine,
     required this.onSaveEditingRoutine,
     required this.onSaveEditingRoutineAsCopy,
@@ -8115,6 +8127,7 @@ class LibraryScreen extends StatefulWidget {
   final ValueChanged<RoutineTemplate> onEditRoutine;
   final ValueChanged<String> onCreateRoutine;
   final ValueChanged<String> onRenameEditingRoutine;
+  final VoidCallback onCancelEditingRoutine;
   final Future<void> Function(RoutineTemplate routine) onSaveRoutine;
   final Future<void> Function() onSaveEditingRoutine;
   final Future<void> Function() onSaveEditingRoutineAsCopy;
@@ -8372,6 +8385,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         onPressed: () => setState(() => _showMine = false),
                         icon: const Icon(Icons.search),
                         label: const Text('Agregar desde catálogo'),
+                      ),
+                      OutlinedButton.icon(
+                        key: const ValueKey('routine-cancel-draft'),
+                        onPressed: _confirmCancelEditingRoutine,
+                        icon: const Icon(Icons.close),
+                        label: const Text('Descartar'),
                       ),
                     ],
                   )
@@ -8710,6 +8729,35 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Rutina renombrada a "$normalizedTitle"')),
+    );
+  }
+
+  Future<void> _confirmCancelEditingRoutine() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Descartar edición'),
+        content: const Text(
+          'Esto cierra el editor de rutina y descarta cambios no guardados. '
+          'No modifica tu sesión activa ni tus rutinas guardadas.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Seguir editando'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Descartar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    widget.onCancelEditingRoutine();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Edición de rutina descartada')),
     );
   }
 

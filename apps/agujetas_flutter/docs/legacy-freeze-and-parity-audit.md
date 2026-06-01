@@ -745,3 +745,9 @@ Sexagésimo noveno bloque Editor de rutinas:
 - El editor de Biblioteca ahora permite renombrar el borrador de rutina activo antes de guardarlo.
 - La edición de título actualiza el estado local del borrador y se usa al guardar, copiar o iniciar esa rutina desde el editor.
 - Esto reduce una brecha de paridad del CRUD de rutinas: el usuario no queda obligado a guardar primero y volver a la lista para corregir el nombre.
+
+Septuagésimo bloque Descarte de edición de rutina:
+
+- El editor de Biblioteca ahora permite descartar explícitamente el borrador activo.
+- La acción pide confirmación, cierra el editor, limpia ejercicios/título del borrador y no toca la sesión activa ni las rutinas ya guardadas.
+- Esto evita que el usuario quede atrapado en modo edición después de abrir una plantilla o crear una rutina nueva.

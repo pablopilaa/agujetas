@@ -592,6 +592,7 @@ void main() {
               onCreateRoutine: (_) {},
               onRenameEditingRoutine: (title) =>
                   setState(() => editingTitle = title),
+              onCancelEditingRoutine: () {},
               onSaveRoutine: (_) async {},
               onSaveEditingRoutine: () async {},
               onSaveEditingRoutineAsCopy: () async {},
@@ -626,6 +627,86 @@ void main() {
     expect(editingTitle, 'Empuje sabado');
     expect(find.text('Editando: Empuje sabado'), findsOneWidget);
     expect(find.text('Rutina renombrada a "Empuje sabado"'), findsOneWidget);
+  });
+
+  testWidgets('library can discard the active routine draft', (tester) async {
+    tester.view.physicalSize = const Size(900, 1700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    String? editingId = 'routine-edit';
+    String? editingTitle = 'Rutina descartable';
+    var exercises = seedWorkout();
+    const user = AppUser(
+      uid: 'library-discard-user',
+      displayName: 'Demo',
+      email: 'demo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => LibraryScreen(
+              user: user,
+              repository: DemoAgujetasRepository(),
+              exercises: exercises,
+              localSessions: const [],
+              routines: const [],
+              editingRoutineId: editingId,
+              editingRoutineTitle: editingTitle,
+              customExercises: const [],
+              onExercisesChanged: (next) => setState(() => exercises = next),
+              onStartRoutine: (_) {},
+              onEditRoutine: (_) {},
+              onCreateRoutine: (_) {},
+              onRenameEditingRoutine: (title) =>
+                  setState(() => editingTitle = title),
+              onCancelEditingRoutine: () => setState(() {
+                editingId = null;
+                editingTitle = null;
+                exercises = seedWorkout();
+              }),
+              onSaveRoutine: (_) async {},
+              onSaveEditingRoutine: () async {},
+              onSaveEditingRoutineAsCopy: () async {},
+              onDeleteRoutine: (_) async {},
+              onDuplicateRoutine: (_) async {},
+              onMoveRoutine: (_, _) async {},
+              onSaveCustomExercise: (_) async {},
+              onDeleteCustomExercise: (_) async {},
+              localGalleryEnabled: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Editando: Rutina descartable'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('routine-cancel-draft')));
+    await tester.pumpAndSettle();
+    expect(find.text('Descartar edición'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.widgetWithText(FilledButton, 'Descartar'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(editingId, isNull);
+    expect(find.text('Rutina base'), findsOneWidget);
+    expect(find.text('Editando: Rutina descartable'), findsNothing);
+    expect(find.text('Edición de rutina descartada'), findsOneWidget);
   });
 
   testWidgets('library removes an exercise from the routine order', (
@@ -665,6 +746,7 @@ void main() {
               onEditRoutine: (_) {},
               onCreateRoutine: (_) {},
               onRenameEditingRoutine: (_) {},
+              onCancelEditingRoutine: () {},
               onSaveRoutine: (_) async {},
               onSaveEditingRoutine: () async {},
               onSaveEditingRoutineAsCopy: () async {},
@@ -757,6 +839,7 @@ void main() {
             onEditRoutine: (_) {},
             onCreateRoutine: (_) {},
             onRenameEditingRoutine: (_) {},
+            onCancelEditingRoutine: () {},
             onSaveRoutine: (_) async {},
             onSaveEditingRoutine: () async {},
             onSaveEditingRoutineAsCopy: () async {},
