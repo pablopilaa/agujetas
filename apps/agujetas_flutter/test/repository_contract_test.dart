@@ -153,6 +153,30 @@ void main() {
       ),
     );
   });
+
+  test('trainer routine assignment uses linked client scoped records', () {
+    final repository = _readRepositorySource();
+    final rules = _readFirestoreRules();
+
+    expect(repository, contains(".collection('assignedRoutines').doc(id)"));
+    expect(repository, contains('trainerId: trainer.uid'));
+    expect(repository, contains('assignedClientId: client.clientId'));
+    expect(repository, contains("'ownerId': trainer.uid"));
+    expect(repository, contains("'clientId': client.clientId"));
+    expect(repository, contains('watchAssignedRoutinesForClient'));
+    expect(
+      rules,
+      contains(
+        'match /assignedRoutines/{docId} {\n      allow read, update, delete: if canAccessRecord(resource.data);',
+      ),
+    );
+    expect(
+      rules,
+      contains(
+        'allow create: if signedIn()\n        && (ownsRecord(request.resource.data)\n          || trainerCanAccessRecord(request.resource.data));',
+      ),
+    );
+  });
 }
 
 String _readRepositorySource() {

@@ -599,6 +599,59 @@ class TrainerClientLink {
   }
 }
 
+class AssignedRoutine {
+  const AssignedRoutine({
+    required this.id,
+    required this.trainerId,
+    required this.assignedClientId,
+    required this.routineTemplateId,
+    required this.routineTitle,
+    required this.exercises,
+    required this.status,
+    required this.assignedAt,
+  });
+
+  final String id;
+  final String trainerId;
+  final String assignedClientId;
+  final String routineTemplateId;
+  final String routineTitle;
+  final List<WorkoutExercise> exercises;
+  final String status;
+  final DateTime assignedAt;
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'trainerId': trainerId,
+    'assignedClientId': assignedClientId,
+    'routineTemplateId': routineTemplateId,
+    'routineTitle': routineTitle,
+    'exercises': exercises.map((exercise) => exercise.toJson()).toList(),
+    'status': status,
+    'assignedAt': assignedAt.toUtc().toIso8601String(),
+    'schemaVersion': 1,
+  };
+
+  factory AssignedRoutine.fromJson(Map<String, Object?> json) {
+    final exercises = (json['exercises'] as List<dynamic>? ?? const [])
+        .whereType<Map>()
+        .map((raw) => WorkoutExercise.fromJson(raw.cast<String, Object?>()))
+        .toList();
+    return AssignedRoutine(
+      id: json['id']?.toString() ?? '',
+      trainerId: json['trainerId']?.toString() ?? '',
+      assignedClientId: json['assignedClientId']?.toString() ?? '',
+      routineTemplateId: json['routineTemplateId']?.toString() ?? '',
+      routineTitle: json['routineTitle']?.toString() ?? 'Rutina asignada',
+      exercises: exercises,
+      status: json['status']?.toString() ?? 'assigned',
+      assignedAt:
+          DateTime.tryParse(json['assignedAt']?.toString() ?? '') ??
+          DateTime.now().toUtc(),
+    );
+  }
+}
+
 List<WorkoutSet> defaultWorkoutSets() => const [
   WorkoutSet(
     order: 1,

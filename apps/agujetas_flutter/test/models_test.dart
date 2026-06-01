@@ -79,6 +79,27 @@ void main() {
     );
   });
 
+  test('assigned routine serializes trainer client assignment payload', () {
+    final routine = AssignedRoutine(
+      id: 'assign-1',
+      trainerId: 'trainer-1',
+      assignedClientId: 'client-1',
+      routineTemplateId: 'routine-1',
+      routineTitle: 'Piernas',
+      exercises: seedWorkout().take(2).toList(),
+      status: 'assigned',
+      assignedAt: DateTime.utc(2026, 6, 1),
+    );
+
+    final restored = AssignedRoutine.fromJson(routine.toJson());
+
+    expect(restored.id, 'assign-1');
+    expect(restored.trainerId, 'trainer-1');
+    expect(restored.assignedClientId, 'client-1');
+    expect(restored.routineTitle, 'Piernas');
+    expect(restored.exercises, hasLength(2));
+  });
+
   test('legacy single weight fields migrate into segments', () {
     final set = WorkoutSet.fromJson({
       'order': 2,

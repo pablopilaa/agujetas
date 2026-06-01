@@ -87,7 +87,10 @@ flowchart TD
 
   E["Panel entrenador"] --> E1["Crear código de invitación"]
   E --> E2["Entrenados activos"]
+  E2 --> E4["Asignar rutina existente"]
+  E4 --> E5["Firestore assignedRoutines"]
   E --> E3["Metas y tareas"]
+  B --> B2["Rutinas asignadas por entrenador"]
 ```
 
 ## Pantallas Principales
@@ -101,6 +104,7 @@ flowchart TD
 | Inicio | Login, bottom nav | Cambiar a Modo usuario | Inicio normal |
 | Inicio | Usuario Free | Tocar Modo entrenador | Popup de upgrade Pro |
 | Inicio | Usuario Pro | Tocar Modo entrenador | Panel entrenador |
+| Inicio | Usuario vinculado | Rutinas asignadas | Lista desde Firestore `assignedRoutines` |
 | Inicio | Selector Fuerza / Hipertrofia / Técnica / Libre | Elegir modo de sesión | Entrenar con modo elegido |
 | Inicio | CTA iniciar entrenamiento | Iniciar sesión recomendada | Entrenar |
 | Inicio | Card calendario | Ver calendario mensual | Bottom sheet de calendario con navegación por mes |
@@ -148,6 +152,7 @@ flowchart TD
 | Perfil | Cerrar sesión | Sign out | Login |
 | Panel entrenador | Modo entrenador Pro | Crear código | Firestore `trainerInvites` |
 | Panel entrenador | Modo entrenador Pro | Ver entrenados activos | Lista desde `trainerClientLinks` |
+| Panel entrenador | Entrenado activo | Asignar rutina | Crear `assignedRoutines/{id}` con `trainerId`, `assignedClientId` y snapshot de ejercicios |
 
 ## Reglas De Interacción
 
@@ -171,6 +176,7 @@ flowchart TD
 - El orden local de rutinas se preserva al fusionar snapshots remotos; replicar ese orden entre dispositivos requiere un campo de orden remoto dedicado.
 - Las sesiones siguen el mismo patrón local-first: calendario/progreso leen del dispositivo, sync Firestore por `ownerId`, delete remoto best-effort y merge por `id`.
 - El `id` local de sesión es el `docId` remoto; no se usa `add()` para evitar duplicados imposibles de reconciliar.
+- Las asignaciones de entrenador viven en `assignedRoutines`: el entrenador escribe sólo si tiene vínculo activo con el entrenado y el usuario normal lee sus rutinas por `assignedClientId`.
 
 ## Pendientes UX
 

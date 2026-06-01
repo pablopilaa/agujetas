@@ -1816,12 +1816,16 @@ class _HomeDashboardState extends State<HomeDashboard> {
           _TrainerPanel(
             user: widget.user,
             repository: widget.repository,
+            routines: widget.routines,
             busy: _busy,
             inviteCode: widget.inviteCode,
             onCreateInvite: _createInvite,
+            onNotice: widget.onNotice,
           )
         else
           _AthletePanel(
+            user: widget.user,
+            repository: widget.repository,
             controller: _inviteController,
             busy: _busy,
             onAcceptInvite: _acceptInvite,
@@ -1866,16 +1870,20 @@ class _TrainerPanel extends StatelessWidget {
   const _TrainerPanel({
     required this.user,
     required this.repository,
+    required this.routines,
     required this.busy,
     required this.inviteCode,
     required this.onCreateInvite,
+    required this.onNotice,
   });
 
   final AppUser user;
   final AgujetasRepository repository;
+  final List<RoutineTemplate> routines;
   final bool busy;
   final String? inviteCode;
   final VoidCallback onCreateInvite;
+  final ValueChanged<String> onNotice;
 
   @override
   Widget build(BuildContext context) {
@@ -1912,7 +1920,12 @@ class _TrainerPanel extends StatelessWidget {
                         subtitle: const Text(
                           'Rutinas, tareas, schedules y metas',
                         ),
-                        trailing: const Icon(Icons.chevron_right),
+                        trailing: FilledButton.tonal(
+                          onPressed: routines.isEmpty
+                              ? null
+                              : () => _assignFirstRoutine(client),
+                          child: const Text('Asignar'),
+                        ),
                       ),
                     )
                     .toList(),
@@ -1929,15 +1942,39 @@ class _TrainerPanel extends StatelessWidget {
       ],
     );
   }
+
+  Future<void> _assignFirstRoutine(TrainerClientLink client) async {
+    if (routines.isEmpty) {
+      onNotice('Creá una rutina antes de asignarla a un entrenado.');
+      return;
+    }
+    final routine = routines.first;
+    try {
+      final assigned = await repository.assignRoutineToClient(
+        trainer: user,
+        client: client,
+        routine: routine,
+      );
+      onNotice(
+        'Rutina "${assigned.routineTitle}" asignada a ${client.clientName}.',
+      );
+    } catch (error) {
+      onNotice('No pude asignar la rutina: $error');
+    }
+  }
 }
 
 class _AthletePanel extends StatelessWidget {
   const _AthletePanel({
+    required this.user,
+    required this.repository,
     required this.controller,
     required this.busy,
     required this.onAcceptInvite,
   });
 
+  final AppUser user;
+  final AgujetasRepository repository;
   final TextEditingController controller;
   final bool busy;
   final VoidCallback onAcceptInvite;
@@ -1967,6 +2004,36 @@ class _AthletePanel extends StatelessWidget {
               ),
             ],
           ),
+        ),
+        StreamBuilder<List<AssignedRoutine>>(
+          stream: repository.watchAssignedRoutinesForClient(user.uid),
+          builder: (context, snapshot) {
+            final assigned = snapshot.data ?? const <AssignedRoutine>[];
+            return DashboardCard(
+              icon: Icons.assignment_turned_in_outlined,
+              title: 'Rutinas asignadas',
+              subtitle: assigned.isEmpty
+                  ? 'Cuando un entrenador te asigne una rutina, aparecerá acá.'
+                  : '${assigned.length} rutina${assigned.length == 1 ? '' : 's'} pendiente${assigned.length == 1 ? '' : 's'}',
+              child: assigned.isEmpty
+                  ? null
+                  : Column(
+                      children: [
+                        for (final routine in assigned.take(3))
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const CircleAvatar(
+                              child: Icon(Icons.fitness_center),
+                            ),
+                            title: Text(routine.routineTitle),
+                            subtitle: Text(
+                              '${routine.exercises.length} ejercicios asignados',
+                            ),
+                          ),
+                      ],
+                    ),
+            );
+          },
         ),
       ],
     );

@@ -574,3 +574,12 @@ Cuadragésimo séptimo bloque Sesiones bidireccionales:
 - `LocalWorkoutStore.mergeSessionsLocal` fusiona por `id`, normaliza `userId`, conserva historial offline no sincronizado y evita renderizar sesiones remotas sin ejercicios.
 - Importar backup local o datos legacy refresca la UI y empuja sesiones locales best-effort si el usuario está autenticado.
 - Queda pendiente definir política de conflictos más fina para edición simultánea de título/nota entre dos dispositivos offline.
+
+Cuadragésimo octavo bloque Asignación inicial entrenador-entrenado:
+
+- Se agregó el modelo `AssignedRoutine` como contrato de asignación de rutina desde entrenador hacia entrenado.
+- `AgujetasRepository` expone `assignRoutineToClient` y `watchAssignedRoutinesForClient`.
+- Firebase escribe asignaciones en `assignedRoutines/{id}` con `trainerId`, `ownerId`, `clientId`, `assignedClientId`, snapshot de ejercicios y estado `assigned`.
+- El panel entrenador muestra un botón `Asignar` por entrenado activo y crea una asignación usando una rutina existente.
+- El usuario normal tiene una sección `Rutinas asignadas` que lee `assignedRoutines` por `assignedClientId`.
+- Este bloque vuelve real la primera parte de “compartir rutinas”; tareas, schedules y metas todavía quedan para los siguientes bloques usando el mismo patrón.

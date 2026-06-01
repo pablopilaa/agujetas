@@ -42,6 +42,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
   - `normal`: usuario autogestionado.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.
 - Vinculacion entrenador-entrenado por codigo de invitacion.
+- Modo entrenador Pro con primera asignacion real de rutinas: el entrenador puede asignar una plantilla existente a un entrenado vinculado y el usuario normal ve rutinas asignadas desde `assignedRoutines`.
 - Series con:
   - `setType`: `normal`, `warmup`, `dropset`.
   - `segments`: pesos/reps multiples, por ejemplo `20 kg x 8 + 10 kg x 6`.

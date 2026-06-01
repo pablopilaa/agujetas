@@ -109,6 +109,31 @@ void main() {
     expect(find.text('Sumar entrenados'), findsOneWidget);
   });
 
+  testWidgets('trainer dashboard assigns a routine to a linked client', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Modo entrenador').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Activar Pro demo'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.ensureVisible(find.text('Asignar').first);
+    await tester.tap(find.text('Asignar').first);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Rutina "'), findsOneWidget);
+    expect(find.textContaining('asignada a Sofia Demo'), findsOneWidget);
+  });
+
   testWidgets('profile plan sheet exposes Pro contract and demo activation', (
     tester,
   ) async {

@@ -55,6 +55,12 @@ abstract class AgujetasRepository {
     required String code,
   });
   Stream<List<TrainerClientLink>> watchTrainerClients(String trainerId);
+  Future<AssignedRoutine> assignRoutineToClient({
+    required AppUser trainer,
+    required TrainerClientLink client,
+    required RoutineTemplate routine,
+  });
+  Stream<List<AssignedRoutine>> watchAssignedRoutinesForClient(String clientId);
   Future<void> saveSession({
     required AppUser user,
     required LocalWorkoutSession session,
@@ -333,6 +339,56 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
   }
 
   @override
+  Future<AssignedRoutine> assignRoutineToClient({
+    required AppUser trainer,
+    required TrainerClientLink client,
+    required RoutineTemplate routine,
+  }) async {
+    final id = _uuid.v4();
+    final assigned = AssignedRoutine(
+      id: id,
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      routineTemplateId: routine.id,
+      routineTitle: routine.title,
+      exercises: routine.exercises,
+      status: 'assigned',
+      assignedAt: DateTime.now().toUtc(),
+    );
+    await _firestore.collection('assignedRoutines').doc(id).set({
+      ...assigned.toJson(),
+      'ownerId': trainer.uid,
+      'clientId': client.clientId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return assigned;
+  }
+
+  @override
+  Stream<List<AssignedRoutine>> watchAssignedRoutinesForClient(
+    String clientId,
+  ) {
+    return _firestore
+        .collection('assignedRoutines')
+        .where('assignedClientId', isEqualTo: clientId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) =>
+                    AssignedRoutine.fromJson({...doc.data(), 'id': doc.id}),
+              )
+              .where(
+                (routine) =>
+                    routine.id.isNotEmpty &&
+                    routine.assignedClientId == clientId &&
+                    routine.exercises.isNotEmpty,
+              )
+              .toList(),
+        );
+  }
+
+  @override
   Future<void> saveSession({
     required AppUser user,
     required LocalWorkoutSession session,
@@ -585,11 +641,13 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
 class DemoAgujetasRepository implements AgujetasRepository {
   final _controller = StreamController<AppUser?>.broadcast();
   final _clients = StreamController<List<TrainerClientLink>>.broadcast();
+  final _assignedRoutines = StreamController<List<AssignedRoutine>>.broadcast();
   final _customExercises =
       StreamController<List<ExerciseCatalogEntry>>.broadcast();
   final _bodyWeights = StreamController<List<BodyWeightEntry>>.broadcast();
   final List<ExerciseCatalogEntry> _customExerciseItems = [];
   final List<BodyWeightEntry> _bodyWeightItems = [];
+  final List<AssignedRoutine> _assignedRoutineItems = [];
   LocalUserPreferences _preferences = const LocalUserPreferences();
 
   AppUser? _user = const AppUser(
@@ -655,9 +713,11 @@ class DemoAgujetasRepository implements AgujetasRepository {
     _user = null;
     _customExerciseItems.clear();
     _bodyWeightItems.clear();
+    _assignedRoutineItems.clear();
     _customExercises.add(const []);
     _bodyWeights.add(const []);
     _clients.add(const []);
+    _assignedRoutines.add(const []);
     _controller.add(null);
   }
 
@@ -676,6 +736,45 @@ class DemoAgujetasRepository implements AgujetasRepository {
   @override
   Stream<List<RoutineTemplate>> watchRoutineTemplates(String ownerId) {
     return const Stream.empty();
+  }
+
+  @override
+  Future<AssignedRoutine> assignRoutineToClient({
+    required AppUser trainer,
+    required TrainerClientLink client,
+    required RoutineTemplate routine,
+  }) async {
+    final assigned = AssignedRoutine(
+      id: 'demo-assigned-${_assignedRoutineItems.length + 1}',
+      trainerId: trainer.uid,
+      assignedClientId: client.clientId,
+      routineTemplateId: routine.id,
+      routineTitle: routine.title,
+      exercises: routine.exercises,
+      status: 'assigned',
+      assignedAt: DateTime.now().toUtc(),
+    );
+    _assignedRoutineItems.insert(0, assigned);
+    _assignedRoutines.add(List.unmodifiable(_assignedRoutineItems));
+    return assigned;
+  }
+
+  @override
+  Stream<List<AssignedRoutine>> watchAssignedRoutinesForClient(
+    String clientId,
+  ) {
+    scheduleMicrotask(
+      () => _assignedRoutines.add(
+        _assignedRoutineItems
+            .where((routine) => routine.assignedClientId == clientId)
+            .toList(),
+      ),
+    );
+    return _assignedRoutines.stream.map(
+      (items) => items
+          .where((routine) => routine.assignedClientId == clientId)
+          .toList(),
+    );
   }
 
   @override
