@@ -404,3 +404,12 @@ Vigésimo sexto bloque local-first implementado:
 - Si el usuario intenta activar el recordatorio con la preferencia apagada, la app muestra un mensaje explícito para habilitarlo desde Perfil.
 - El botón de recordatorio cambia a icono de candado cuando la preferencia está desactivada, manteniendo el affordance visible sin disparar permisos nativos.
 - Test de widget cubre que el recordatorio respeta la preferencia y no intenta programarse cuando está apagado.
+
+Vigésimo séptimo bloque local-first implementado:
+
+- Los chips de Biblioteca dejan de ser decorativos y ahora filtran el catálogo y los ejercicios personalizados.
+- `Grupo muscular` abre un selector real alimentado por catálogo local y ejercicios propios.
+- `Equipamiento` filtra por heurísticas de nombre mientras no exista un campo estructurado en el catálogo.
+- `Usados` filtra por `usageCount`, preservando el modo offline y sin depender de Firestore.
+- El buscador permite limpiar filtros activos desde el icono de filtro apagado.
+- Test de widget cubre filtros por grupo muscular, equipamiento y usados en ejercicios personalizados.

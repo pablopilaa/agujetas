@@ -22,7 +22,7 @@ Este archivo define qué diseños de Stitch son fuente de verdad para la app Flu
 - Las pantallas Flutter deben conservar bottom navigation fijo como en Stitch.
 - Inicio debe priorizar: resumen semanal, modos de sesión, próximo entrenamiento y CTA fijo inferior.
 - Entrenar debe mostrar header compacto, strip de timers y logger de set como primer módulo operativo.
-- Biblioteca debe priorizar búsqueda, tabs Catálogo/Mis ejercicios, filtros horizontales, imágenes propias y reorder con grip dots.
+- Biblioteca debe priorizar búsqueda, tabs Catálogo/Mis ejercicios, filtros horizontales reales, imágenes propias y reorder con grip dots.
 - Progreso debe abrir con métricas compactas, actividad semanal, gráfico de volumen, marcas personales e hitos.
 - Perfil debe mostrar marca/cuenta, plan, modo usuario/entrenador, apariencia, permisos, privacidad y seguridad.
 - Detalle de ejercicio debe existir como vista accionable desde Biblioteca y desde cada exercise box.
@@ -33,4 +33,4 @@ Este archivo define qué diseños de Stitch son fuente de verdad para la app Flu
 ## Estado Actual
 
 - Implementado: referencias locales de Stitch, header más cercano, CTA fijo en Inicio, tarjetas de rutina más compactas, pantalla Entrenar con header/timer strip y controles funcionales, Biblioteca, Progreso, Perfil y Detalle de ejercicio.
-- Pendiente: conectar filtros reales de Biblioteca, progreso real por ejercicio, checkout Pro real y permisos nativos definitivos para galería/notificaciones.
+- Pendiente: progreso real por ejercicio como vista dedicada, checkout Pro real y permisos nativos definitivos para galería/notificaciones.

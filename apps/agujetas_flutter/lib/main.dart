@@ -3633,6 +3633,66 @@ bool _sameExercise(WorkoutExercise a, WorkoutExercise b) {
 String _normalizeExerciseKey(String value) =>
     value.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
 
+const _allLibraryOptions = '__all__';
+
+const List<String> _libraryMuscleOptions = [
+  'Abdomen',
+  'Abductores',
+  'Aductores',
+  'Antebrazos',
+  'Biceps',
+  'Espalda',
+  'General',
+  'Gluteos',
+  'Hombros',
+  'Pectoral',
+  'Piernas',
+  'Triceps',
+];
+
+const Map<String, List<String>> _libraryEquipmentOptions = {
+  'Mancuernas': ['mancuerna', 'mancuernas'],
+  'Barra': ['barra', 'barra ez'],
+  'Cable / polea': ['cable', 'polea'],
+  'Máquina': ['maquina', 'máquina', 'smith', 'palanca', 'trineo'],
+  'Peso corporal': [
+    'peso corporal',
+    'flexion',
+    'flexión',
+    'dominada',
+    'sentadilla',
+    'abdominal',
+  ],
+  'Banda': ['banda', 'resistencia'],
+  'Pesa rusa': ['pesa rusa', 'pesas rusas', 'kettlebell'],
+};
+
+bool _matchesEquipmentFilter(ExerciseCatalogEntry item, String equipment) {
+  final keywords = _libraryEquipmentOptions[equipment];
+  if (keywords == null) return true;
+  final haystack = _normalizeLibraryText('${item.name} ${item.muscleGroup}');
+  return keywords.any(
+    (keyword) => haystack.contains(_normalizeLibraryText(keyword)),
+  );
+}
+
+String _normalizeLibraryText(String value) {
+  const replacements = {
+    'á': 'a',
+    'é': 'e',
+    'í': 'i',
+    'ó': 'o',
+    'ú': 'u',
+    'ü': 'u',
+    'ñ': 'n',
+  };
+  var normalized = value.trim().toLowerCase();
+  for (final entry in replacements.entries) {
+    normalized = normalized.replaceAll(entry.key, entry.value);
+  }
+  return normalized.replaceAll(RegExp(r'\s+'), ' ');
+}
+
 List<LocalWorkoutSession> _sessionsSince(
   List<LocalWorkoutSession> sessions,
   DateTime since,
@@ -4897,6 +4957,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _loadCatalogSnapshot();
   String _query = '';
   bool _showMine = false;
+  String? _selectedMuscleGroup;
+  String? _selectedEquipment;
+  bool _favoritesOnly = false;
+
+  bool get _hasActiveLibraryFilters =>
+      _selectedMuscleGroup != null ||
+      _selectedEquipment != null ||
+      _favoritesOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -4937,9 +5005,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
             prefixIcon: const Icon(Icons.search),
             hintText: 'Buscar ejercicio, músculo o rutina',
             suffixIcon: IconButton(
-              tooltip: 'Filtros',
-              onPressed: () {},
-              icon: const Icon(Icons.tune),
+              tooltip: _hasActiveLibraryFilters ? 'Limpiar filtros' : 'Filtros',
+              onPressed: _hasActiveLibraryFilters
+                  ? _clearLibraryFilters
+                  : _openMuscleFilter,
+              icon: Icon(
+                _hasActiveLibraryFilters ? Icons.filter_alt_off : Icons.tune,
+              ),
             ),
           ),
         ),
@@ -4948,7 +5020,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
           showMine: showMine,
           onChanged: (value) => setState(() => _showMine = value),
         ),
-        const _LibraryFilterChips(),
+        _LibraryFilterChips(
+          selectedMuscleGroup: _selectedMuscleGroup,
+          selectedEquipment: _selectedEquipment,
+          favoritesOnly: _favoritesOnly,
+          onPickMuscleGroup: _openMuscleFilter,
+          onPickEquipment: _openEquipmentFilter,
+          onToggleFavorites: () =>
+              setState(() => _favoritesOnly = !_favoritesOnly),
+          onClear: _hasActiveLibraryFilters ? _clearLibraryFilters : null,
+        ),
         const _LibraryAssetBanner(),
         if (!showMine)
           FutureBuilder<List<ExerciseCatalogEntry>>(
@@ -5092,6 +5173,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           _CustomExercisesSection(
             items: widget.customExercises,
             query: _query,
+            selectedMuscleGroup: _selectedMuscleGroup,
+            selectedEquipment: _selectedEquipment,
+            favoritesOnly: _favoritesOnly,
             localSessions: widget.localSessions,
             onCreate: () => _openCustomExerciseSheet(),
             onAddExercise: _addExercise,
@@ -5166,16 +5250,111 @@ class _LibraryScreenState extends State<LibraryScreen> {
     List<ExerciseCatalogEntry> catalog,
   ) {
     if (_query.isEmpty) {
-      return catalog.where((item) => item.usageCount > 0).toList();
+      final hasFilters =
+          _selectedMuscleGroup != null ||
+          _selectedEquipment != null ||
+          _favoritesOnly;
+      final source = hasFilters
+          ? catalog
+          : catalog.where((item) => item.usageCount > 0);
+      return source.where(_matchesLibraryFilters).toList();
     }
-    final normalized = _query.toLowerCase();
+    final normalized = _normalizeLibraryText(_query);
     return catalog
         .where(
           (item) =>
-              item.name.toLowerCase().contains(normalized) ||
-              item.muscleGroup.toLowerCase().contains(normalized),
+              (_normalizeLibraryText(item.name).contains(normalized) ||
+                  _normalizeLibraryText(
+                    item.muscleGroup,
+                  ).contains(normalized)) &&
+              _matchesLibraryFilters(item),
         )
         .toList();
+  }
+
+  bool _matchesLibraryFilters(ExerciseCatalogEntry item) {
+    if (_favoritesOnly && item.usageCount <= 0) return false;
+    if (_selectedMuscleGroup != null &&
+        item.muscleGroup != _selectedMuscleGroup) {
+      return false;
+    }
+    if (_selectedEquipment != null &&
+        !_matchesEquipmentFilter(item, _selectedEquipment!)) {
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _openMuscleFilter() async {
+    final options = {
+      ..._libraryMuscleOptions,
+      for (final item in widget.customExercises) item.muscleGroup,
+    }.where((value) => value.trim().isNotEmpty).toList()..sort();
+    final selected = await _showLibraryOptionSheet(
+      title: 'Grupo muscular',
+      options: options,
+      currentValue: _selectedMuscleGroup,
+    );
+    if (!mounted || selected == null) return;
+    setState(() {
+      _selectedMuscleGroup = selected == _allLibraryOptions ? null : selected;
+    });
+  }
+
+  Future<void> _openEquipmentFilter() async {
+    final selected = await _showLibraryOptionSheet(
+      title: 'Equipamiento',
+      options: _libraryEquipmentOptions.keys.toList(),
+      currentValue: _selectedEquipment,
+    );
+    if (!mounted || selected == null) return;
+    setState(() {
+      _selectedEquipment = selected == _allLibraryOptions ? null : selected;
+    });
+  }
+
+  Future<String?> _showLibraryOptionSheet({
+    required String title,
+    required List<String> options,
+    required String? currentValue,
+  }) {
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final values = [_allLibraryOptions, ...options];
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              for (final value in values)
+                ListTile(
+                  leading: Icon(
+                    value == currentValue ||
+                            (value == _allLibraryOptions &&
+                                currentValue == null)
+                        ? Icons.check_circle
+                        : Icons.circle_outlined,
+                  ),
+                  title: Text(value == _allLibraryOptions ? 'Todos' : value),
+                  onTap: () => Navigator.of(context).pop(value),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _clearLibraryFilters() {
+    setState(() {
+      _selectedMuscleGroup = null;
+      _selectedEquipment = null;
+      _favoritesOnly = false;
+    });
   }
 
   void _addExercise(WorkoutExercise exercise) {
@@ -5461,6 +5640,9 @@ class _CustomExercisesSection extends StatelessWidget {
   const _CustomExercisesSection({
     required this.items,
     required this.query,
+    required this.selectedMuscleGroup,
+    required this.selectedEquipment,
+    required this.favoritesOnly,
     required this.localSessions,
     required this.onCreate,
     required this.onAddExercise,
@@ -5470,6 +5652,9 @@ class _CustomExercisesSection extends StatelessWidget {
 
   final List<ExerciseCatalogEntry> items;
   final String query;
+  final String? selectedMuscleGroup;
+  final String? selectedEquipment;
+  final bool favoritesOnly;
   final List<LocalWorkoutSession> localSessions;
   final VoidCallback onCreate;
   final ValueChanged<WorkoutExercise> onAddExercise;
@@ -5478,16 +5663,21 @@ class _CustomExercisesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedQuery = query.toLowerCase();
-    final filtered = normalizedQuery.isEmpty
-        ? items
-        : items
-              .where(
-                (item) =>
-                    item.name.toLowerCase().contains(normalizedQuery) ||
-                    item.muscleGroup.toLowerCase().contains(normalizedQuery),
-              )
-              .toList();
+    final normalizedQuery = _normalizeLibraryText(query);
+    final filtered = items.where((item) {
+      if (favoritesOnly && item.usageCount <= 0) return false;
+      if (selectedMuscleGroup != null &&
+          item.muscleGroup != selectedMuscleGroup) {
+        return false;
+      }
+      if (selectedEquipment != null &&
+          !_matchesEquipmentFilter(item, selectedEquipment!)) {
+        return false;
+      }
+      if (normalizedQuery.isEmpty) return true;
+      return _normalizeLibraryText(item.name).contains(normalizedQuery) ||
+          _normalizeLibraryText(item.muscleGroup).contains(normalizedQuery);
+    }).toList();
 
     if (items.isEmpty) {
       return DashboardCard(
@@ -5501,7 +5691,11 @@ class _CustomExercisesSection extends StatelessWidget {
     return DashboardCard(
       icon: Icons.auto_awesome_motion_outlined,
       title: 'Tus ejercicios',
-      subtitle: query.isEmpty
+      subtitle:
+          query.isEmpty &&
+              selectedMuscleGroup == null &&
+              selectedEquipment == null &&
+              !favoritesOnly
           ? '${items.length} ejercicios personalizados locales'
           : '${filtered.length} resultados en tus ejercicios',
       child: Column(
@@ -5894,18 +6088,56 @@ class _LibraryTabButton extends StatelessWidget {
 }
 
 class _LibraryFilterChips extends StatelessWidget {
-  const _LibraryFilterChips();
+  const _LibraryFilterChips({
+    required this.selectedMuscleGroup,
+    required this.selectedEquipment,
+    required this.favoritesOnly,
+    required this.onPickMuscleGroup,
+    required this.onPickEquipment,
+    required this.onToggleFavorites,
+    required this.onClear,
+  });
+
+  final String? selectedMuscleGroup;
+  final String? selectedEquipment;
+  final bool favoritesOnly;
+  final VoidCallback onPickMuscleGroup;
+  final VoidCallback onPickEquipment;
+  final VoidCallback onToggleFavorites;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
-    return const SingleChildScrollView(
+    return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          _FilterPill(icon: Icons.accessibility_new, label: 'Grupo muscular'),
-          _FilterPill(icon: Icons.fitness_center, label: 'Equipamiento'),
-          _FilterPill(icon: Icons.star_border, label: 'Favoritos'),
+          _FilterPill(
+            icon: Icons.accessibility_new,
+            label: selectedMuscleGroup ?? 'Grupo muscular',
+            selected: selectedMuscleGroup != null,
+            onTap: onPickMuscleGroup,
+          ),
+          _FilterPill(
+            icon: Icons.fitness_center,
+            label: selectedEquipment ?? 'Equipamiento',
+            selected: selectedEquipment != null,
+            onTap: onPickEquipment,
+          ),
+          _FilterPill(
+            icon: favoritesOnly ? Icons.star : Icons.star_border,
+            label: 'Usados',
+            selected: favoritesOnly,
+            onTap: onToggleFavorites,
+          ),
+          if (onClear != null)
+            _FilterPill(
+              icon: Icons.close,
+              label: 'Limpiar',
+              selected: false,
+              onTap: onClear!,
+            ),
         ],
       ),
     );
@@ -5913,28 +6145,52 @@ class _LibraryFilterChips extends StatelessWidget {
 }
 
 class _FilterPill extends StatelessWidget {
-  const _FilterPill({required this.icon, required this.label});
+  const _FilterPill({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.appColors;
-    return Container(
-      margin: const EdgeInsets.only(right: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.surface,
-        border: Border.all(color: colors.divider),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: selected ? colors.primaryContainer : colors.surface,
         borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: colors.primaryStrong),
-          const SizedBox(width: 6),
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
-        ],
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: selected ? colors.primaryStrong : colors.divider,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: colors.primaryStrong),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: selected ? colors.primaryStrong : null,
+                    fontWeight: selected ? FontWeight.w800 : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

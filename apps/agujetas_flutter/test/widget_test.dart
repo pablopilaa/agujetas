@@ -210,6 +210,109 @@ void main() {
     expect(find.text('Press banca'), findsNothing);
   });
 
+  testWidgets('library filter chips filter custom exercises', (tester) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const user = AppUser(
+      uid: 'library-filter-user',
+      displayName: 'Demo',
+      email: 'demo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: LibraryScreen(
+            user: user,
+            repository: DemoAgujetasRepository(),
+            exercises: seedWorkout(),
+            localSessions: const [],
+            routines: const [],
+            editingRoutineId: null,
+            editingRoutineTitle: null,
+            customExercises: const [
+              ExerciseCatalogEntry(
+                id: 'custom-press-barra',
+                name: 'Press filtro barra',
+                muscleGroup: 'Pectoral',
+                usageCount: 2,
+                isCustom: true,
+              ),
+              ExerciseCatalogEntry(
+                id: 'custom-crunch-peso-corporal',
+                name: 'Crunch filtro peso corporal',
+                muscleGroup: 'Abdomen',
+                isCustom: true,
+              ),
+              ExerciseCatalogEntry(
+                id: 'custom-remo-cable',
+                name: 'Remo filtro cable',
+                muscleGroup: 'Espalda',
+                usageCount: 1,
+                isCustom: true,
+              ),
+            ],
+            onExercisesChanged: (_) {},
+            onStartRoutine: (_) {},
+            onEditRoutine: (_) {},
+            onSaveRoutine: (_) async {},
+            onSaveEditingRoutine: () async {},
+            onSaveEditingRoutineAsCopy: () async {},
+            onDeleteRoutine: (_) async {},
+            onDuplicateRoutine: (_) async {},
+            onMoveRoutine: (_, _) async {},
+            onSaveCustomExercise: (_) async {},
+            onDeleteCustomExercise: (_) async {},
+            localGalleryEnabled: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mis ejercicios'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Grupo muscular'));
+    await tester.tap(find.text('Grupo muscular'));
+    await tester.pumpAndSettle();
+    expect(find.text('Todos'), findsOneWidget);
+    await tester.tap(find.text('Abdomen').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crunch filtro peso corporal'), findsOneWidget);
+    expect(find.text('Remo filtro cable'), findsNothing);
+    expect(find.text('Press filtro barra'), findsNothing);
+
+    await tester.tap(find.text('Limpiar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Equipamiento'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Peso corporal').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Crunch filtro peso corporal'), findsOneWidget);
+    expect(find.text('Press filtro barra'), findsNothing);
+    expect(find.text('Remo filtro cable'), findsNothing);
+
+    await tester.tap(find.text('Limpiar'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Usados'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Press filtro barra'), findsOneWidget);
+    expect(find.text('Remo filtro cable'), findsOneWidget);
+    expect(find.text('Crunch filtro peso corporal'), findsNothing);
+  });
+
   testWidgets('routine defaults sheet edits template set defaults', (
     tester,
   ) async {
