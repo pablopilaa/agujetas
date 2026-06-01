@@ -680,3 +680,10 @@ Quincuagésimo noveno bloque Auditoría visual de imágenes de ejercicios:
 - Los tests validan que el manifest tiene más de 2.000 entradas, que la deuda de revisión sigue visible y que el badge no oculta el estado de calidad.
 - Este bloque no mejora la calidad artística de los SVG generados; evita que la app trate esos thumbnails básicos como definitivos.
 - Queda pendiente definir el pipeline real de arte final: generación/ilustración por lotes, revisión humana, reemplazo de rechazados, y eventualmente masters fuera del APK si pesan demasiado.
+
+Sexagésimo bloque Auditoría interna de imágenes en Perfil:
+
+- Perfil suma la acción `Auditoría de imágenes` dentro de Privacidad y datos.
+- La acción abre un sheet con conteos reales del manifest: assets propios, prioridad, pendientes, placeholders y porcentaje revisado/aprobado.
+- `ExerciseImageResolver.auditEntries()` expone muestras limitadas por `reviewStatus` para revisar prioridad y pendientes sin abrir el JSON.
+- Este bloque no aprueba ni mejora el arte; hace visible la deuda para poder decidir lotes de reemplazo visual con criterio.

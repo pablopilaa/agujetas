@@ -18,6 +18,8 @@ Flutter resuelve imágenes con `ExerciseImageResolver`.
 - Si una imagen propia no aparece en el manifiesto, la UI cae a un placeholder local por grupo muscular.
 - Cada resolución expone `reviewStatus` y `qualityLabel`; la UI muestra `Revisar`, `Prioridad` o `Sin asset` cuando la miniatura todavía no está aprobada.
 - `ExerciseImageResolver.auditSummary()` devuelve conteos del manifiesto para medir cobertura y deuda de revisión sin inspeccionar el JSON a mano.
+- `ExerciseImageResolver.auditEntries()` expone una cola limitada por estado para que Perfil pueda mostrar prioridad de revisión y pendientes dentro de la app.
+- Perfil > Privacidad y datos > Auditoría de imágenes muestra el estado real del repositorio visual: cobertura técnica, placeholders y deuda de revisión humana.
 - Los ejercicios personalizados pueden asociarse a una imagen local del usuario o a un asset propio del repositorio Agujetas.
 
 ## Pipeline

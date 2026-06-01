@@ -36,6 +36,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Editor local aislado de rutinas: abrir una plantilla importada, modificar su lista de ejercicios/orden/defaults de series, guardar cambios o guardar una copia sin tocar la sesion activa.
 - Ejercicios personalizados local-first: crear, editar, borrar, buscar, asociar imagen de galeria o asset interno propio, operar offline y sincronizar best-effort si hay backend disponible.
 - Imágenes de ejercicios locales con resolver seguro: `app-image://` legacy queda bloqueado, `agujetas-image://` resuelve contra manifest propio, y la UI marca assets generados pendientes de revisión para no confundirlos con arte final.
+- Perfil incluye una auditoría interna de imágenes para ver cobertura del manifest, prioridad de revisión, pendientes y placeholders sin inspeccionar JSON a mano.
 - Ejercicios personalizados con sincronización bidireccional local-first + Firestore: carga local inmediata, push best-effort, merge de snapshots remotos y eliminación remota por ownership.
 - Entrenamiento permite editar ejercicios personalizados ya agregados a la sesion, manteniendo el catalogo local sincronizado.
 - Entrenar y Biblioteca permiten quitar ejercicios de la sesion/rutina local con confirmacion, sin borrar historial ni catalogo.

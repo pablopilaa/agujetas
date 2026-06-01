@@ -370,6 +370,29 @@ void main() {
     expect(find.text('Panel entrenador'), findsOneWidget);
   });
 
+  testWidgets('profile exposes internal exercise image audit', (tester) async {
+    tester.view.physicalSize = const Size(900, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Perfil'));
+    await tester.pumpAndSettle();
+
+    final auditAction = find.byKey(
+      const ValueKey('profile-image-audit-action'),
+    );
+    await tester.ensureVisible(auditAction);
+    await tester.tap(auditAction);
+    await tester.pump();
+
+    expect(find.byType(BottomSheet), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsWidgets);
+  });
+
   testWidgets(
     'training flow exposes unilateral, set type and second weight controls',
     (tester) async {

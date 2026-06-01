@@ -286,6 +286,37 @@ void main() {
     expect(summary.reviewedRatio, lessThan(0.1));
   });
 
+  test('image resolver exposes review queue audit entries', () async {
+    final priorityEntries = await ExerciseImageResolver.instance.auditEntries(
+      reviewStatus: 'priority',
+      limit: 5,
+    );
+    final pendingEntries = await ExerciseImageResolver.instance.auditEntries(
+      reviewStatus: 'pending',
+      limit: 5,
+    );
+
+    expect(priorityEntries, isNotEmpty);
+    expect(priorityEntries, hasLength(lessThanOrEqualTo(5)));
+    expect(
+      priorityEntries.every((entry) => entry.reviewStatus == 'priority'),
+      isTrue,
+    );
+    expect(priorityEntries.first.qualityLabel, 'Prioridad');
+    expect(
+      priorityEntries.first.assetPath,
+      startsWith('assets/exercise_images/thumbs/'),
+    );
+    expect(priorityEntries.first.uri, startsWith('agujetas-image://'));
+
+    expect(pendingEntries, isNotEmpty);
+    expect(
+      pendingEntries.every((entry) => entry.reviewStatus == 'pending'),
+      isTrue,
+    );
+    expect(pendingEntries.first.qualityLabel, 'Revisar');
+  });
+
   test(
     'legacy Lyfta URI is blocked and resolved through safe catalog art',
     () async {

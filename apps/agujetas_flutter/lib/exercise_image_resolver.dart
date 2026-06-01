@@ -57,6 +57,37 @@ class ExerciseImageAuditSummary {
   double get reviewedRatio => entries == 0 ? 0 : reviewed / entries;
 }
 
+class ExerciseImageAuditEntry {
+  const ExerciseImageAuditEntry({
+    required this.imageId,
+    required this.exerciseName,
+    required this.muscleGroup,
+    required this.assetPath,
+    required this.status,
+    required this.reviewStatus,
+    required this.source,
+  });
+
+  final String imageId;
+  final String exerciseName;
+  final String muscleGroup;
+  final String assetPath;
+  final String status;
+  final String reviewStatus;
+  final String source;
+
+  String get uri => 'agujetas-image://$imageId';
+
+  String get qualityLabel {
+    return switch (reviewStatus) {
+      'approved' => 'Aprobada',
+      'priority' => 'Prioridad',
+      'pending' => 'Revisar',
+      _ => 'Revisar',
+    };
+  }
+}
+
 class ExerciseImageResolver {
   ExerciseImageResolver._();
 
@@ -108,6 +139,35 @@ class ExerciseImageResolver {
   Future<ExerciseImageAuditSummary> auditSummary() async {
     final manifest = await _loadManifest();
     return manifest.summary;
+  }
+
+  Future<List<ExerciseImageAuditEntry>> auditEntries({
+    String? reviewStatus,
+    int limit = 24,
+  }) async {
+    final manifest = await _loadManifest();
+    final normalizedStatus = reviewStatus?.trim().toLowerCase();
+    final boundedLimit = limit.clamp(1, 200).toInt();
+    final entries = manifest.entries
+        .where((entry) {
+          return normalizedStatus == null ||
+              normalizedStatus.isEmpty ||
+              entry.reviewStatus == normalizedStatus;
+        })
+        .take(boundedLimit);
+
+    return [
+      for (final entry in entries)
+        ExerciseImageAuditEntry(
+          imageId: entry.imageId,
+          exerciseName: entry.exerciseName,
+          muscleGroup: entry.muscleGroup,
+          assetPath: entry.assetPath,
+          status: entry.status,
+          reviewStatus: entry.reviewStatus,
+          source: entry.source,
+        ),
+    ];
   }
 
   Future<_ExerciseImageManifest> _loadManifest() {
@@ -196,6 +256,7 @@ class _ExerciseImageManifest {
     required this.byExerciseKey,
     required this.byName,
     required this.placeholdersByMuscle,
+    required this.entries,
     required this.summary,
   });
 
@@ -203,6 +264,7 @@ class _ExerciseImageManifest {
   final Map<String, _ExerciseImageEntry> byExerciseKey;
   final Map<String, _ExerciseImageEntry> byName;
   final Map<String, String> placeholdersByMuscle;
+  final List<_ExerciseImageEntry> entries;
   final ExerciseImageAuditSummary summary;
 
   static Future<_ExerciseImageManifest> load() async {
@@ -241,6 +303,7 @@ class _ExerciseImageManifest {
       byExerciseKey: byExerciseKey,
       byName: byName,
       placeholdersByMuscle: placeholdersByMuscle,
+      entries: List.unmodifiable(entries),
       summary: ExerciseImageAuditSummary(
         entries: _jsonInt(counts['entries']) ?? entries.length,
         generated: _jsonInt(counts['generated']) ?? entries.length,
@@ -262,6 +325,7 @@ class _ExerciseImageEntry {
   const _ExerciseImageEntry({
     required this.imageId,
     required this.exerciseKey,
+    required this.exerciseName,
     required this.normalizedName,
     required this.muscleGroup,
     required this.assetPath,
@@ -273,6 +337,7 @@ class _ExerciseImageEntry {
 
   final String imageId;
   final String exerciseKey;
+  final String exerciseName;
   final String normalizedName;
   final String muscleGroup;
   final String assetPath;
@@ -285,6 +350,7 @@ class _ExerciseImageEntry {
     return _ExerciseImageEntry(
       imageId: json['imageId']?.toString() ?? '',
       exerciseKey: json['exerciseKey']?.toString() ?? '',
+      exerciseName: json['exerciseName']?.toString() ?? '',
       normalizedName: json['normalizedName']?.toString() ?? '',
       muscleGroup: json['muscleGroup']?.toString() ?? 'General',
       assetPath: json['assetPath']?.toString() ?? '',

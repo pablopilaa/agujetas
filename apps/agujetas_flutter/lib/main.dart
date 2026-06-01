@@ -9744,6 +9744,14 @@ class ProfileScreen extends StatelessWidget {
                 onTap: () => _importLegacyData(context),
               ),
               _ProfileActionRow(
+                key: const ValueKey('profile-image-audit-action'),
+                icon: Icons.image_search_outlined,
+                title: 'Auditoría de imágenes',
+                subtitle:
+                    'Cobertura del repositorio propio y revisión pendiente.',
+                onTap: () => _showExerciseImageAudit(context),
+              ),
+              _ProfileActionRow(
                 icon: Icons.delete_outline,
                 title: 'Eliminar cuenta',
                 subtitle: 'Borra datos locales, datos remotos propios y Auth.',
@@ -9775,6 +9783,14 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  void _showExerciseImageAudit(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _ExerciseImageAuditSheet(),
     );
   }
 
@@ -10089,6 +10105,7 @@ class _SwitchSettingRowState extends State<_SwitchSettingRow> {
 
 class _ProfileActionRow extends StatelessWidget {
   const _ProfileActionRow({
+    super.key,
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -10113,6 +10130,328 @@ class _ProfileActionRow extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: Icon(Icons.chevron_right, color: colors.textSecondary),
       onTap: onTap,
+    );
+  }
+}
+
+class _ExerciseImageAuditSheet extends StatefulWidget {
+  const _ExerciseImageAuditSheet();
+
+  @override
+  State<_ExerciseImageAuditSheet> createState() =>
+      _ExerciseImageAuditSheetState();
+}
+
+class _ExerciseImageAuditSheetState extends State<_ExerciseImageAuditSheet> {
+  late final Future<_ExerciseImageAuditData> _auditFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _auditFuture = _loadExerciseImageAudit();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.86,
+      minChildSize: 0.55,
+      maxChildSize: 0.96,
+      builder: (context, scrollController) {
+        return FutureBuilder<_ExerciseImageAuditData>(
+          future: _auditFuture,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'No se pudo cargar la auditoría',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${snapshot.error}',
+                      style: TextStyle(color: colors.textSecondary),
+                    ),
+                  ],
+                ),
+              );
+            }
+            if (!snapshot.hasData) {
+              return Center(
+                child: CircularProgressIndicator(color: colors.primaryStrong),
+              );
+            }
+
+            final data = snapshot.data!;
+            final reviewedPercent = (data.summary.reviewedRatio * 100)
+                .clamp(0, 100)
+                .round();
+            return ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colors.divider,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: colors.primaryContainer.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.image_search_outlined,
+                        color: colors.primaryStrong,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Auditoría de imágenes',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          Text(
+                            'Cobertura técnica del repositorio visual propio.',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: colors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Estos assets reemplazan a Lyfta para evitar costo cloud y riesgo de copyright. La cobertura existe, pero el arte generado todavía no equivale a aprobación visual final.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: colors.textSecondary),
+                ),
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _AuditMetricChip(
+                      label: 'Assets propios',
+                      value: '${data.summary.entries}',
+                    ),
+                    _AuditMetricChip(
+                      label: 'Prioridad',
+                      value: '${data.summary.priorityReview}',
+                    ),
+                    _AuditMetricChip(
+                      label: 'Pendientes',
+                      value: '${data.summary.pendingReview}',
+                    ),
+                    _AuditMetricChip(
+                      label: 'Placeholders',
+                      value: '${data.summary.placeholders}',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    minHeight: 10,
+                    value: data.summary.reviewedRatio.clamp(0, 1).toDouble(),
+                    color: colors.primaryStrong,
+                    backgroundColor: colors.raised,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '$reviewedPercent% de imágenes revisadas/aprobadas',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(color: colors.textSecondary),
+                ),
+                const SizedBox(height: 22),
+                _AuditEntrySection(
+                  title: 'Prioridad de revisión',
+                  emptyText: 'No quedan imágenes en prioridad.',
+                  entries: data.priorityEntries,
+                ),
+                const SizedBox(height: 18),
+                _AuditEntrySection(
+                  title: 'Muestra de pendientes',
+                  emptyText: 'No quedan imágenes pendientes.',
+                  entries: data.pendingEntries,
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _ExerciseImageAuditData {
+  const _ExerciseImageAuditData({
+    required this.summary,
+    required this.priorityEntries,
+    required this.pendingEntries,
+  });
+
+  final ExerciseImageAuditSummary summary;
+  final List<ExerciseImageAuditEntry> priorityEntries;
+  final List<ExerciseImageAuditEntry> pendingEntries;
+}
+
+Future<_ExerciseImageAuditData> _loadExerciseImageAudit() async {
+  final resolver = ExerciseImageResolver.instance;
+  final summary = await resolver.auditSummary();
+  final priorityEntries = await resolver.auditEntries(
+    reviewStatus: 'priority',
+    limit: 8,
+  );
+  final pendingEntries = await resolver.auditEntries(
+    reviewStatus: 'pending',
+    limit: 8,
+  );
+  return _ExerciseImageAuditData(
+    summary: summary,
+    priorityEntries: priorityEntries,
+    pendingEntries: pendingEntries,
+  );
+}
+
+class _AuditMetricChip extends StatelessWidget {
+  const _AuditMetricChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.raised,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: colors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuditEntrySection extends StatelessWidget {
+  const _AuditEntrySection({
+    required this.title,
+    required this.emptyText,
+    required this.entries,
+  });
+
+  final String title;
+  final String emptyText;
+  final List<ExerciseImageAuditEntry> entries;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 8),
+        if (entries.isEmpty)
+          Text(emptyText, style: TextStyle(color: colors.textSecondary))
+        else
+          for (final entry in entries)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colors.divider),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          entry.exerciseName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${entry.muscleGroup} · ${entry.imageId}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: colors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _SoftChip(
+                    label: entry.qualityLabel,
+                    color: entry.reviewStatus == 'priority'
+                        ? colors.amber
+                        : colors.primaryStrong,
+                    background: entry.reviewStatus == 'priority'
+                        ? colors.amberContainer.withValues(alpha: 0.52)
+                        : colors.primaryContainer.withValues(alpha: 0.12),
+                  ),
+                ],
+              ),
+            ),
+      ],
     );
   }
 }
