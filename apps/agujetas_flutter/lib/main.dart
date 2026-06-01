@@ -9844,10 +9844,11 @@ class ProfileScreen extends StatelessWidget {
           child: Column(
             children: [
               _ProfileActionRow(
+                key: const ValueKey('profile-account-security-action'),
                 icon: Icons.verified_user_outlined,
                 title: 'Cuenta Google verificada',
                 subtitle: user.email,
-                onTap: () {},
+                onTap: () => _showAccountSecurity(context),
               ),
               _ProfileActionRow(
                 icon: Icons.logout,
@@ -9867,6 +9868,14 @@ class ProfileScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (_) => const _ExerciseImageAuditSheet(),
+    );
+  }
+
+  void _showAccountSecurity(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (_) => _AccountSecuritySheet(user: user),
     );
   }
 
@@ -10206,6 +10215,205 @@ class _ProfileActionRow extends StatelessWidget {
       subtitle: Text(subtitle),
       trailing: Icon(Icons.chevron_right, color: colors.textSecondary),
       onTap: onTap,
+    );
+  }
+}
+
+class _AccountSecuritySheet extends StatelessWidget {
+  const _AccountSecuritySheet({required this.user});
+
+  final AppUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final isDemo = user.uid == 'demo-user';
+    final entitlements = user.entitlements.map((item) => item.label).toList()
+      ..sort();
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: colors.raised,
+                  backgroundImage: user.photoUrl == null
+                      ? null
+                      : NetworkImage(user.photoUrl!),
+                  child: user.photoUrl == null
+                      ? Icon(
+                          Icons.verified_user_outlined,
+                          color: colors.primaryStrong,
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Seguridad de cuenta',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        isDemo
+                            ? 'Demo local sin sincronización remota.'
+                            : 'Sesión autenticada con Firebase Auth.',
+                        style: TextStyle(color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            _AccountSecurityRow(
+              icon: Icons.email_outlined,
+              title: 'Email',
+              value: user.email,
+            ),
+            _AccountSecurityRow(
+              icon: Icons.badge_outlined,
+              title: 'Nombre visible',
+              value: user.displayName.isEmpty ? 'Sin nombre' : user.displayName,
+            ),
+            _AccountSecurityRow(
+              icon: Icons.fingerprint,
+              title: 'UID',
+              value: user.uid,
+              trailing: IconButton(
+                tooltip: 'Copiar UID',
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: user.uid));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text('UID copiado')));
+                },
+                icon: const Icon(Icons.copy),
+              ),
+            ),
+            _AccountSecurityRow(
+              icon: Icons.workspace_premium_outlined,
+              title: 'Plan',
+              value: user.plan.label,
+            ),
+            _AccountSecurityRow(
+              icon: Icons.switch_account_outlined,
+              title: 'Rol activo',
+              value: user.activeRole.label,
+            ),
+            _AccountSecurityRow(
+              icon: Icons.cloud_sync_outlined,
+              title: 'Sincronización',
+              value: isDemo
+                  ? 'Desactivada en demo'
+                  : 'Firebase-ready para datos propios',
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Permisos comerciales',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            if (entitlements.isEmpty)
+              Text(
+                'Sin permisos Pro activos.',
+                style: TextStyle(color: colors.textSecondary),
+              )
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final entitlement in entitlements)
+                    _SoftChip(
+                      label: entitlement,
+                      color: colors.primaryStrong,
+                      background: colors.primaryContainer.withValues(
+                        alpha: 0.12,
+                      ),
+                    ),
+                ],
+              ),
+            const SizedBox(height: 18),
+            Text(
+              'El borrado de cuenta intenta limpiar datos locales, documentos remotos propios conocidos y Firebase Auth. Para producción sigue pendiente una función admin para rutas futuras no listables desde cliente.',
+              style: TextStyle(color: colors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cerrar'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountSecurityRow extends StatelessWidget {
+  const _AccountSecurityRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: colors.primaryStrong),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.labelMedium),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
     );
   }
 }

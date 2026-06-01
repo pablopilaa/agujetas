@@ -700,3 +700,9 @@ Sexagésimo segundo bloque Favoritos en backup local:
 - El respaldo local sube a `schemaVersion: 2` e incluye `favoriteExerciseIds`.
 - Importar un respaldo fusiona favoritos entrantes con favoritos existentes del usuario destino.
 - El resultado de importación y el texto de Perfil ahora contabilizan favoritos junto a sesiones, rutinas, peso corporal y ejercicios propios.
+
+Sexagésimo tercer bloque Seguridad de cuenta accionable:
+
+- La fila `Cuenta Google verificada` en Perfil deja de ser no-op.
+- Ahora abre un sheet con email, nombre visible, UID copiable, plan, rol activo, estado de sincronización y permisos comerciales.
+- El sheet diferencia demo local de sesión autenticada para no prometer sync remoto en `demo-user`.

@@ -94,7 +94,7 @@ void main() {
     expect(find.text('Inicio'), findsWidgets);
     expect(find.text('Modo de cuenta'), findsOneWidget);
     expect(find.text('Modo usuario'), findsOneWidget);
-    expect(find.text('Modo entrenador'), findsOneWidget);
+    expect(find.text('Modo entrenador'), findsWidgets);
 
     await tester.tap(find.text('Modo entrenador').first);
     await tester.pumpAndSettle();
@@ -1984,6 +1984,72 @@ void main() {
     expect(preferences.localGalleryEnabled, isTrue);
     expect(preferences.restAlertsEnabled, isTrue);
     expect(preferences.bodyWeightAlertsEnabled, isTrue);
+  });
+
+  testWidgets('profile account security action opens account sheet', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const user = AppUser(
+      uid: 'security-user',
+      displayName: 'Pablo',
+      email: 'pablo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal, AppRole.trainer},
+      activeRole: AppRole.trainer,
+      plan: AppPlan.pro,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: ProfileScreen(
+            user: user,
+            repository: DemoAgujetasRepository(),
+            themeMode: ThemeMode.light,
+            preferences: const LocalUserPreferences(),
+            onThemeModeChanged: (_) {},
+            onPreferencesChanged: (_) {},
+            onExportLocalBackup: () async => '{}',
+            onImportLocalBackup: (_) async => const LocalBackupImportResult(
+              sessions: 0,
+              routines: 0,
+              bodyWeights: 0,
+              customExercises: 0,
+            ),
+            onImportBundledLegacyData: () async =>
+                const LegacyLocalImportResult(
+                  importedSessions: 0,
+                  availableSessions: 0,
+                  skippedHistoryRows: 0,
+                  importedRoutines: 0,
+                  availableRoutines: 0,
+                ),
+            onDeleteLocalAccount: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final accountAction = find.byKey(
+      const ValueKey('profile-account-security-action'),
+    );
+    await tester.ensureVisible(accountAction);
+    await tester.tap(accountAction);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Seguridad de cuenta'), findsOneWidget);
+    expect(find.text('pablo@agujetas.app'), findsWidgets);
+    expect(find.text('security-user'), findsOneWidget);
+    expect(find.text('Pro'), findsWidgets);
+    expect(find.text('Entrenador'), findsWidgets);
+    expect(find.text('Modo entrenador'), findsWidgets);
   });
 
   testWidgets('profile delete account confirms local data wipe', (
