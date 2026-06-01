@@ -650,6 +650,10 @@ void main() {
             routines: const [],
             editingRoutineId: null,
             editingRoutineTitle: null,
+            favoriteExerciseIds: const {
+              'custom-press-barra',
+              'custom-remo-cable',
+            },
             customExercises: const [
               ExerciseCatalogEntry(
                 id: 'custom-press-barra',
@@ -684,6 +688,7 @@ void main() {
             onMoveRoutine: (_, _) async {},
             onSaveCustomExercise: (_) async {},
             onDeleteCustomExercise: (_) async {},
+            onToggleExerciseFavorite: (_) async {},
             localGalleryEnabled: true,
           ),
         ),
@@ -718,12 +723,40 @@ void main() {
 
     await tester.tap(find.text('Limpiar'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Usados'));
+    await tester.tap(find.text('Favoritos'));
     await tester.pumpAndSettle();
 
     expect(find.text('Press filtro barra'), findsOneWidget);
     expect(find.text('Remo filtro cable'), findsOneWidget);
     expect(find.text('Crunch filtro peso corporal'), findsNothing);
+  });
+
+  testWidgets('library catalog star toggles persistent favorites filter', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Biblioteca'));
+    await tester.pumpAndSettle();
+
+    final favoriteButton = find.byTooltip('Agregar a favoritos').first;
+    await tester.ensureVisible(favoriteButton);
+    await tester.tap(favoriteButton);
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Quitar de favoritos'), findsWidgets);
+
+    await tester.tap(find.text('Favoritos'));
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Quitar de favoritos'), findsWidgets);
+    expect(find.text('Sin resultados'), findsNothing);
   });
 
   testWidgets('routine defaults sheet edits template set defaults', (

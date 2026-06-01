@@ -40,6 +40,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Ejercicios personalizados con sincronización bidireccional local-first + Firestore: carga local inmediata, push best-effort, merge de snapshots remotos y eliminación remota por ownership.
 - Entrenamiento permite editar ejercicios personalizados ya agregados a la sesion, manteniendo el catalogo local sincronizado.
 - Entrenar y Biblioteca permiten quitar ejercicios de la sesion/rutina local con confirmacion, sin borrar historial ni catalogo.
+- Biblioteca permite marcar ejercicios del catálogo o personalizados como favoritos local-first y filtrar por favoritos reales.
 - Roles:
   - `normal`: usuario autogestionado.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.

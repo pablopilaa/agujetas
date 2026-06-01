@@ -598,6 +598,7 @@ class _HomeShellState extends State<HomeShell> {
   List<RoutineTemplate> _localRoutines = const [];
   List<BodyWeightEntry> _localBodyWeights = const [];
   List<ExerciseCatalogEntry> _localCustomExercises = const [];
+  Set<String> _favoriteExerciseIds = const {};
   List<AssignedSchedule> _assignedSchedules = const [];
   List<AssignedGoal> _assignedGoals = const [];
   StreamSubscription<List<LocalWorkoutSession>>? _sessionsSubscription;
@@ -628,6 +629,7 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_loadLocalRoutines());
     unawaited(_loadLocalBodyWeights());
     unawaited(_loadLocalCustomExercises());
+    unawaited(_loadFavoriteExerciseIds());
     _watchAssignedSchedules();
     _watchAssignedGoals();
     unawaited(_loadUserPreferences());
@@ -711,6 +713,7 @@ class _HomeShellState extends State<HomeShell> {
         editingRoutineId: _editingRoutineId,
         editingRoutineTitle: _editingRoutineTitle,
         customExercises: _localCustomExercises,
+        favoriteExerciseIds: _favoriteExerciseIds,
         onExercisesChanged: onLibraryExercisesChanged,
         onStartRoutine: _startRoutine,
         onEditRoutine: _editRoutine,
@@ -723,6 +726,7 @@ class _HomeShellState extends State<HomeShell> {
         onMoveRoutine: _moveRoutine,
         onSaveCustomExercise: _saveCustomExerciseLocally,
         onDeleteCustomExercise: _deleteCustomExerciseLocally,
+        onToggleExerciseFavorite: _toggleExerciseFavorite,
         localGalleryEnabled: _preferences.localGalleryEnabled,
       ),
       ProfileScreen(
@@ -1154,6 +1158,14 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _loadFavoriteExerciseIds() async {
+    final favoriteIds = await _localStore.loadFavoriteExerciseIds(
+      widget.user.uid,
+    );
+    if (!mounted) return;
+    setState(() => _favoriteExerciseIds = favoriteIds);
+  }
+
   Future<void> _loadUserPreferences() async {
     final preferences = await _localStore.loadUserPreferences(widget.user.uid);
     if (!mounted) return;
@@ -1549,6 +1561,24 @@ class _HomeShellState extends State<HomeShell> {
     if (_canSyncRemoteUserData) {
       unawaited(_deleteCustomExerciseBestEffort(exercise));
     }
+  }
+
+  Future<void> _toggleExerciseFavorite(ExerciseCatalogEntry exercise) async {
+    final next = {..._favoriteExerciseIds};
+    final wasFavorite = next.remove(exercise.id);
+    if (!wasFavorite) {
+      next.add(exercise.id);
+    }
+    setState(() {
+      _favoriteExerciseIds = next;
+      _notice = wasFavorite
+          ? '"${exercise.name}" quitado de favoritos.'
+          : '"${exercise.name}" agregado a favoritos.';
+    });
+    await _localStore.saveFavoriteExerciseIds(
+      userId: widget.user.uid,
+      exerciseIds: next,
+    );
   }
 
   void _startCustomExerciseSync() {
@@ -7714,6 +7744,8 @@ class LibraryScreen extends StatefulWidget {
     required this.onSaveCustomExercise,
     required this.onDeleteCustomExercise,
     required this.localGalleryEnabled,
+    this.favoriteExerciseIds = const <String>{},
+    this.onToggleExerciseFavorite,
   });
 
   final AppUser user;
@@ -7724,6 +7756,7 @@ class LibraryScreen extends StatefulWidget {
   final String? editingRoutineId;
   final String? editingRoutineTitle;
   final List<ExerciseCatalogEntry> customExercises;
+  final Set<String> favoriteExerciseIds;
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final ValueChanged<RoutineTemplate> onStartRoutine;
   final ValueChanged<RoutineTemplate> onEditRoutine;
@@ -7738,6 +7771,8 @@ class LibraryScreen extends StatefulWidget {
   onSaveCustomExercise;
   final Future<void> Function(ExerciseCatalogEntry exercise)
   onDeleteCustomExercise;
+  final Future<void> Function(ExerciseCatalogEntry exercise)?
+  onToggleExerciseFavorite;
   final bool localGalleryEnabled;
 
   @override
@@ -7853,11 +7888,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _CompactSectionTitle(
-                    _query.isEmpty ? 'Más usados' : 'Resultados',
+                    _query.isEmpty && !_favoritesOnly
+                        ? 'Más usados'
+                        : 'Resultados',
                   ),
                   for (final item in filtered)
                     _CatalogTile(
                       item: item,
+                      isFavorite: widget.favoriteExerciseIds.contains(item.id),
                       onTap: () {
                         final exercise = item.toWorkoutExercise();
                         showExerciseDetailSheet(
@@ -7871,6 +7909,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         );
                       },
                       onAdd: () => _addExercise(item.toWorkoutExercise()),
+                      onToggleFavorite: () =>
+                          widget.onToggleExerciseFavorite?.call(item),
                     ),
                   if (filtered.isEmpty)
                     DashboardCard(
@@ -8021,11 +8061,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
             selectedMuscleGroup: _selectedMuscleGroup,
             selectedEquipment: _selectedEquipment,
             favoritesOnly: _favoritesOnly,
+            favoriteExerciseIds: widget.favoriteExerciseIds,
             localSessions: widget.localSessions,
             onCreate: () => _openCustomExerciseSheet(),
             onAddExercise: _addExercise,
             onEditExercise: _editCustomExercise,
             onDeleteExercise: _confirmDeleteCustomExercise,
+            onToggleFavorite: (exercise) =>
+                widget.onToggleExerciseFavorite?.call(exercise),
           ),
           const _CompactSectionTitle('Orden de rutina'),
           ReorderableListView.builder(
@@ -8117,7 +8160,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   bool _matchesLibraryFilters(ExerciseCatalogEntry item) {
-    if (_favoritesOnly && item.usageCount <= 0) return false;
+    if (_favoritesOnly && !widget.favoriteExerciseIds.contains(item.id)) {
+      return false;
+    }
     if (_selectedMuscleGroup != null &&
         item.muscleGroup != _selectedMuscleGroup) {
       return false;
@@ -8487,13 +8532,17 @@ List<ExerciseCatalogEntry> _seedCatalogEntries() {
 class _CatalogTile extends StatelessWidget {
   const _CatalogTile({
     required this.item,
+    required this.isFavorite,
     required this.onAdd,
     required this.onTap,
+    required this.onToggleFavorite,
   });
 
   final ExerciseCatalogEntry item;
+  final bool isFavorite;
   final VoidCallback onAdd;
   final VoidCallback onTap;
+  final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -8536,9 +8585,12 @@ class _CatalogTile extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Favorito',
-                onPressed: () {},
-                icon: const Icon(Icons.star_border),
+                tooltip: isFavorite
+                    ? 'Quitar de favoritos'
+                    : 'Agregar a favoritos',
+                onPressed: onToggleFavorite,
+                color: isFavorite ? colors.amber : colors.textSecondary,
+                icon: Icon(isFavorite ? Icons.star : Icons.star_border),
               ),
               IconButton.filledTonal(
                 key: ValueKey('catalog-add-${item.id}'),
@@ -8561,11 +8613,13 @@ class _CustomExercisesSection extends StatelessWidget {
     required this.selectedMuscleGroup,
     required this.selectedEquipment,
     required this.favoritesOnly,
+    required this.favoriteExerciseIds,
     required this.localSessions,
     required this.onCreate,
     required this.onAddExercise,
     required this.onEditExercise,
     required this.onDeleteExercise,
+    required this.onToggleFavorite,
   });
 
   final List<ExerciseCatalogEntry> items;
@@ -8573,17 +8627,21 @@ class _CustomExercisesSection extends StatelessWidget {
   final String? selectedMuscleGroup;
   final String? selectedEquipment;
   final bool favoritesOnly;
+  final Set<String> favoriteExerciseIds;
   final List<LocalWorkoutSession> localSessions;
   final VoidCallback onCreate;
   final ValueChanged<WorkoutExercise> onAddExercise;
   final ValueChanged<ExerciseCatalogEntry> onEditExercise;
   final ValueChanged<ExerciseCatalogEntry> onDeleteExercise;
+  final ValueChanged<ExerciseCatalogEntry> onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
     final normalizedQuery = _normalizeLibraryText(query);
     final filtered = items.where((item) {
-      if (favoritesOnly && item.usageCount <= 0) return false;
+      if (favoritesOnly && !favoriteExerciseIds.contains(item.id)) {
+        return false;
+      }
       if (selectedMuscleGroup != null &&
           item.muscleGroup != selectedMuscleGroup) {
         return false;
@@ -8647,6 +8705,7 @@ class _CustomExercisesSection extends StatelessWidget {
           for (final item in filtered.take(12))
             _CustomExerciseTile(
               item: item,
+              isFavorite: favoriteExerciseIds.contains(item.id),
               onTap: () {
                 final exercise = item.toWorkoutExercise();
                 showExerciseDetailSheet(
@@ -8662,6 +8721,7 @@ class _CustomExercisesSection extends StatelessWidget {
               onAdd: () => onAddExercise(item.toWorkoutExercise()),
               onEdit: () => onEditExercise(item),
               onDelete: () => onDeleteExercise(item),
+              onToggleFavorite: () => onToggleFavorite(item),
             ),
         ],
       ),
@@ -8672,17 +8732,21 @@ class _CustomExercisesSection extends StatelessWidget {
 class _CustomExerciseTile extends StatelessWidget {
   const _CustomExerciseTile({
     required this.item,
+    required this.isFavorite,
     required this.onTap,
     required this.onAdd,
     required this.onEdit,
     required this.onDelete,
+    required this.onToggleFavorite,
   });
 
   final ExerciseCatalogEntry item;
+  final bool isFavorite;
   final VoidCallback onTap;
   final VoidCallback onAdd;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onToggleFavorite;
 
   @override
   Widget build(BuildContext context) {
@@ -8728,6 +8792,9 @@ class _CustomExerciseTile extends StatelessWidget {
                 tooltip: 'Opciones del ejercicio',
                 onSelected: (value) {
                   switch (value) {
+                    case 'favorite':
+                      onToggleFavorite();
+                      break;
                     case 'edit':
                       onEdit();
                       break;
@@ -8736,10 +8803,18 @@ class _CustomExerciseTile extends StatelessWidget {
                       break;
                   }
                 },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'edit', child: Text('Editar')),
-                  PopupMenuDivider(),
-                  PopupMenuItem(value: 'delete', child: Text('Borrar')),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'favorite',
+                    child: Text(
+                      isFavorite
+                          ? 'Quitar de favoritos'
+                          : 'Agregar a favoritos',
+                    ),
+                  ),
+                  const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem(value: 'delete', child: Text('Borrar')),
                 ],
               ),
               IconButton.filledTonal(
@@ -9045,7 +9120,7 @@ class _LibraryFilterChips extends StatelessWidget {
           ),
           _FilterPill(
             icon: favoritesOnly ? Icons.star : Icons.star_border,
-            label: 'Usados',
+            label: 'Favoritos',
             selected: favoritesOnly,
             onTap: onToggleFavorites,
           ),

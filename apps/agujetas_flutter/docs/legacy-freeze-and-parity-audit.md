@@ -687,3 +687,10 @@ Sexagésimo bloque Auditoría interna de imágenes en Perfil:
 - La acción abre un sheet con conteos reales del manifest: assets propios, prioridad, pendientes, placeholders y porcentaje revisado/aprobado.
 - `ExerciseImageResolver.auditEntries()` expone muestras limitadas por `reviewStatus` para revisar prioridad y pendientes sin abrir el JSON.
 - Este bloque no aprueba ni mejora el arte; hace visible la deuda para poder decidir lotes de reemplazo visual con criterio.
+
+Sexagésimo primer bloque Favoritos reales en Biblioteca:
+
+- La estrella del catálogo deja de ser no-op y marca/quita favoritos persistidos localmente por usuario.
+- El chip `Favoritos` deja de significar “usados” y pasa a filtrar sólo ejercicios favoritos reales.
+- El mismo filtro aplica a ejercicios personalizados; sus opciones permiten agregarlos o quitarlos de favoritos.
+- La preferencia local se borra al eliminar cuenta desde Perfil y no depende de Firestore.

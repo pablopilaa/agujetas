@@ -405,6 +405,24 @@ void main() {
     expect(otherPreferences.localGalleryEnabled, isFalse);
   });
 
+  test('local workout store persists favorite exercise ids by user', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+
+    expect(await store.loadFavoriteExerciseIds('favorites-user'), isEmpty);
+
+    await store.saveFavoriteExerciseIds(
+      userId: 'favorites-user',
+      exerciseIds: {'bench_press', 'row', ''},
+    );
+
+    expect(await store.loadFavoriteExerciseIds('favorites-user'), {
+      'bench_press',
+      'row',
+    });
+    expect(await store.loadFavoriteExerciseIds('other-user'), isEmpty);
+  });
+
   test('local workout store persists privacy consent by user', () async {
     SharedPreferences.setMockInitialValues({});
     final store = LocalWorkoutStore.instance;

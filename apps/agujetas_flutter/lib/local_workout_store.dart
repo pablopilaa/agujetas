@@ -388,6 +388,30 @@ class LocalWorkoutStore {
     );
   }
 
+  Future<Set<String>> loadFavoriteExerciseIds(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_favoriteExercisesKey(userId));
+    if (raw == null || raw.isEmpty) return const {};
+    return raw
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet();
+  }
+
+  Future<void> saveFavoriteExerciseIds({
+    required String userId,
+    required Set<String> exerciseIds,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized =
+        exerciseIds
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList()
+          ..sort();
+    await prefs.setStringList(_favoriteExercisesKey(userId), normalized);
+  }
+
   Future<LocalPrivacyConsent?> loadPrivacyConsent(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_privacyConsentKey(userId));
@@ -416,6 +440,7 @@ class LocalWorkoutStore {
       prefs.remove(_routinesKey(userId)),
       prefs.remove(_bodyWeightsKey(userId)),
       prefs.remove(_customExercisesKey(userId)),
+      prefs.remove(_favoriteExercisesKey(userId)),
       prefs.remove(_preferencesKey(userId)),
       prefs.remove(_privacyConsentKey(userId)),
     ]);
@@ -1051,6 +1076,9 @@ class LocalWorkoutStore {
 
   String _customExercisesKey(String userId) =>
       'agujetas.localCustomExercises.v1.$userId';
+
+  String _favoriteExercisesKey(String userId) =>
+      'agujetas.favoriteExercises.v1.$userId';
 
   String _preferencesKey(String userId) =>
       'agujetas.localUserPreferences.v1.$userId';
