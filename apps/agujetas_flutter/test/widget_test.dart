@@ -185,6 +185,10 @@ void main() {
       find.widgetWithText(TextField, 'Comentario'),
       'Revisar RIR y técnica en la próxima sesión.',
     );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Evidencia opcional'),
+      'https://evidencia.agujetas/demo-1',
+    );
     await tester.pump();
     await tester.tap(find.text('Guardar comentario'));
     await tester.pumpAndSettle();
@@ -195,6 +199,11 @@ void main() {
       findsWidgets,
     );
     expect(find.textContaining('Revisar RIR y técnica'), findsWidgets);
+    expect(find.text('https://evidencia.agujetas/demo-1'), findsOneWidget);
+    expect(
+      find.widgetWithText(OutlinedButton, 'https://evidencia.agujetas/demo-1'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('trainer dashboard schedules a client session', (tester) async {

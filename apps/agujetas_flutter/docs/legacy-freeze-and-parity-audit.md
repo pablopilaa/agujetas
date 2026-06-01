@@ -662,3 +662,12 @@ Quincuagésimo séptimo bloque Comentarios en asignaciones:
 - El flujo funciona tanto para entrenador como para entrenado siempre que el usuario pertenezca al vínculo de asignación.
 - Tests de widget cubren enviar tarea, abrir historial, comentar y ver el nuevo evento comentado.
 - Quedan pendientes adjuntos/evidencia real y una pantalla full-route si el historial crece demasiado para un bottom sheet.
+
+Quincuagésimo octavo bloque Evidencia liviana sin Storage:
+
+- `AssignmentEvent` agrega `evidenceUri` opcional para guardar un link o referencia externa junto al comentario.
+- `addAssignmentComment` acepta comentario textual, evidencia o ambos; si ambos están vacíos no crea evento.
+- La hoja de comentario incluye `Evidencia opcional` con límite de 300 caracteres y aclara que no sube archivos.
+- El timeline muestra un botón de evidencia cuando existe `evidenceUri` y permite copiar la referencia al portapapeles.
+- Esta estrategia evita Firebase Storage/Blaze y sirve para MVP o test interno; no reemplaza un flujo definitivo de subida segura de archivos.
+- Quedan pendientes permisos nativos de galería para evidencia real, expiración de links externos y política de retención/borrado de archivos si luego se usa R2, Storage u otro bucket.

@@ -102,8 +102,10 @@ flowchart TD
   B --> B5["Metas del entrenador"]
   B --> B6["Actividad de asignaciones"]
   B6 --> B7["Comentar evento"]
+  B7 --> B8["Agregar referencia de evidencia"]
   E2 --> E12["Responder en historial"]
   B7 --> E13["Firestore assignmentEvents action commented"]
+  B8 --> E13
   E12 --> E13
 ```
 
@@ -131,7 +133,8 @@ flowchart TD
 | Inicio | Meta asignada | Guardar valor | Actualizar `goals/{id}.currentValue` y completar si llega al objetivo |
 | Inicio | Actividad de asignaciones | Ver timeline | Leer `assignmentEvents` por `assignedClientId` |
 | Inicio | Actividad de asignaciones | Ver todo | Hoja filtrable por Todo / Rutinas / Tareas / Schedules / Metas |
-| Inicio / Panel entrenador | Evento de asignación | Comentar | Crear `assignmentEvents` con `action = commented` y `summary` textual |
+| Inicio / Panel entrenador | Evento de asignación | Comentar | Crear `assignmentEvents` con `action = commented`, `summary` textual y `evidenceUri` opcional |
+| Inicio / Panel entrenador | Evidencia de evento | Copiar referencia | Copiar `evidenceUri`; no se sube archivo ni se usa Firebase Storage |
 | Inicio | Selector Fuerza / Hipertrofia / Técnica / Libre | Elegir modo de sesión | Entrenar con modo elegido |
 | Inicio | CTA iniciar entrenamiento | Iniciar sesión recomendada | Entrenar |
 | Inicio | Card calendario | Ver calendario mensual | Bottom sheet de calendario con navegación por mes |

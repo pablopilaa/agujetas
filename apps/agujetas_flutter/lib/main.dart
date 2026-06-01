@@ -2504,6 +2504,21 @@ class _AssignmentTimelineSheetState extends State<AssignmentTimelineSheet> {
                           '${_formatShortDateTime(event.occurredAt)} · ${_eventActorLabel(event.actorRole)} · ${_assignmentEventTypeLabel(event.targetType)}',
                         ),
                       ),
+                      if (_hasEvidence(event))
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: OutlinedButton.icon(
+                              onPressed: () =>
+                                  _copyAssignmentEvidence(context, event),
+                              icon: const Icon(Icons.attach_file),
+                              label: Text(
+                                _assignmentEvidenceLabel(event.evidenceUri!),
+                              ),
+                            ),
+                          ),
+                        ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                         child: Align(
@@ -2569,23 +2584,27 @@ class AssignmentCommentSheet extends StatefulWidget {
 
 class _AssignmentCommentSheetState extends State<AssignmentCommentSheet> {
   final _controller = TextEditingController();
+  final _evidenceController = TextEditingController();
   bool _busy = false;
 
   @override
   void dispose() {
     _controller.dispose();
+    _evidenceController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     final message = _controller.text.trim();
-    if (message.isEmpty || _busy) return;
+    final evidenceUri = _evidenceController.text.trim();
+    if ((message.isEmpty && evidenceUri.isEmpty) || _busy) return;
     setState(() => _busy = true);
     try {
       await widget.repository.addAssignmentComment(
         user: widget.user,
         event: widget.event,
         message: message,
+        evidenceUri: evidenceUri.isEmpty ? null : evidenceUri,
       );
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -2634,11 +2653,27 @@ class _AssignmentCommentSheetState extends State<AssignmentCommentSheet> {
                 hintText: 'Ej: Revisé el video, bajá un poco el peso.',
               ),
             ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _evidenceController,
+              maxLines: 1,
+              maxLength: 300,
+              keyboardType: TextInputType.url,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Evidencia opcional',
+                hintText: 'Link o referencia externa, sin subir archivo',
+                prefixIcon: Icon(Icons.attach_file),
+              ),
+            ),
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _controller.text.trim().isEmpty || _busy
+                onPressed:
+                    (_controller.text.trim().isEmpty &&
+                            _evidenceController.text.trim().isEmpty) ||
+                        _busy
                     ? null
                     : _submit,
                 icon: _busy
@@ -6214,6 +6249,30 @@ String _eventActorLabel(String actorRole) {
     'client' => 'Entrenado',
     _ => 'Sistema',
   };
+}
+
+bool _hasEvidence(AssignmentEvent event) {
+  final evidence = event.evidenceUri?.trim();
+  return evidence != null && evidence.isNotEmpty;
+}
+
+String _assignmentEvidenceLabel(String evidenceUri) {
+  final normalized = evidenceUri.trim();
+  if (normalized.length <= 34) return normalized;
+  return '${normalized.substring(0, 31)}...';
+}
+
+Future<void> _copyAssignmentEvidence(
+  BuildContext context,
+  AssignmentEvent event,
+) async {
+  final evidence = event.evidenceUri?.trim();
+  if (evidence == null || evidence.isEmpty) return;
+  await Clipboard.setData(ClipboardData(text: evidence));
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Referencia de evidencia copiada.')),
+  );
 }
 
 const _assignmentEventTypeLabels = <String, String>{

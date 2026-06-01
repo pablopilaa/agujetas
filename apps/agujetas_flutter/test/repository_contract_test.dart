@@ -262,6 +262,7 @@ void main() {
     expect(repository, contains('_recordAssignmentEvent'));
     expect(repository, contains('addAssignmentComment'));
     expect(repository, contains("action: 'commented'"));
+    expect(repository, contains('evidenceUri'));
     expect(
       rules,
       contains(

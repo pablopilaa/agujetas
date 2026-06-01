@@ -902,6 +902,7 @@ class AssignmentEvent {
     required this.actorRole,
     required this.occurredAt,
     this.summary,
+    this.evidenceUri,
   });
 
   final String id;
@@ -915,6 +916,7 @@ class AssignmentEvent {
   final String actorRole;
   final DateTime occurredAt;
   final String? summary;
+  final String? evidenceUri;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -928,7 +930,8 @@ class AssignmentEvent {
     'actorRole': actorRole,
     'occurredAt': occurredAt.toUtc().toIso8601String(),
     'summary': summary,
-    'schemaVersion': 1,
+    'evidenceUri': evidenceUri,
+    'schemaVersion': 2,
   };
 
   factory AssignmentEvent.fromJson(Map<String, Object?> json) {
@@ -946,6 +949,7 @@ class AssignmentEvent {
           DateTime.tryParse(json['occurredAt']?.toString() ?? '') ??
           DateTime.now().toUtc(),
       summary: json['summary']?.toString(),
+      evidenceUri: json['evidenceUri']?.toString(),
     );
   }
 }

@@ -138,6 +138,7 @@ abstract class AgujetasRepository {
     required AppUser user,
     required AssignmentEvent event,
     required String message,
+    String? evidenceUri,
   });
   Future<void> saveSession({
     required AppUser user,
@@ -805,9 +806,14 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     required AppUser user,
     required AssignmentEvent event,
     required String message,
+    String? evidenceUri,
   }) async {
     final normalized = message.trim();
-    if (normalized.isEmpty) return;
+    final normalizedEvidence = evidenceUri?.trim();
+    if (normalized.isEmpty &&
+        (normalizedEvidence == null || normalizedEvidence.isEmpty)) {
+      return;
+    }
     if (user.uid != event.trainerId && user.uid != event.assignedClientId) {
       throw StateError('El usuario no pertenece a esta asignacion.');
     }
@@ -820,7 +826,10 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
       action: 'commented',
       actorId: user.uid,
       actorRole: user.uid == event.trainerId ? 'trainer' : 'client',
-      summary: normalized,
+      summary: normalized.isEmpty ? null : normalized,
+      evidenceUri: normalizedEvidence == null || normalizedEvidence.isEmpty
+          ? null
+          : normalizedEvidence,
     );
   }
 
@@ -834,6 +843,7 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     required String actorId,
     required String actorRole,
     String? summary,
+    String? evidenceUri,
   }) async {
     final id = _uuid.v4();
     final event = AssignmentEvent(
@@ -848,6 +858,7 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
       actorRole: actorRole,
       occurredAt: DateTime.now().toUtc(),
       summary: summary,
+      evidenceUri: evidenceUri,
     );
     await _firestore.collection('assignmentEvents').doc(id).set({
       ...event.toJson(),
@@ -1550,9 +1561,14 @@ class DemoAgujetasRepository implements AgujetasRepository {
     required AppUser user,
     required AssignmentEvent event,
     required String message,
+    String? evidenceUri,
   }) async {
     final normalized = message.trim();
-    if (normalized.isEmpty) return;
+    final normalizedEvidence = evidenceUri?.trim();
+    if (normalized.isEmpty &&
+        (normalizedEvidence == null || normalizedEvidence.isEmpty)) {
+      return;
+    }
     _recordDemoAssignmentEvent(
       trainerId: event.trainerId,
       assignedClientId: event.assignedClientId,
@@ -1562,7 +1578,10 @@ class DemoAgujetasRepository implements AgujetasRepository {
       action: 'commented',
       actorId: user.uid,
       actorRole: user.uid == event.trainerId ? 'trainer' : 'client',
-      summary: normalized,
+      summary: normalized.isEmpty ? null : normalized,
+      evidenceUri: normalizedEvidence == null || normalizedEvidence.isEmpty
+          ? null
+          : normalizedEvidence,
     );
   }
 
@@ -1576,6 +1595,7 @@ class DemoAgujetasRepository implements AgujetasRepository {
     required String actorId,
     required String actorRole,
     String? summary,
+    String? evidenceUri,
   }) {
     final event = AssignmentEvent(
       id: 'demo-event-${_assignmentEventItems.length + 1}',
@@ -1589,6 +1609,7 @@ class DemoAgujetasRepository implements AgujetasRepository {
       actorRole: actorRole,
       occurredAt: DateTime.now().toUtc(),
       summary: summary,
+      evidenceUri: evidenceUri,
     );
     _assignmentEventItems.insert(0, event);
     _assignmentEvents.add(List.unmodifiable(_assignmentEventItems));

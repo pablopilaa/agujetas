@@ -190,6 +190,7 @@ void main() {
       actorRole: 'client',
       occurredAt: DateTime.utc(2026, 6, 9, 20),
       summary: 'Peso cargado sin molestias.',
+      evidenceUri: 'https://example.com/video-tecnica',
     );
 
     final restored = AssignmentEvent.fromJson(event.toJson());
@@ -202,6 +203,7 @@ void main() {
     expect(restored.actorRole, 'client');
     expect(restored.occurredAt, DateTime.utc(2026, 6, 9, 20));
     expect(restored.summary, 'Peso cargado sin molestias.');
+    expect(restored.evidenceUri, 'https://example.com/video-tecnica');
   });
 
   test('legacy single weight fields migrate into segments', () {
