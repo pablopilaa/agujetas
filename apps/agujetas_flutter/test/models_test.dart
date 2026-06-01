@@ -255,6 +255,9 @@ void main() {
     expect(resolved.assetPath, startsWith('assets/exercise_images/thumbs/'));
     expect(resolved.assetPath, isNot(contains('lyfta')));
     expect(resolved.source, 'agujetas-generated');
+    expect(resolved.reviewStatus, 'pending');
+    expect(resolved.needsReview, isTrue);
+    expect(resolved.qualityLabel, 'Revisar');
   });
 
   test(
@@ -271,6 +274,17 @@ void main() {
       expect(resolved.assetPath, isNot(contains('lyfta')));
     },
   );
+
+  test('image resolver exposes manifest coverage audit summary', () async {
+    final summary = await ExerciseImageResolver.instance.auditSummary();
+
+    expect(summary.entries, greaterThan(2000));
+    expect(summary.generated, summary.entries);
+    expect(summary.pendingReview, greaterThan(0));
+    expect(summary.priorityReview, greaterThan(0));
+    expect(summary.placeholders, greaterThan(0));
+    expect(summary.reviewedRatio, lessThan(0.1));
+  });
 
   test(
     'legacy Lyfta URI is blocked and resolved through safe catalog art',
@@ -298,6 +312,8 @@ void main() {
       );
 
       expect(resolved.isFallback, isTrue);
+      expect(resolved.reviewStatus, 'missing');
+      expect(resolved.qualityLabel, 'Sin asset');
       expect(
         resolved.assetPath,
         contains('assets/exercise_images/placeholders/'),

@@ -9302,6 +9302,34 @@ class ExerciseImageBadge extends StatelessWidget {
                         fit: BoxFit.contain,
                       ),
                     ),
+                    if (resolved.needsReview)
+                      Positioned(
+                        left: 2,
+                        bottom: 2,
+                        child: Semantics(
+                          label: 'Imagen de ejercicio ${resolved.qualityLabel}',
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 3,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surface.withValues(alpha: 0.88),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: colors.divider),
+                            ),
+                            child: Text(
+                              resolved.qualityLabel,
+                              style: TextStyle(
+                                color: colors.textSecondary,
+                                fontSize: size < 44 ? 6 : 7,
+                                fontWeight: FontWeight.w800,
+                                height: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     if (resolved.legacyUriBlocked)
                       Positioned(
                         right: 3,

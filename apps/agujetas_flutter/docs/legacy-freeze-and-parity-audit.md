@@ -671,3 +671,12 @@ Quincuagésimo octavo bloque Evidencia liviana sin Storage:
 - El timeline muestra un botón de evidencia cuando existe `evidenceUri` y permite copiar la referencia al portapapeles.
 - Esta estrategia evita Firebase Storage/Blaze y sirve para MVP o test interno; no reemplaza un flujo definitivo de subida segura de archivos.
 - Quedan pendientes permisos nativos de galería para evidencia real, expiración de links externos y política de retención/borrado de archivos si luego se usa R2, Storage u otro bucket.
+
+Quincuagésimo noveno bloque Auditoría visual de imágenes de ejercicios:
+
+- `ExerciseImageResolver` expone `reviewStatus`, `qualityLabel`, `needsReview` y `auditSummary` además del asset local resuelto.
+- La normalización de nombres se reemplazó por un mapa UTF-8 explícito sin mojibake para que búsquedas con tildes como `Jalón` sigan resolviendo contra el manifest.
+- `ExerciseImageBadge` muestra una marca pequeña `Revisar`, `Prioridad` o `Sin asset` cuando el asset todavía no está aprobado o cuando cae a placeholder.
+- Los tests validan que el manifest tiene más de 2.000 entradas, que la deuda de revisión sigue visible y que el badge no oculta el estado de calidad.
+- Este bloque no mejora la calidad artística de los SVG generados; evita que la app trate esos thumbnails básicos como definitivos.
+- Queda pendiente definir el pipeline real de arte final: generación/ilustración por lotes, revisión humana, reemplazo de rechazados, y eventualmente masters fuera del APK si pesan demasiado.

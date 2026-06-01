@@ -6,6 +6,7 @@ class ResolvedExerciseImage {
   const ResolvedExerciseImage({
     required this.assetPath,
     required this.status,
+    required this.reviewStatus,
     required this.source,
     required this.isFallback,
     required this.legacyUriBlocked,
@@ -14,12 +15,46 @@ class ResolvedExerciseImage {
 
   final String assetPath;
   final String status;
+  final String reviewStatus;
   final String source;
   final bool isFallback;
   final bool legacyUriBlocked;
   final String? imageId;
 
   String get uri => imageId == null ? '' : 'agujetas-image://$imageId';
+
+  bool get needsReview =>
+      isFallback || reviewStatus == 'pending' || reviewStatus == 'priority';
+
+  String get qualityLabel {
+    if (isFallback) return 'Sin asset';
+    return switch (reviewStatus) {
+      'approved' => 'Aprobada',
+      'priority' => 'Prioridad',
+      'pending' => 'Revisar',
+      _ => 'Revisar',
+    };
+  }
+}
+
+class ExerciseImageAuditSummary {
+  const ExerciseImageAuditSummary({
+    required this.entries,
+    required this.generated,
+    required this.priorityReview,
+    required this.pendingReview,
+    required this.placeholders,
+  });
+
+  final int entries;
+  final int generated;
+  final int priorityReview;
+  final int pendingReview;
+  final int placeholders;
+
+  int get reviewed => entries - pendingReview - priorityReview;
+
+  double get reviewedRatio => entries == 0 ? 0 : reviewed / entries;
 }
 
 class ExerciseImageResolver {
@@ -52,6 +87,7 @@ class ExerciseImageResolver {
       return ResolvedExerciseImage(
         assetPath: matched.assetPath,
         status: matched.status,
+        reviewStatus: matched.reviewStatus,
         source: matched.source,
         isFallback: false,
         legacyUriBlocked: legacyUriBlocked,
@@ -62,10 +98,16 @@ class ExerciseImageResolver {
     return ResolvedExerciseImage(
       assetPath: manifest.placeholderFor(muscleGroup),
       status: 'placeholder',
+      reviewStatus: 'missing',
       source: 'agujetas-placeholder',
       isFallback: true,
       legacyUriBlocked: legacyUriBlocked,
     );
+  }
+
+  Future<ExerciseImageAuditSummary> auditSummary() async {
+    final manifest = await _loadManifest();
+    return manifest.summary;
   }
 
   Future<_ExerciseImageManifest> _loadManifest() {
@@ -93,6 +135,7 @@ String _normalize(String value) {
     'á': 'a',
     'à': 'a',
     'ä': 'a',
+    'ã': 'a',
     'Á': 'a',
     'À': 'a',
     'Ä': 'a',
@@ -116,10 +159,12 @@ String _normalize(String value) {
     'ò': 'o',
     'ö': 'o',
     'ô': 'o',
+    'õ': 'o',
     'Ó': 'o',
     'Ò': 'o',
     'Ö': 'o',
     'Ô': 'o',
+    'Õ': 'o',
     'ú': 'u',
     'ù': 'u',
     'ü': 'u',
@@ -130,6 +175,8 @@ String _normalize(String value) {
     'Û': 'u',
     'ñ': 'n',
     'Ñ': 'n',
+    'ç': 'c',
+    'Ç': 'c',
   };
   final buffer = StringBuffer();
   for (final codePoint in value.runes) {
@@ -140,7 +187,7 @@ String _normalize(String value) {
       .toString()
       .toLowerCase()
       .replaceAll(RegExp('[^a-z0-9]+'), '_')
-      .replaceAll(RegExp('^_+|_+\$'), '');
+      .replaceAll(RegExp(r'^_+|_+$'), '');
 }
 
 class _ExerciseImageManifest {
@@ -149,18 +196,21 @@ class _ExerciseImageManifest {
     required this.byExerciseKey,
     required this.byName,
     required this.placeholdersByMuscle,
+    required this.summary,
   });
 
   final Map<String, _ExerciseImageEntry> byImageId;
   final Map<String, _ExerciseImageEntry> byExerciseKey;
   final Map<String, _ExerciseImageEntry> byName;
   final Map<String, String> placeholdersByMuscle;
+  final ExerciseImageAuditSummary summary;
 
   static Future<_ExerciseImageManifest> load() async {
     final raw = await rootBundle.loadString(
       'assets/exercise_images/agujetas-image-manifest.json',
     );
     final decoded = jsonDecode(raw) as Map<String, Object?>;
+    final counts = decoded['counts'] as Map<String, Object?>? ?? const {};
     final entries = (decoded['entries'] as List<dynamic>? ?? const [])
         .whereType<Map>()
         .map((raw) => _ExerciseImageEntry.fromJson(raw.cast<String, Object?>()))
@@ -191,6 +241,14 @@ class _ExerciseImageManifest {
       byExerciseKey: byExerciseKey,
       byName: byName,
       placeholdersByMuscle: placeholdersByMuscle,
+      summary: ExerciseImageAuditSummary(
+        entries: _jsonInt(counts['entries']) ?? entries.length,
+        generated: _jsonInt(counts['generated']) ?? entries.length,
+        priorityReview: _jsonInt(counts['priorityReview']) ?? 0,
+        pendingReview: _jsonInt(counts['pendingReview']) ?? 0,
+        placeholders:
+            _jsonInt(counts['placeholders']) ?? placeholdersByMuscle.length,
+      ),
     );
   }
 
@@ -209,6 +267,7 @@ class _ExerciseImageEntry {
     required this.assetPath,
     required this.placeholderAssetPath,
     required this.status,
+    required this.reviewStatus,
     required this.source,
   });
 
@@ -219,6 +278,7 @@ class _ExerciseImageEntry {
   final String assetPath;
   final String placeholderAssetPath;
   final String status;
+  final String reviewStatus;
   final String source;
 
   factory _ExerciseImageEntry.fromJson(Map<String, Object?> json) {
@@ -232,7 +292,14 @@ class _ExerciseImageEntry {
           json['placeholderAssetPath']?.toString() ??
           'assets/exercise_images/placeholders/placeholder_general.svg',
       status: json['status']?.toString() ?? 'generated',
+      reviewStatus: json['reviewStatus']?.toString() ?? 'pending',
       source: json['source']?.toString() ?? 'agujetas-generated',
     );
   }
+}
+
+int? _jsonInt(Object? value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value?.toString() ?? '');
 }

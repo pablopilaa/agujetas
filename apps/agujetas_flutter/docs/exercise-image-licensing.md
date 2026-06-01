@@ -16,6 +16,8 @@ Flutter resuelve imágenes con `ExerciseImageResolver`.
 - `agujetas-image://IMAGE_ID` puede resolver a un asset local propio.
 - `app-image://...` se acepta sólo como pista de migración legacy y nunca resuelve a assets Lyfta.
 - Si una imagen propia no aparece en el manifiesto, la UI cae a un placeholder local por grupo muscular.
+- Cada resolución expone `reviewStatus` y `qualityLabel`; la UI muestra `Revisar`, `Prioridad` o `Sin asset` cuando la miniatura todavía no está aprobada.
+- `ExerciseImageResolver.auditSummary()` devuelve conteos del manifiesto para medir cobertura y deuda de revisión sin inspeccionar el JSON a mano.
 - Los ejercicios personalizados pueden asociarse a una imagen local del usuario o a un asset propio del repositorio Agujetas.
 
 ## Pipeline
@@ -46,6 +48,8 @@ Estados recomendados:
 - `pending`: generado, usable como MVP seguro, pendiente de QA visual.
 - `approved`: listo para producción cuando ya haya revisión humana.
 - `rejected`: no usar; regenerar o reemplazar.
+
+La UI no debe presentar `pending` como arte final. En builds de test se puede mostrar, pero siempre con marca visible de revisión para que el usuario y el equipo no confundan cobertura técnica con calidad visual definitiva.
 
 ## Futuro Cloud
 
