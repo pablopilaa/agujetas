@@ -5,6 +5,7 @@ import 'package:agujetas_flutter/legacy_history_importer.dart';
 import 'package:agujetas_flutter/legal_contract.dart';
 import 'package:agujetas_flutter/local_workout_store.dart';
 import 'package:agujetas_flutter/models.dart';
+import 'package:agujetas_flutter/notification_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -383,6 +384,12 @@ void main() {
       (await store.loadUserPreferences('preferences-user')).localGalleryEnabled,
       isFalse,
     );
+    expect(
+      (await store.loadUserPreferences(
+        'preferences-user',
+      )).scheduleAlertsEnabled,
+      isTrue,
+    );
 
     await store.saveUserPreferences(
       userId: 'preferences-user',
@@ -390,6 +397,7 @@ void main() {
         preferredTheme: 'dark',
         restAlertsEnabled: false,
         bodyWeightAlertsEnabled: true,
+        scheduleAlertsEnabled: false,
         localGalleryEnabled: true,
       ),
     );
@@ -400,9 +408,22 @@ void main() {
     expect(preferences.preferredTheme, 'dark');
     expect(preferences.restAlertsEnabled, isFalse);
     expect(preferences.bodyWeightAlertsEnabled, isTrue);
+    expect(preferences.scheduleAlertsEnabled, isFalse);
     expect(preferences.localGalleryEnabled, isTrue);
     expect(otherPreferences.preferredTheme, 'system');
+    expect(otherPreferences.scheduleAlertsEnabled, isTrue);
     expect(otherPreferences.localGalleryEnabled, isFalse);
+  });
+
+  test('schedule notification id is stable and bounded', () {
+    final first = NotificationService.scheduleNotificationId('schedule-1');
+    final second = NotificationService.scheduleNotificationId('schedule-1');
+    final different = NotificationService.scheduleNotificationId('schedule-2');
+
+    expect(first, second);
+    expect(first, isNot(different));
+    expect(first, greaterThanOrEqualTo(400000));
+    expect(first, lessThan(0x40000000 + 400000));
   });
 
   test('local workout store persists favorite exercise ids by user', () async {

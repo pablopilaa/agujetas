@@ -177,7 +177,7 @@ flowchart TD
 | Biblioteca | Agregar ejercicio | Agregar a rutina activa | Entrenamiento actual actualizado |
 | Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado y sync remoto por `orderIndex` |
 | Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado, guardado local y sync `/users/{uid}/preferences/app` |
-| Perfil | Permisos | Cambiar alertas/galería | Guardado local y sync `/users/{uid}/preferences/app` |
+| Perfil | Permisos | Cambiar alertas/agenda/galería | Guardado local y sync `/users/{uid}/preferences/app`; agenda cancela o programa recordatorios locales |
 | Perfil | Plan y suscripción | Ver planes | Sheet Agujetas Free / Agujetas Pro |
 | Planes Agujetas | Agujetas Pro demo | Elegir Agujetas Pro | Activa Pro demo y modo entrenador |
 | Perfil | Privacidad y datos | Auditoría de imágenes | Sheet con cobertura del manifest, prioridad de revisión, pendientes y placeholders |
@@ -213,6 +213,7 @@ flowchart TD
 - El consentimiento post-login se guarda localmente por usuario y bloquea Inicio hasta aceptar términos, sync Firebase, galería local y notificaciones.
 - Cada consentimiento guarda versión de esquema, términos, privacidad, datos y notificaciones. Si una versión cambia, el usuario real debe volver a aceptar.
 - Las preferencias de Perfil se leen primero desde el dispositivo y después desde Firebase. Si Firebase falla, la app conserva el valor local y muestra aviso.
+- Los recordatorios de schedules se programan localmente desde el stream de asignaciones y se cancelan si el usuario desactiva `Recordatorios de agenda`, si el schedule vence o si deja de estar activo.
 - El peso corporal se muestra desde local inmediatamente, sube registros recientes a Firestore en segundo plano y fusiona snapshots remotos por `id`.
 - Los ejercicios personalizados siguen el mismo patrón local-first: catálogo local inmediato, sync Firestore por `ownerId`, delete remoto best-effort y sin Firebase Storage.
 - Las rutinas siguen el mismo patrón local-first: biblioteca local inmediata, sync Firestore por `ownerId`, `orderIndex` para replicar reorder entre dispositivos, delete remoto best-effort y sin bloquear la edición offline.

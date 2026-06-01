@@ -601,7 +601,7 @@ Quincuagésimo bloque Schedules entrenador-entrenado:
 - El panel entrenador muestra `Agendar` por entrenado activo y crea una sesión planificada.
 - El usuario normal tiene una sección `Schedules asignados` y el calendario mensual recibe esos schedules por `assignedClientId`.
 - El calendario mensual ahora marca días con schedules, lista los schedules del mes y abre detalle con nota y rutina sugerida.
-- Quedan pendientes edición/cancelación de schedules, recordatorios push/locales de schedule y conflicto visual cuando una sesión planificada ya fue completada.
+- Quedan pendientes conflicto visual cuando una sesión planificada ya fue completada y eventual push remoto si se necesita servidor; desde el sexagésimo quinto bloque hay recordatorios locales de schedule.
 
 Quincuagésimo primer bloque Metas entrenador-entrenado:
 
@@ -712,3 +712,10 @@ Sexagésimo cuarto bloque Orden remoto de rutinas:
 - `RoutineTemplate` incorpora `orderIndex` serializable para Firestore y backups locales.
 - El store local normaliza índices al guardar, duplicar, borrar o reordenar rutinas.
 - El merge remoto respeta `orderIndex` entrante y el watcher Firebase devuelve rutinas ordenadas, cerrando la brecha de reorder multi-dispositivo.
+
+Sexagésimo quinto bloque Recordatorios locales de schedules:
+
+- `LocalUserPreferences` suma `scheduleAlertsEnabled`, persistido local-first y Firebase-ready junto al resto de preferencias.
+- Perfil expone el toggle `Recordatorios de agenda`.
+- `HomeShell` programa recordatorios locales para schedules futuros activos, cancela los que vencen o dejan de estar activos y respeta el toggle sin usar Firebase Storage ni servicios pagos.
+- `NotificationService` agrega IDs estables por schedule y un canal local `assigned_schedules` con fallback exacto/inexacto.

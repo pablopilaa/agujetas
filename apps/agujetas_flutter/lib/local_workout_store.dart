@@ -192,18 +192,21 @@ class LocalUserPreferences {
     this.preferredTheme = 'system',
     this.restAlertsEnabled = true,
     this.bodyWeightAlertsEnabled = true,
+    this.scheduleAlertsEnabled = true,
     this.localGalleryEnabled = false,
   });
 
   final String preferredTheme;
   final bool restAlertsEnabled;
   final bool bodyWeightAlertsEnabled;
+  final bool scheduleAlertsEnabled;
   final bool localGalleryEnabled;
 
   Map<String, Object?> toJson() => {
     'preferredTheme': preferredTheme,
     'restAlertsEnabled': restAlertsEnabled,
     'bodyWeightAlertsEnabled': bodyWeightAlertsEnabled,
+    'scheduleAlertsEnabled': scheduleAlertsEnabled,
     'localGalleryEnabled': localGalleryEnabled,
     'schemaVersion': 1,
   };
@@ -214,6 +217,10 @@ class LocalUserPreferences {
       restAlertsEnabled: _readBoolWithDefault(json['restAlertsEnabled'], true),
       bodyWeightAlertsEnabled: _readBoolWithDefault(
         json['bodyWeightAlertsEnabled'],
+        true,
+      ),
+      scheduleAlertsEnabled: _readBoolWithDefault(
+        json['scheduleAlertsEnabled'],
         true,
       ),
       localGalleryEnabled: _readBoolWithDefault(
@@ -227,6 +234,7 @@ class LocalUserPreferences {
     String? preferredTheme,
     bool? restAlertsEnabled,
     bool? bodyWeightAlertsEnabled,
+    bool? scheduleAlertsEnabled,
     bool? localGalleryEnabled,
   }) {
     return LocalUserPreferences(
@@ -234,6 +242,8 @@ class LocalUserPreferences {
       restAlertsEnabled: restAlertsEnabled ?? this.restAlertsEnabled,
       bodyWeightAlertsEnabled:
           bodyWeightAlertsEnabled ?? this.bodyWeightAlertsEnabled,
+      scheduleAlertsEnabled:
+          scheduleAlertsEnabled ?? this.scheduleAlertsEnabled,
       localGalleryEnabled: localGalleryEnabled ?? this.localGalleryEnabled,
     );
   }

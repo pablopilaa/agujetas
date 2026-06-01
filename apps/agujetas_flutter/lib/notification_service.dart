@@ -119,6 +119,57 @@ class NotificationService {
     );
   }
 
+  static Future<AgujetasNotificationResult> scheduleAssignedScheduleReminder({
+    required String scheduleId,
+    required String title,
+    required DateTime scheduledFor,
+    String? routineTitle,
+    Duration leadTime = const Duration(minutes: 30),
+  }) async {
+    await initialize();
+    if (!_initialized) return AgujetasNotificationResult.disabled;
+    final canNotify = await _requestNotificationPermission();
+    if (!canNotify) return AgujetasNotificationResult.permissionDenied;
+    final now = tz.TZDateTime.now(tz.local);
+    final localEventTime = scheduledFor.toLocal();
+    final eventTime = tz.TZDateTime(
+      tz.local,
+      localEventTime.year,
+      localEventTime.month,
+      localEventTime.day,
+      localEventTime.hour,
+      localEventTime.minute,
+    );
+    if (!eventTime.isAfter(now)) return AgujetasNotificationResult.disabled;
+    final reminderTime = eventTime.subtract(leadTime);
+    final scheduledDate = reminderTime.isAfter(now) ? reminderTime : eventTime;
+    final routine = routineTitle?.trim();
+    return _scheduleWithFallback(
+      id: scheduleNotificationId(scheduleId),
+      title: 'Entrenamiento programado',
+      body: routine == null || routine.isEmpty
+          ? '$title empieza ${_clockLabel(eventTime)}.'
+          : '$title · $routine empieza ${_clockLabel(eventTime)}.',
+      scheduledDate: scheduledDate,
+      channelId: 'assigned_schedules',
+      channelName: 'Agenda de entrenamiento',
+    );
+  }
+
+  static Future<void> cancelAssignedScheduleReminder(String scheduleId) async {
+    await initialize();
+    if (!_initialized) return;
+    await _plugin.cancel(id: scheduleNotificationId(scheduleId));
+  }
+
+  static int scheduleNotificationId(String scheduleId) {
+    var hash = 0;
+    for (final unit in scheduleId.codeUnits) {
+      hash = (hash * 31 + unit) & 0x3fffffff;
+    }
+    return 400000 + hash;
+  }
+
   static Future<AgujetasNotificationResult> _scheduleWithFallback({
     required int id,
     required String title,
@@ -181,5 +232,11 @@ class NotificationService {
         presentSound: true,
       ),
     );
+  }
+
+  static String _clockLabel(tz.TZDateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }

@@ -618,6 +618,7 @@ class _HomeShellState extends State<HomeShell> {
   bool _totalRunning = false;
   bool _restRunning = false;
   LocalUserPreferences _preferences = const LocalUserPreferences();
+  Set<String> _scheduledScheduleReminderIds = const {};
   String? _lastInviteCode;
   String? _notice;
 
@@ -776,6 +777,7 @@ class _HomeShellState extends State<HomeShell> {
         .listen((schedules) {
           if (!mounted) return;
           setState(() => _assignedSchedules = schedules);
+          unawaited(_syncAssignedScheduleReminders(schedules));
         });
   }
 
@@ -1171,6 +1173,7 @@ class _HomeShellState extends State<HomeShell> {
     final preferences = await _localStore.loadUserPreferences(widget.user.uid);
     if (!mounted) return;
     setState(() => _preferences = preferences);
+    unawaited(_syncAssignedScheduleReminders(_assignedSchedules));
     _applyPreferredTheme(preferences);
 
     try {
@@ -1184,6 +1187,7 @@ class _HomeShellState extends State<HomeShell> {
       );
       if (!mounted) return;
       setState(() => _preferences = remotePreferences);
+      unawaited(_syncAssignedScheduleReminders(_assignedSchedules));
       _applyPreferredTheme(remotePreferences);
     } catch (_) {
       if (!mounted) return;
@@ -1341,6 +1345,42 @@ class _HomeShellState extends State<HomeShell> {
   void _updateUserPreferences(LocalUserPreferences preferences) {
     setState(() => _preferences = preferences);
     unawaited(_persistUserPreferences(preferences));
+    unawaited(_syncAssignedScheduleReminders(_assignedSchedules));
+  }
+
+  Future<void> _syncAssignedScheduleReminders(
+    List<AssignedSchedule> schedules,
+  ) async {
+    if (kIsWeb) return;
+    final now = DateTime.now();
+    if (!_preferences.scheduleAlertsEnabled) {
+      for (final id in _scheduledScheduleReminderIds) {
+        await NotificationService.cancelAssignedScheduleReminder(id);
+      }
+      _scheduledScheduleReminderIds = const {};
+      return;
+    }
+    final activeSchedules = schedules
+        .where(
+          (schedule) =>
+              schedule.status == 'scheduled' &&
+              schedule.scheduledFor.toLocal().isAfter(now),
+        )
+        .take(50)
+        .toList();
+    final activeIds = activeSchedules.map((schedule) => schedule.id).toSet();
+    for (final id in _scheduledScheduleReminderIds.difference(activeIds)) {
+      await NotificationService.cancelAssignedScheduleReminder(id);
+    }
+    for (final schedule in activeSchedules) {
+      await NotificationService.scheduleAssignedScheduleReminder(
+        scheduleId: schedule.id,
+        title: schedule.title,
+        scheduledFor: schedule.scheduledFor,
+        routineTitle: schedule.routineTitle,
+      );
+    }
+    _scheduledScheduleReminderIds = activeIds;
   }
 
   Future<void> _persistUserPreferences(LocalUserPreferences preferences) async {
@@ -9765,6 +9805,15 @@ class ProfileScreen extends StatelessWidget {
                 value: preferences.bodyWeightAlertsEnabled,
                 onChanged: (value) => onPreferencesChanged(
                   preferences.copyWith(bodyWeightAlertsEnabled: value),
+                ),
+              ),
+              _SwitchSettingRow(
+                icon: Icons.event_available_outlined,
+                title: 'Recordatorios de agenda',
+                subtitle: 'Avisos locales para schedules asignados.',
+                value: preferences.scheduleAlertsEnabled,
+                onChanged: (value) => onPreferencesChanged(
+                  preferences.copyWith(scheduleAlertsEnabled: value),
                 ),
               ),
               _SwitchSettingRow(

@@ -1981,9 +1981,21 @@ void main() {
     await tester.tap(gallerySwitch);
     await tester.pumpAndSettle();
 
+    final scheduleSetting = find.text('Recordatorios de agenda');
+    await tester.ensureVisible(scheduleSetting);
+    expect(preferences.scheduleAlertsEnabled, isTrue);
+
+    final scheduleSwitch = find.descendant(
+      of: find.ancestor(of: scheduleSetting, matching: find.byType(ListTile)),
+      matching: find.byType(Switch),
+    );
+    await tester.tap(scheduleSwitch);
+    await tester.pumpAndSettle();
+
     expect(preferences.localGalleryEnabled, isTrue);
     expect(preferences.restAlertsEnabled, isTrue);
     expect(preferences.bodyWeightAlertsEnabled, isTrue);
+    expect(preferences.scheduleAlertsEnabled, isFalse);
   });
 
   testWidgets('profile account security action opens account sheet', (
