@@ -413,3 +413,11 @@ Vigésimo séptimo bloque local-first implementado:
 - `Usados` filtra por `usageCount`, preservando el modo offline y sin depender de Firestore.
 - El buscador permite limpiar filtros activos desde el icono de filtro apagado.
 - Test de widget cubre filtros por grupo muscular, equipamiento y usados en ejercicios personalizados.
+
+Vigésimo octavo bloque local-first implementado:
+
+- El detalle de ejercicio incorpora una vista accionable de `Ver progreso`, alineada con el diseño Stitch de detalle.
+- La vista usa historial local por ejercicio y muestra última serie, cambio de volumen, promedio reciente, mejor peso, mejor volumen y evolución en barras.
+- El historial completo del ejercicio queda visible desde esa vista sin depender de Firestore ni de gráficos ubicados en configuración.
+- La acción conserva `Usar último` para aplicar defaults desde el registro más reciente al entrenamiento activo.
+- Test de widget cubre abrir detalle, entrar a progreso por ejercicio, ver métricas/tendencia y volver para aplicar el último registro.

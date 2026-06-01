@@ -25,12 +25,12 @@ Este archivo define qué diseños de Stitch son fuente de verdad para la app Flu
 - Biblioteca debe priorizar búsqueda, tabs Catálogo/Mis ejercicios, filtros horizontales reales, imágenes propias y reorder con grip dots.
 - Progreso debe abrir con métricas compactas, actividad semanal, gráfico de volumen, marcas personales e hitos.
 - Perfil debe mostrar marca/cuenta, plan, modo usuario/entrenador, apariencia, permisos, privacidad y seguridad.
-- Detalle de ejercicio debe existir como vista accionable desde Biblioteca y desde cada exercise box.
+- Detalle de ejercicio debe existir como vista accionable desde Biblioteca y desde cada exercise box, con progreso local por ejercicio accesible desde `Ver progreso`.
 - Los botones principales usan verde Agujetas `#357C6D`; fondos light usan `#F7F8F5`; superficies usan blanco o `#EEF3EF`.
 - Los textos deben mantener tildes y español latinoamericano en UTF-8.
 - Cualquier desviación funcional frente a Stitch debe quedar explícita en este archivo antes de implementarse.
 
 ## Estado Actual
 
-- Implementado: referencias locales de Stitch, header más cercano, CTA fijo en Inicio, tarjetas de rutina más compactas, pantalla Entrenar con header/timer strip y controles funcionales, Biblioteca, Progreso, Perfil y Detalle de ejercicio.
-- Pendiente: progreso real por ejercicio como vista dedicada, checkout Pro real y permisos nativos definitivos para galería/notificaciones.
+- Implementado: referencias locales de Stitch, header más cercano, CTA fijo en Inicio, tarjetas de rutina más compactas, pantalla Entrenar con header/timer strip y controles funcionales, Biblioteca, Progreso, Perfil, Detalle de ejercicio y progreso local por ejercicio.
+- Pendiente: checkout Pro real y permisos nativos definitivos para galería/notificaciones.

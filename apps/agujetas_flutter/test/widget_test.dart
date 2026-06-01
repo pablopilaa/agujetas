@@ -968,6 +968,16 @@ void main() {
         ),
       ],
     );
+    final olderHistoricalExercise = exercise.copyWith(
+      sets: const [
+        WorkoutSet(
+          order: 1,
+          setType: SetType.normal,
+          segments: [WeightSegment(weightKg: 80, reps: 5)],
+          rir: 2,
+        ),
+      ],
+    );
     final session = LocalWorkoutSession(
       id: 'exercise-history-session',
       userId: 'exercise-history-user',
@@ -977,7 +987,19 @@ void main() {
       finishedAt: DateTime(2026, 5, 20, 11),
       durationSeconds: 3600,
     );
-    final historyRecords = ExerciseHistoryRecord.findAll([session], exercise);
+    final olderSession = LocalWorkoutSession(
+      id: 'exercise-history-older-session',
+      userId: 'exercise-history-user',
+      sessionMode: 'Hipertrofia',
+      exercises: [olderHistoricalExercise],
+      startedAt: DateTime(2026, 5, 18, 10),
+      finishedAt: DateTime(2026, 5, 18, 11),
+      durationSeconds: 3600,
+    );
+    final historyRecords = ExerciseHistoryRecord.findAll([
+      session,
+      olderSession,
+    ], exercise);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -1017,6 +1039,18 @@ void main() {
     expect(find.text('Mejor peso'), findsOneWidget);
     expect(find.text('Registros recientes'), findsOneWidget);
     expect(find.textContaining('123 kg x 4'), findsWidgets);
+
+    await tester.tap(find.text('Ver progreso'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Progreso por ejercicio'), findsOneWidget);
+    expect(find.text('Evolución de volumen'), findsOneWidget);
+    expect(find.text('Historial completo'), findsOneWidget);
+    expect(find.text('Cambio volumen'), findsOneWidget);
+    expect(find.textContaining('+'), findsWidgets);
+
+    Navigator.of(tester.element(find.text('Progreso por ejercicio'))).pop();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Usar último'));
     await tester.pumpAndSettle();

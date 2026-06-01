@@ -2573,6 +2573,14 @@ class _ExerciseDetailSheet extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: historyRecords.isEmpty
+                  ? null
+                  : () => _showExerciseProgressSheet(context),
+              icon: const Icon(Icons.query_stats),
+              label: const Text('Ver progreso'),
+            ),
             const SizedBox(height: 14),
             DashboardCard(
               icon: Icons.query_stats,
@@ -2651,6 +2659,320 @@ class _ExerciseDetailSheet extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showExerciseProgressSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _ExerciseProgressDetailSheet(
+        exercise: exercise,
+        records: historyRecords,
+      ),
+    );
+  }
+}
+
+class _ExerciseProgressDetailSheet extends StatelessWidget {
+  const _ExerciseProgressDetailSheet({
+    required this.exercise,
+    required this.records,
+  });
+
+  final WorkoutExercise exercise;
+  final List<ExerciseHistoryRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final bestWeight = ExerciseHistoryRecord.bestWeight(records);
+    final bestVolume = ExerciseHistoryRecord.bestVolume(records);
+    final latest = records.isEmpty ? null : records.first;
+    final previous = records.length < 2 ? null : records[1];
+    final latestVolume = latest?.setVolume ?? 0;
+    final deltaVolume = previous == null
+        ? null
+        : latestVolume - previous.setVolume;
+    final recentCount = records.length < 4 ? records.length : 4;
+    final recentAverage = recentCount == 0
+        ? 0.0
+        : records
+                  .take(4)
+                  .fold<double>(0, (sum, record) => sum + record.setVolume) /
+              recentCount;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                ExerciseImageBadge(
+                  exerciseId: exercise.id,
+                  name: exercise.name,
+                  muscleGroup: exercise.muscleGroup,
+                  imageUri: exercise.imageUri,
+                  size: 58,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Progreso por ejercicio',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: colors.primaryStrong,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        exercise.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        '${records.length} registro${records.length == 1 ? '' : 's'} locales',
+                        style: TextStyle(color: colors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 2.25,
+              children: [
+                _ExerciseProgressMetricTile(
+                  label: 'Última serie',
+                  value: latest?.setSummary ?? '-',
+                  caption: latest?.dateLabel ?? 'Sin registro',
+                ),
+                _ExerciseProgressMetricTile(
+                  label: 'Cambio volumen',
+                  value: deltaVolume == null
+                      ? '-'
+                      : '${deltaVolume >= 0 ? '+' : ''}${_formatCompactVolume(deltaVolume)}',
+                  caption: previous == null
+                      ? 'Necesita 2 registros'
+                      : 'vs. registro anterior',
+                ),
+                _ExerciseProgressMetricTile(
+                  label: 'Promedio reciente',
+                  value: _formatCompactVolume(recentAverage),
+                  caption: 'últimos $recentCount',
+                ),
+                _ExerciseProgressMetricTile(
+                  label: 'Mejor peso',
+                  value: bestWeight?.setSummary ?? '-',
+                  caption: bestWeight?.dateLabel ?? 'Sin marca',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DashboardCard(
+              icon: Icons.bar_chart,
+              title: 'Evolución de volumen',
+              subtitle: bestVolume == null
+                  ? 'Sin volumen suficiente para graficar.'
+                  : 'Mejor volumen: ${bestVolume.volumeSummary} el ${bestVolume.dateLabel}.',
+              child: _ExerciseProgressTrend(records: records),
+            ),
+            DashboardCard(
+              icon: Icons.history,
+              title: 'Historial completo',
+              subtitle: 'Ordenado del registro más reciente al más antiguo.',
+              child: Column(
+                children: [
+                  for (final record in records.take(12))
+                    _ExerciseProgressHistoryTile(record: record),
+                  if (records.length > 12)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        '+${records.length - 12} registros más',
+                        style: TextStyle(color: colors.textSecondary),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExerciseProgressMetricTile extends StatelessWidget {
+  const _ExerciseProgressMetricTile({
+    required this.label,
+    required this.value,
+    required this.caption,
+  });
+
+  final String label;
+  final String value;
+  final String caption;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            caption,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: colors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseProgressTrend extends StatelessWidget {
+  const _ExerciseProgressTrend({required this.records});
+
+  final List<ExerciseHistoryRecord> records;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final points = records.take(8).toList().reversed.toList();
+    final maxVolume = points.fold<double>(
+      0,
+      (max, record) => record.setVolume > max ? record.setVolume : max,
+    );
+    if (points.isEmpty || maxVolume <= 0) {
+      return Container(
+        height: 112,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: colors.raised,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'Sin datos suficientes',
+          style: TextStyle(color: colors.textSecondary),
+        ),
+      );
+    }
+    return SizedBox(
+      height: 132,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final record in points)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: FractionallySizedBox(
+                          heightFactor: (record.setVolume / maxVolume)
+                              .clamp(0.08, 1)
+                              .toDouble(),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: colors.primaryContainer,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      record.dateLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ExerciseProgressHistoryTile extends StatelessWidget {
+  const _ExerciseProgressHistoryTile({required this.record});
+
+  final ExerciseHistoryRecord record;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.divider),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.query_stats, size: 18, color: colors.primaryStrong),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(record.setSummary),
+                const SizedBox(height: 2),
+                Text(
+                  '${record.volumeSummary} · ${record.sessionTitle}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: colors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          _MiniValuePill(record.dateLabel),
+        ],
       ),
     );
   }
