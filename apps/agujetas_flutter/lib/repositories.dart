@@ -15,6 +15,7 @@ abstract class AgujetasRepository {
   Stream<AppUser?> authUser();
   Future<AppUser?> signInWithGoogle();
   Future<void> signOut();
+  Future<void> deleteAccount(AppUser user);
   Future<void> setActiveRole(AppUser user, AppRole role);
   Future<void> ensureTrainerProfile(AppUser user);
   Future<TrainerInvite> createTrainerInvite(AppUser trainer);
@@ -42,6 +43,15 @@ abstract class AgujetasRepository {
     required BodyWeightEntry entry,
   });
   Stream<List<BodyWeightEntry>> watchBodyWeights(String userId);
+}
+
+class AccountDeletionRequiresRecentLoginException implements Exception {
+  const AccountDeletionRequiresRecentLoginException();
+
+  @override
+  String toString() {
+    return 'Google requiere que vuelvas a ingresar antes de eliminar la cuenta.';
+  }
 }
 
 class FirebaseAgujetasRepository implements AgujetasRepository {
@@ -88,6 +98,30 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     await _auth.signOut();
     if (!kIsWeb) {
       await GoogleSignIn.instance.disconnect();
+    }
+  }
+
+  @override
+  Future<void> deleteAccount(AppUser user) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null || currentUser.uid != user.uid) {
+      throw StateError('No hay una sesión activa para eliminar esta cuenta.');
+    }
+
+    await _deleteKnownFirestoreData(user.uid);
+    try {
+      await currentUser.delete();
+    } on fb.FirebaseAuthException catch (error) {
+      if (error.code == 'requires-recent-login') {
+        throw const AccountDeletionRequiresRecentLoginException();
+      }
+      rethrow;
+    }
+
+    if (!kIsWeb) {
+      try {
+        await GoogleSignIn.instance.disconnect();
+      } catch (_) {}
     }
   }
 
@@ -293,6 +327,88 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     await userRef.set({'updatedAt': now}, SetOptions(merge: true));
     return AppUser.fromJson(snapshot.data()!.cast<String, Object?>());
   }
+
+  Future<void> _deleteKnownFirestoreData(String userId) async {
+    await _deleteQuery(
+      _firestore.collection('sessions').where('ownerId', isEqualTo: userId),
+    );
+    await _deleteQuery(
+      _firestore
+          .collection('routineTemplates')
+          .where('ownerId', isEqualTo: userId),
+    );
+    await _deleteQuery(
+      _firestore
+          .collection('routineTemplates')
+          .where('assignedClientId', isEqualTo: userId),
+    );
+    await _deleteQuery(
+      _firestore
+          .collection('customExercises')
+          .where('ownerId', isEqualTo: userId),
+    );
+    await _deleteQuery(
+      _firestore.collection('bodyWeights').where('userId', isEqualTo: userId),
+    );
+    for (final collection in [
+      'assignedRoutines',
+      'tasks',
+      'schedules',
+      'goals',
+    ]) {
+      await _deleteQuery(
+        _firestore.collection(collection).where('ownerId', isEqualTo: userId),
+      );
+      await _deleteQuery(
+        _firestore.collection(collection).where('clientId', isEqualTo: userId),
+      );
+      await _deleteQuery(
+        _firestore
+            .collection(collection)
+            .where('assignedClientId', isEqualTo: userId),
+      );
+    }
+    await _deleteDocIfExists(
+      _firestore.collection('trainerProfiles').doc(userId),
+    );
+    await _deleteQuery(
+      _firestore
+          .collection('trainerInvites')
+          .where('trainerId', isEqualTo: userId),
+    );
+    await _deleteQuery(
+      _firestore
+          .collection('trainerClientLinks')
+          .where('trainerId', isEqualTo: userId),
+    );
+    await _deleteQuery(
+      _firestore
+          .collection('trainerClientLinks')
+          .where('clientId', isEqualTo: userId),
+    );
+    await _deleteDocIfExists(_firestore.collection('users').doc(userId));
+  }
+
+  Future<void> _deleteQuery(Query<Map<String, dynamic>> query) async {
+    while (true) {
+      final snapshot = await query.limit(300).get();
+      if (snapshot.docs.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
+
+  Future<void> _deleteDocIfExists(
+    DocumentReference<Map<String, dynamic>> ref,
+  ) async {
+    final snapshot = await ref.get();
+    if (snapshot.exists) {
+      await ref.delete();
+    }
+  }
 }
 
 class DemoAgujetasRepository implements AgujetasRepository {
@@ -348,6 +464,17 @@ class DemoAgujetasRepository implements AgujetasRepository {
 
   @override
   Future<void> ensureTrainerProfile(AppUser user) async {}
+
+  @override
+  Future<void> deleteAccount(AppUser user) async {
+    _user = null;
+    _customExerciseItems.clear();
+    _bodyWeightItems.clear();
+    _customExercises.add(const []);
+    _bodyWeights.add(const []);
+    _clients.add(const []);
+    _controller.add(null);
+  }
 
   @override
   Future<void> saveRoutineTemplate({

@@ -205,9 +205,11 @@ service cloud.firestore {
       allow create: if signedIn()
         && ownerId(request.resource.data) == request.auth.uid
         && validOptionalAssignment(request.resource.data);
-      allow update, delete: if signedIn()
+      allow update: if signedIn()
         && canAccessRecord(resource.data)
         && validOptionalAssignment(request.resource.data);
+      allow delete: if signedIn()
+        && canAccessRecord(resource.data);
     }
 
     match /customExercises/{exerciseId} {

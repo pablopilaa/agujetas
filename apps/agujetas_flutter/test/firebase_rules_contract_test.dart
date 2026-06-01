@@ -73,6 +73,31 @@ void main() {
     expect(linkRules, isNot(contains('allow update, delete: if signedIn()')));
   });
 
+  test(
+    'firestore rules do not use request.resource on routine template deletes',
+    () {
+      final rules = _readFirestoreRules();
+      final routineRules = _rulesBlock(rules, 'routineTemplates');
+
+      expect(
+        routineRules,
+        contains(
+          'allow update: if signedIn()\n        && canAccessRecord(resource.data)\n        && validOptionalAssignment(request.resource.data);',
+        ),
+      );
+      expect(
+        routineRules,
+        contains(
+          'allow delete: if signedIn()\n        && canAccessRecord(resource.data);',
+        ),
+      );
+      expect(
+        routineRules,
+        isNot(contains('allow update, delete: if signedIn()')),
+      );
+    },
+  );
+
   test('firestore rules keep linked trainer access tied to active links', () {
     final rules = _readFirestoreRules();
 

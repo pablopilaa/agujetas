@@ -829,8 +829,8 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _deleteLocalAccount() async {
+    await widget.repository.deleteAccount(widget.user);
     await _localStore.clearAllLocalData(widget.user.uid);
-    await widget.repository.signOut();
   }
 
   Future<void> _persistActiveDraft() {
@@ -7532,7 +7532,7 @@ class ProfileScreen extends StatelessWidget {
               _ProfileActionRow(
                 icon: Icons.delete_outline,
                 title: 'Eliminar cuenta',
-                subtitle: 'Borra datos locales y cierra sesión.',
+                subtitle: 'Borra datos locales, datos remotos propios y Auth.',
                 danger: true,
                 onTap: () => _deleteAccount(context),
               ),
@@ -7679,9 +7679,9 @@ class ProfileScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Eliminar cuenta local'),
+        title: const Text('Eliminar cuenta'),
         content: const Text(
-          'Esto borra de este dispositivo sesiones, rutinas, peso corporal, ejercicios personalizados, preferencias y el entrenamiento activo. Luego cierra sesión. No elimina todavía documentos remotos de Firestore.',
+          'Esto borra de este dispositivo sesiones, rutinas, peso corporal, ejercicios personalizados, preferencias y el entrenamiento activo. También intenta borrar tus documentos remotos conocidos de Firestore y tu cuenta de Firebase Auth.',
         ),
         actions: [
           TextButton(
@@ -7691,7 +7691,7 @@ class ProfileScreen extends StatelessWidget {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Borrar datos locales'),
+            child: const Text('Eliminar cuenta'),
           ),
         ],
       ),
@@ -7699,10 +7699,15 @@ class ProfileScreen extends StatelessWidget {
     if (confirmed != true) return;
     try {
       await onDeleteLocalAccount();
+    } on AccountDeletionRequiresRecentLoginException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo eliminar la cuenta local: $error')),
+        SnackBar(content: Text('No se pudo eliminar la cuenta: $error')),
       );
     }
   }

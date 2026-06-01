@@ -22,6 +22,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - El historial local permite editar nombre/nota de una sesión guardada y borrar sesiones locales con confirmación.
 - Perfil permite exportar/importar un respaldo JSON local con sesiones, rutinas, peso corporal y ejercicios personalizados.
 - Perfil permite reimportar manualmente los datos legacy incluidos de Agujetas 1.x, con deduplicación local.
+- Perfil permite eliminar cuenta con borrado local, limpieza de documentos remotos conocidos y eliminación de Firebase Auth cuando Google no exige reautenticación.
 - El borrador de sesión activa persiste y restaura relojes de tiempo total/descanso, incluyendo timers que estaban corriendo.
 - Seguimiento de peso corporal local-first con recordatorio diario opcional y sync best-effort si hay backend disponible.
 - Importacion local del historico exportado desde la app Expo legacy incluido en `assets/user_data`.
@@ -125,5 +126,5 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 - Mejorar ergonomia del editor profundo de rutinas y peso corporal en Android real: gestos, foco de campos y acciones mas visibles.
 - Ejecutar tests de reglas con Firebase Emulator Suite.
 - Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
-- Definir terminos, privacidad, consentimiento de datos y flujo de borrado de cuenta.
+- Definir terminos, privacidad, consentimiento de datos y reautenticación explícita para borrado de cuenta si Firebase Auth la exige.
 - Cuando exista Apple Developer: agregar workflow macOS firmado y TestFlight.

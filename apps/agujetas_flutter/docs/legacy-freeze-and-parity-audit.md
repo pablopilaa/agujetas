@@ -379,7 +379,7 @@ Vigésimo tercer bloque local-first implementado:
 
 - `Eliminar cuenta` en Perfil deja de ser una acción vacía y ahora abre una confirmación explícita.
 - La confirmación borra del dispositivo sesiones, rutinas, peso corporal, ejercicios personalizados, preferencias y entrenamiento activo del usuario actual, y luego cierra sesión.
-- El texto evita prometer borrado remoto: Firestore queda pendiente hasta conectar una operación server-side segura.
+- En ese momento el texto evitaba prometer borrado remoto; desde el trigésimo octavo bloque ya existe limpieza cliente de documentos Firestore conocidos y eliminación de Firebase Auth cuando no exige reautenticación.
 - Tests unitarios cubren limpieza local por usuario sin afectar otros usuarios; tests de widget cubren el diálogo y la acción confirmada.
 
 Vigésimo cuarto bloque local-first implementado:
@@ -490,3 +490,12 @@ Trigésimo séptimo bloque Limpieza y ownership implementado:
 - `trainerClientLinks` separa `update` y `delete`; el borrado ya no depende de `request.resource`, que no corresponde al contrato mental de una eliminación.
 - `FirebaseAgujetasRepository.saveRoutineTemplate` normaliza `ownerId` contra el usuario autenticado antes de escribir en Firestore, evitando escrituras rechazadas o ownership accidentalmente incorrecto.
 - El test de contrato de reglas cubre cleanup sin Pro y separación explícita de update/delete.
+
+Trigésimo octavo bloque Borrado de cuenta remoto implementado:
+
+- `AgujetasRepository` incorpora `deleteAccount(AppUser user)` como contrato explícito para borrar una cuenta, en vez de limitar Perfil a limpiar datos locales.
+- El repositorio Firebase borra documentos conocidos del usuario en `sessions`, `routineTemplates`, `customExercises`, `bodyWeights`, `assignedRoutines`, `tasks`, `schedules`, `goals`, `trainerProfiles`, `trainerInvites`, `trainerClientLinks` y `users/{uid}` antes de intentar eliminar Firebase Auth.
+- Si Firebase Auth exige login reciente, la UI muestra un mensaje específico de reautenticación en vez de decir genéricamente que falló el borrado.
+- El modo demo también implementa `deleteAccount`, limpiando streams locales y cerrando la sesión demo.
+- El diálogo de Perfil deja de prometer sólo borrado local y comunica el alcance real: dispositivo, Firestore conocido y Firebase Auth.
+- Queda pendiente para producción una Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente y un flujo de reautenticación Google dedicado.

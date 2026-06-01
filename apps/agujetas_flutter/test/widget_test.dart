@@ -1626,16 +1626,84 @@ void main() {
     await tester.tap(find.widgetWithText(ListTile, 'Eliminar cuenta'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Eliminar cuenta local'), findsOneWidget);
+    expect(find.text('Eliminar cuenta'), findsWidgets);
     expect(
-      find.textContaining('No elimina todavía documentos remotos de Firestore'),
+      find.textContaining('documentos remotos conocidos de Firestore'),
       findsOneWidget,
     );
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Borrar datos locales'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Eliminar cuenta'));
     await tester.pumpAndSettle();
 
     expect(deleted, isTrue);
+  });
+
+  testWidgets('profile delete account shows reauthentication requirement', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 2600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const user = AppUser(
+      uid: 'profile-delete-reauth-user',
+      displayName: 'Demo',
+      email: 'demo@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: ProfileScreen(
+            user: user,
+            repository: DemoAgujetasRepository(),
+            themeMode: ThemeMode.light,
+            preferences: const LocalUserPreferences(),
+            onThemeModeChanged: (_) {},
+            onPreferencesChanged: (_) {},
+            onExportLocalBackup: () async => '{}',
+            onImportLocalBackup: (_) async => const LocalBackupImportResult(
+              sessions: 0,
+              routines: 0,
+              bodyWeights: 0,
+              customExercises: 0,
+            ),
+            onImportBundledLegacyData: () async =>
+                const LegacyLocalImportResult(
+                  importedSessions: 0,
+                  availableSessions: 0,
+                  skippedHistoryRows: 0,
+                  importedRoutines: 0,
+                  availableRoutines: 0,
+                ),
+            onDeleteLocalAccount: () async {
+              throw const AccountDeletionRequiresRecentLoginException();
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.widgetWithText(ListTile, 'Eliminar cuenta'),
+      500,
+    );
+    await tester.tap(find.widgetWithText(ListTile, 'Eliminar cuenta'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Eliminar cuenta'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('Google requiere que vuelvas a ingresar'),
+      findsOneWidget,
+    );
   });
 }
 
