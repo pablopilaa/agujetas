@@ -591,6 +591,59 @@ void main() {
   });
 
   test(
+    'local workout store merges remote custom exercises without losing local',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = LocalWorkoutStore.instance;
+
+      await store.saveCustomExerciseLocal(
+        userId: 'custom-sync-user',
+        exercise: ExerciseCatalogEntry(
+          id: 'local-custom',
+          name: 'Press local',
+          muscleGroup: 'Pectoral',
+          imageUri: 'agujetas-image://ag_local_press',
+          lastUsedDate: DateTime.utc(2026, 5, 1),
+          isCustom: true,
+        ),
+      );
+
+      final changed = await store.mergeCustomExercisesLocal(
+        userId: 'custom-sync-user',
+        exercises: [
+          ExerciseCatalogEntry(
+            id: 'remote-custom',
+            name: 'Remo remoto',
+            muscleGroup: 'Espalda',
+            imageUri: 'agujetas-image://ag_remote_row',
+            lastUsedDate: DateTime.utc(2026, 5, 2),
+            isCustom: true,
+          ),
+          ExerciseCatalogEntry(
+            id: 'local-custom',
+            name: 'Press local editado',
+            muscleGroup: 'Pectoral',
+            imageUri: 'agujetas-image://ag_local_press_v2',
+            lastUsedDate: DateTime.utc(2026, 5, 3),
+            isCustom: true,
+          ),
+        ],
+      );
+
+      final entries = await store.loadCustomExercises('custom-sync-user');
+
+      expect(changed, 2);
+      expect(entries.map((entry) => entry.id), [
+        'local-custom',
+        'remote-custom',
+      ]);
+      expect(entries.first.name, 'Press local editado');
+      expect(entries.first.imageUri, 'agujetas-image://ag_local_press_v2');
+      expect(entries.every((entry) => entry.isCustom), isTrue);
+    },
+  );
+
+  test(
     'legacy history importer groups exported rows into local sessions',
     () async {
       final result = await LegacyHistoryImporter.loadBundled(

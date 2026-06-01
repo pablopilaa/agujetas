@@ -599,6 +599,7 @@ class _HomeShellState extends State<HomeShell> {
   List<BodyWeightEntry> _localBodyWeights = const [];
   List<ExerciseCatalogEntry> _localCustomExercises = const [];
   StreamSubscription<List<BodyWeightEntry>>? _bodyWeightsSubscription;
+  StreamSubscription<List<ExerciseCatalogEntry>>? _customExercisesSubscription;
   String _sessionMode = 'Fuerza';
   String _activeRoutineTitle = 'Empuje A';
   String? _editingRoutineId;
@@ -628,6 +629,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     unawaited(_bodyWeightsSubscription?.cancel());
+    unawaited(_customExercisesSubscription?.cancel());
     super.dispose();
   }
 
@@ -1090,6 +1092,10 @@ class _HomeShellState extends State<HomeShell> {
     final exercises = await _localStore.loadCustomExercises(widget.user.uid);
     if (!mounted) return;
     setState(() => _localCustomExercises = exercises);
+    if (_canSyncRemoteUserData) {
+      unawaited(_pushLocalCustomExercisesBestEffort(exercises));
+      _startCustomExerciseSync();
+    }
   }
 
   Future<void> _loadUserPreferences() async {
@@ -1308,11 +1314,9 @@ class _HomeShellState extends State<HomeShell> {
       _notice =
           'Ejercicio personalizado "${exercise.name}" guardado localmente.';
     });
-    unawaited(
-      widget.repository
-          .saveCustomExercise(owner: widget.user, exercise: exercise)
-          .catchError((_) {}),
-    );
+    if (_canSyncRemoteUserData) {
+      unawaited(_syncCustomExerciseBestEffort(exercise));
+    }
   }
 
   Future<void> _deleteCustomExerciseLocally(
@@ -1328,6 +1332,94 @@ class _HomeShellState extends State<HomeShell> {
       _localCustomExercises = exercises;
       _notice = 'Ejercicio personalizado "${exercise.name}" eliminado.';
     });
+    if (_canSyncRemoteUserData) {
+      unawaited(_deleteCustomExerciseBestEffort(exercise));
+    }
+  }
+
+  void _startCustomExerciseSync() {
+    _customExercisesSubscription ??= widget.repository
+        .watchCustomExercises(widget.user.uid)
+        .listen(
+          (exercises) => unawaited(_mergeRemoteCustomExercises(exercises)),
+          onError: (_) {
+            if (!mounted) return;
+            setState(() {
+              _notice =
+                  'No pude leer ejercicios propios remotos; sigo con catálogo local.';
+            });
+          },
+        );
+  }
+
+  Future<void> _mergeRemoteCustomExercises(
+    List<ExerciseCatalogEntry> exercises,
+  ) async {
+    final changed = await _localStore.mergeCustomExercisesLocal(
+      userId: widget.user.uid,
+      exercises: exercises,
+    );
+    final merged = await _localStore.loadCustomExercises(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localCustomExercises = merged;
+      if (changed > 0) {
+        _notice = 'Sincronicé $changed ejercicios personalizados.';
+      }
+    });
+  }
+
+  Future<void> _pushLocalCustomExercisesBestEffort(
+    List<ExerciseCatalogEntry> exercises,
+  ) async {
+    try {
+      for (final exercise in exercises.take(250)) {
+        await widget.repository.saveCustomExercise(
+          owner: widget.user,
+          exercise: exercise,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Ejercicios propios locales conservados; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  Future<void> _syncCustomExerciseBestEffort(
+    ExerciseCatalogEntry exercise,
+  ) async {
+    try {
+      await widget.repository.saveCustomExercise(
+        owner: widget.user,
+        exercise: exercise,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Ejercicio propio guardado localmente; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  Future<void> _deleteCustomExerciseBestEffort(
+    ExerciseCatalogEntry exercise,
+  ) async {
+    try {
+      await widget.repository.deleteCustomExercise(
+        owner: widget.user,
+        exercise: exercise,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Ejercicio propio eliminado localmente; la eliminación remota quedó pendiente.';
+      });
+    }
   }
 
   Future<String> _exportLocalBackup() {

@@ -619,7 +619,6 @@ class LocalWorkoutStore {
     required String userId,
     required ExerciseCatalogEntry exercise,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
     final previous = await loadCustomExercises(userId);
     final normalized = ExerciseCatalogEntry(
       id: exercise.id,
@@ -634,10 +633,7 @@ class LocalWorkoutStore {
       normalized,
       ...previous.where((item) => item.id != normalized.id),
     ];
-    await prefs.setString(
-      _customExercisesKey(userId),
-      jsonEncode(next.take(1000).map((item) => item.toJson()).toList()),
-    );
+    await replaceCustomExercisesLocal(userId: userId, exercises: next);
   }
 
   Future<void> deleteCustomExerciseLocal({
@@ -650,6 +646,60 @@ class LocalWorkoutStore {
     await prefs.setString(
       _customExercisesKey(userId),
       jsonEncode(next.map((item) => item.toJson()).toList()),
+    );
+  }
+
+  Future<int> mergeCustomExercisesLocal({
+    required String userId,
+    required List<ExerciseCatalogEntry> exercises,
+  }) async {
+    if (exercises.isEmpty) return 0;
+    final previous = await loadCustomExercises(userId);
+    final byId = <String, ExerciseCatalogEntry>{
+      for (final exercise in previous) exercise.id: exercise,
+    };
+    var changed = 0;
+    for (final exercise in exercises) {
+      if (exercise.id.isEmpty) continue;
+      final normalized = exercise.copyWith(isCustom: true);
+      final previousExercise = byId[normalized.id];
+      byId[normalized.id] = normalized;
+      if (previousExercise == null ||
+          previousExercise.name != normalized.name ||
+          previousExercise.muscleGroup != normalized.muscleGroup ||
+          previousExercise.imageUri != normalized.imageUri ||
+          previousExercise.usageCount != normalized.usageCount ||
+          previousExercise.lastUsedDate != normalized.lastUsedDate ||
+          previousExercise.isCustom != normalized.isCustom) {
+        changed++;
+      }
+    }
+    await replaceCustomExercisesLocal(userId: userId, exercises: byId.values);
+    return changed;
+  }
+
+  Future<void> replaceCustomExercisesLocal({
+    required String userId,
+    required Iterable<ExerciseCatalogEntry> exercises,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized =
+        exercises
+            .where((exercise) => exercise.id.isNotEmpty)
+            .map((exercise) => exercise.copyWith(isCustom: true))
+            .toList()
+          ..sort((a, b) {
+            final lastUsed =
+                (b.lastUsedDate ?? DateTime.fromMillisecondsSinceEpoch(0))
+                    .compareTo(
+                      a.lastUsedDate ?? DateTime.fromMillisecondsSinceEpoch(0),
+                    );
+            if (lastUsed != 0) return lastUsed;
+            return a.name.compareTo(b.name);
+          });
+    await prefs.setString(
+      _customExercisesKey(userId),
+      jsonEncode(normalized.take(1000).map((item) => item.toJson()).toList()),
     );
   }
 
@@ -870,7 +920,7 @@ class LocalWorkoutStore {
         (item) => item.id,
       )..sort((a, b) => b.recordedAt.compareTo(a.recordedAt)),
     );
-    await _replaceCustomExercises(
+    await replaceCustomExercisesLocal(
       userId: userId,
       exercises: _upsertById(
         previousCustomExercises,
@@ -884,21 +934,6 @@ class LocalWorkoutStore {
       routines: importedRoutines.length,
       bodyWeights: importedBodyWeights.length,
       customExercises: importedCustomExercises.length,
-    );
-  }
-
-  Future<void> _replaceCustomExercises({
-    required String userId,
-    required List<ExerciseCatalogEntry> exercises,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final normalized = exercises
-        .map((exercise) => exercise.copyWith(isCustom: true))
-        .take(1000)
-        .toList();
-    await prefs.setString(
-      _customExercisesKey(userId),
-      jsonEncode(normalized.map((item) => item.toJson()).toList()),
     );
   }
 

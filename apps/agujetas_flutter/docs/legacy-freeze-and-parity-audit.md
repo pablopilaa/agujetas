@@ -547,3 +547,11 @@ Cuadragésimo cuarto bloque Peso corporal bidireccional:
 - `watchBodyWeights` escucha snapshots remotos del usuario y los fusiona localmente por `id`, normalizando `userId` y preservando registros offline no sincronizados.
 - `LocalWorkoutStore.mergeBodyWeightsLocal` agrega el contrato reutilizable de merge local-first que luego puede repetirse para otros dominios.
 - Tests cubren merge local/remoto, ownership Firestore de `bodyWeights` y que el flujo siga pasando con 77 tests.
+
+Cuadragésimo quinto bloque Ejercicios personalizados bidireccionales:
+
+- `HomeShell` carga ejercicios personalizados locales inmediatamente y activa sync Firestore para usuarios reales.
+- Los ejercicios locales se suben best-effort a `customExercises` con `ownerId` del usuario autenticado.
+- `watchCustomExercises` escucha snapshots remotos por `ownerId` y los fusiona localmente por `id`, preservando imágenes locales permitidas o `agujetas-image://...`.
+- El borrado de un ejercicio personalizado ahora intenta eliminar también el documento remoto para evitar que reaparezca desde Firestore.
+- `LocalWorkoutStore.mergeCustomExercisesLocal` agrega el contrato reutilizable de merge local-first para catálogo propio.

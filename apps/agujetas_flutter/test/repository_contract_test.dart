@@ -100,6 +100,23 @@ void main() {
       ),
     );
   });
+
+  test('custom exercise sync uses owner scoped Firestore records', () {
+    final repository = _readRepositorySource();
+    final rules = _readFirestoreRules();
+
+    expect(repository, contains(".collection('customExercises')"));
+    expect(repository, contains(".where('ownerId', isEqualTo: ownerId)"));
+    expect(repository, contains("'ownerId': owner.uid"));
+    expect(repository, contains('deleteCustomExercise'));
+    expect(repository, contains("'id': doc.id"));
+    expect(
+      rules,
+      contains(
+        'allow create: if signedIn()\n        && ownerId(request.resource.data) == request.auth.uid;',
+      ),
+    );
+  });
 }
 
 String _readRepositorySource() {

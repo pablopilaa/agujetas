@@ -68,6 +68,10 @@ abstract class AgujetasRepository {
     required AppUser owner,
     required ExerciseCatalogEntry exercise,
   });
+  Future<void> deleteCustomExercise({
+    required AppUser owner,
+    required ExerciseCatalogEntry exercise,
+  });
   Stream<List<ExerciseCatalogEntry>> watchCustomExercises(String ownerId);
   Future<void> saveBodyWeight({
     required AppUser user,
@@ -358,6 +362,14 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
   }
 
   @override
+  Future<void> deleteCustomExercise({
+    required AppUser owner,
+    required ExerciseCatalogEntry exercise,
+  }) async {
+    await _firestore.collection('customExercises').doc(exercise.id).delete();
+  }
+
+  @override
   Stream<List<ExerciseCatalogEntry>> watchCustomExercises(String ownerId) {
     return _firestore
         .collection('customExercises')
@@ -371,6 +383,7 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
                   'id': doc.id,
                 }),
               )
+              .where((entry) => entry.id.isNotEmpty && entry.isCustom)
               .toList(),
         );
   }
@@ -585,6 +598,15 @@ class DemoAgujetasRepository implements AgujetasRepository {
   }) async {
     _customExerciseItems.removeWhere((item) => item.id == exercise.id);
     _customExerciseItems.insert(0, exercise);
+    _customExercises.add(List.unmodifiable(_customExerciseItems));
+  }
+
+  @override
+  Future<void> deleteCustomExercise({
+    required AppUser owner,
+    required ExerciseCatalogEntry exercise,
+  }) async {
+    _customExerciseItems.removeWhere((item) => item.id == exercise.id);
     _customExercises.add(List.unmodifiable(_customExerciseItems));
   }
 

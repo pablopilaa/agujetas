@@ -129,6 +129,7 @@ flowchart TD
 | Biblioteca | Crear ejercicio personalizado | Formulario de ejercicio | Nuevo ejercicio en rutina y Firestore |
 | Biblioteca | Elegir imagen de galería | Selector nativo | `imageUri` local asociado |
 | Biblioteca | Elegir imagen del repositorio | Selector interno | `agujetas-image://...` asociado |
+| Biblioteca | Ejercicios personalizados | Sync remoto | Merge Firestore `customExercises` por `id` sin borrar registros offline |
 | Biblioteca | Nueva rutina | Diálogo de nombre | Borrador local editable en Mis ejercicios |
 | Biblioteca | Agregar desde catálogo | Catálogo dentro de edición | Ejercicio agregado a la rutina en edición |
 | Biblioteca | Guardar cambios | Persistir rutina local | Rutina disponible offline en Mis ejercicios |
@@ -163,6 +164,7 @@ flowchart TD
 - Cada consentimiento guarda versión de esquema, términos, privacidad, datos y notificaciones. Si una versión cambia, el usuario real debe volver a aceptar.
 - Las preferencias de Perfil se leen primero desde el dispositivo y después desde Firebase. Si Firebase falla, la app conserva el valor local y muestra aviso.
 - El peso corporal se muestra desde local inmediatamente, sube registros recientes a Firestore en segundo plano y fusiona snapshots remotos por `id`.
+- Los ejercicios personalizados siguen el mismo patrón local-first: catálogo local inmediato, sync Firestore por `ownerId`, delete remoto best-effort y sin Firebase Storage.
 
 ## Pendientes UX
 

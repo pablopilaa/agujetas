@@ -33,6 +33,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - CRUD local-first basico de rutinas: guardar, renombrar, duplicar, borrar y reordenar plantillas sin depender de Firestore.
 - Editor local aislado de rutinas: abrir una plantilla importada, modificar su lista de ejercicios/orden/defaults de series, guardar cambios o guardar una copia sin tocar la sesion activa.
 - Ejercicios personalizados local-first: crear, editar, borrar, buscar, asociar imagen de galeria o asset interno propio, operar offline y sincronizar best-effort si hay backend disponible.
+- Ejercicios personalizados con sincronización bidireccional local-first + Firestore: carga local inmediata, push best-effort, merge de snapshots remotos y eliminación remota por ownership.
 - Entrenamiento permite editar ejercicios personalizados ya agregados a la sesion, manteniendo el catalogo local sincronizado.
 - Entrenar y Biblioteca permiten quitar ejercicios de la sesion/rutina local con confirmacion, sin borrar historial ni catalogo.
 - Roles:
@@ -131,5 +132,5 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 - Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
 - Reemplazar el contrato técnico preliminar de consentimiento por términos y política de privacidad finales con asesoría legal antes de producción.
 - Crear Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente.
-- Migrar progresivamente sesiones, rutinas y ejercicios propios al mismo patrón local-first + Firestore con resolución de conflictos explícita.
+- Migrar progresivamente sesiones y rutinas al mismo patrón local-first + Firestore con resolución de conflictos explícita.
 - Cuando exista Apple Developer: agregar workflow macOS firmado y TestFlight.
