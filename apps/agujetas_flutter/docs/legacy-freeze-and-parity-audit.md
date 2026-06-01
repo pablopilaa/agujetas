@@ -454,3 +454,9 @@ Trigésimo segundo bloque Peso corporal implementado:
 - La tendencia de 30 días se muestra como cambio acumulado entre el último registro y el más antiguo de la ventana reciente.
 - El registro de peso sigue siendo local-first y la alerta diaria sigue respetando la preferencia de Perfil.
 - Test de widget cubre tendencia, promedio e historial local de peso.
+
+Trigésimo tercer bloque Encoding implementado:
+
+- Se agregó un test de CI que recorre archivos de texto del proyecto Flutter y exige UTF-8 válido.
+- El mismo test falla si detecta marcadores típicos de mojibake o el carácter de reemplazo Unicode.
+- Esto protege textos en español latinoamericano con tildes reales dentro de `lib`, `test`, `docs` y archivos de configuración.
