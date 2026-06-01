@@ -406,6 +406,7 @@ class _HomeShellState extends State<HomeShell> {
         exercises: _workout,
         localSessions: _localSessions,
         bodyWeights: _localBodyWeights,
+        bodyWeightAlertsEnabled: _preferences.bodyWeightAlertsEnabled,
         onOpenCalendar: () => _openCalendar(context),
         onBodyWeightSaved: _saveBodyWeightLocally,
       ),
@@ -3277,11 +3278,13 @@ class BodyWeightCard extends StatelessWidget {
     super.key,
     required this.user,
     required this.entries,
+    required this.alertsEnabled,
     required this.onSaved,
   });
 
   final AppUser user;
   final List<BodyWeightEntry> entries;
+  final bool alertsEnabled;
   final Future<void> Function(BodyWeightEntry entry) onSaved;
 
   @override
@@ -3316,6 +3319,16 @@ class BodyWeightCard extends StatelessWidget {
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () async {
+              if (!alertsEnabled) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Activá Seguimiento de peso desde Perfil para programar alertas.',
+                    ),
+                  ),
+                );
+                return;
+              }
               if (!kIsWeb) {
                 await NotificationService.scheduleBodyWeightReminder(
                   hour: 9,
@@ -3330,7 +3343,11 @@ class BodyWeightCard extends StatelessWidget {
                 );
               }
             },
-            icon: const Icon(Icons.notifications_active_outlined),
+            icon: Icon(
+              alertsEnabled
+                  ? Icons.notifications_active_outlined
+                  : Icons.lock_outline,
+            ),
             label: const Text('Alertarme cada mañana'),
           ),
         ],
@@ -4430,6 +4447,7 @@ class ProgressScreen extends StatelessWidget {
     required this.exercises,
     required this.localSessions,
     required this.bodyWeights,
+    required this.bodyWeightAlertsEnabled,
     required this.onOpenCalendar,
     required this.onBodyWeightSaved,
   });
@@ -4439,6 +4457,7 @@ class ProgressScreen extends StatelessWidget {
   final List<WorkoutExercise> exercises;
   final List<LocalWorkoutSession> localSessions;
   final List<BodyWeightEntry> bodyWeights;
+  final bool bodyWeightAlertsEnabled;
   final VoidCallback onOpenCalendar;
   final Future<void> Function(BodyWeightEntry entry) onBodyWeightSaved;
 
@@ -4581,6 +4600,7 @@ class ProgressScreen extends StatelessWidget {
         BodyWeightCard(
           user: user,
           entries: bodyWeights,
+          alertsEnabled: bodyWeightAlertsEnabled,
           onSaved: onBodyWeightSaved,
         ),
         DashboardCard(

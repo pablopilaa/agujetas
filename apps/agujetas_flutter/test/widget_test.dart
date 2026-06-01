@@ -280,6 +280,7 @@ void main() {
               plan: AppPlan.free,
             ),
             entries: const [],
+            alertsEnabled: true,
             onSaved: (entry) async => saved = entry,
           ),
         ),
@@ -295,6 +296,42 @@ void main() {
     expect(saved, isNotNull);
     expect(saved!.userId, 'weight-user');
     expect(saved!.weightKg, 81.7);
+  });
+
+  testWidgets('body weight reminders respect tracking preference', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: BodyWeightCard(
+            user: const AppUser(
+              uid: 'weight-user',
+              displayName: 'Demo',
+              email: 'demo@agujetas.app',
+              photoUrl: null,
+              roles: {AppRole.normal},
+              activeRole: AppRole.normal,
+              plan: AppPlan.free,
+            ),
+            entries: const [],
+            alertsEnabled: false,
+            onSaved: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Alertarme cada mañana'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Activá Seguimiento de peso desde Perfil para programar alertas.',
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets('custom exercise sheet creates a local exercise with 3 sets', (

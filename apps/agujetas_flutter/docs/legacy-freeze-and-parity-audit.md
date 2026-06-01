@@ -396,3 +396,11 @@ Vigésimo quinto bloque local-first implementado:
 - Si la galería local está desactivada, el botón sigue visible pero muestra un mensaje explícito para activarla desde Perfil en vez de abrir el picker nativo.
 - La asociación con imágenes propias del repositorio interno sigue disponible aunque la galería local esté apagada.
 - Test de widget cubre que el sheet de ejercicio personalizado respeta la preferencia y bloquea el acceso a galería con feedback visible.
+
+Vigésimo sexto bloque local-first implementado:
+
+- La preferencia `Seguimiento de peso` ahora controla el recordatorio diario de peso corporal en Progreso.
+- Registrar peso corporal sigue funcionando offline aunque la alerta esté apagada; lo bloqueado es sólo la programación de notificaciones.
+- Si el usuario intenta activar el recordatorio con la preferencia apagada, la app muestra un mensaje explícito para habilitarlo desde Perfil.
+- El botón de recordatorio cambia a icono de candado cuando la preferencia está desactivada, manteniendo el affordance visible sin disparar permisos nativos.
+- Test de widget cubre que el recordatorio respeta la preferencia y no intenta programarse cuando está apagado.
