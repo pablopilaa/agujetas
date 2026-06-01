@@ -506,3 +506,11 @@ Trigésimo noveno bloque Reautenticación segura de borrado implementado:
 - En web usa el provider de Google desde Firebase Auth; en Android/iOS vuelve a autenticar con `google_sign_in` y valida que el `uid` reautenticado coincida con la cuenta actual.
 - El diálogo de Perfil avisa que el flujo puede pedir volver a ingresar con Google antes de proceder.
 - El test de widget conserva la cobertura del caso de reautenticación requerida y valida el nuevo texto preventivo.
+
+Cuadragésimo bloque Cobertura de cleanup remoto implementado:
+
+- El borrado remoto de cuenta usa un mapa explícito de colecciones raíz y campos de ownership, evitando que `sessions` quede cubierto sólo por `ownerId`.
+- `sessions`, `routineTemplates`, `assignedRoutines`, `tasks`, `schedules` y `goals` se limpian por `ownerId`, `clientId` y `assignedClientId` cuando esos campos existen.
+- El cleanup cliente borra subcolecciones conocidas bajo `/users/{uid}` antes de borrar el documento `users/{uid}`: sesiones, rutinas, plantillas, peso, ejercicios propios, historial, borradores, exports, consentimientos, dispositivos y preferencias.
+- Se agregó un test de contrato de repositorio para que futuras ediciones no reduzcan sin querer la cobertura de campos ni el orden subcolecciones-antes-documento.
+- Sigue pendiente una Cloud Function/admin cleanup para subcolecciones futuras o rutas nuevas que no estén en este contrato cliente.

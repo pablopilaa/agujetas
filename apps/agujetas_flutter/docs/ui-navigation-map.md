@@ -134,7 +134,7 @@ flowchart TD
 | Perfil | Privacidad y datos | Exportar mis datos | Dialog con JSON local y acción de copiar |
 | Perfil | Privacidad y datos | Importar respaldo | Pegar JSON Agujetas y fusionar datos locales |
 | Perfil | Privacidad y datos | Importar datos legacy incluidos | Releer assets legacy incluidos y agregar sesiones/rutinas faltantes |
-| Perfil | Privacidad y datos | Eliminar cuenta | Confirmación, reautenticación Google, borrado local, limpieza Firestore conocida y eliminación Firebase Auth |
+| Perfil | Privacidad y datos | Eliminar cuenta | Confirmación, reautenticación Google, borrado local, limpieza Firestore conocida, subcolecciones de usuario y eliminación Firebase Auth |
 | Perfil | Cerrar sesión | Sign out | Login |
 | Panel entrenador | Modo entrenador Pro | Crear código | Firestore `trainerInvites` |
 | Panel entrenador | Modo entrenador Pro | Ver entrenados activos | Lista desde `trainerClientLinks` |

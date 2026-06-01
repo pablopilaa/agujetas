@@ -11,6 +11,31 @@ import 'models.dart';
 const _webClientId =
     '727741646431-mhm923t7d9ha8jtr55u4j3efalkrdrff.apps.googleusercontent.com';
 
+const Map<String, List<String>> _accountDeletionRootFieldQueries = {
+  'sessions': ['ownerId', 'clientId', 'assignedClientId'],
+  'routineTemplates': ['ownerId', 'clientId', 'assignedClientId'],
+  'customExercises': ['ownerId'],
+  'bodyWeights': ['userId'],
+  'assignedRoutines': ['ownerId', 'clientId', 'assignedClientId'],
+  'tasks': ['ownerId', 'clientId', 'assignedClientId'],
+  'schedules': ['ownerId', 'clientId', 'assignedClientId'],
+  'goals': ['ownerId', 'clientId', 'assignedClientId'],
+};
+
+const List<String> _accountDeletionUserSubcollections = [
+  'sessions',
+  'routines',
+  'routineTemplates',
+  'bodyWeights',
+  'customExercises',
+  'exerciseHistory',
+  'activeDrafts',
+  'exports',
+  'consents',
+  'devices',
+  'preferences',
+];
+
 abstract class AgujetasRepository {
   Stream<AppUser?> authUser();
   Future<AppUser?> signInWithGoogle();
@@ -361,44 +386,12 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
   }
 
   Future<void> _deleteKnownFirestoreData(String userId) async {
-    await _deleteQuery(
-      _firestore.collection('sessions').where('ownerId', isEqualTo: userId),
-    );
-    await _deleteQuery(
-      _firestore
-          .collection('routineTemplates')
-          .where('ownerId', isEqualTo: userId),
-    );
-    await _deleteQuery(
-      _firestore
-          .collection('routineTemplates')
-          .where('assignedClientId', isEqualTo: userId),
-    );
-    await _deleteQuery(
-      _firestore
-          .collection('customExercises')
-          .where('ownerId', isEqualTo: userId),
-    );
-    await _deleteQuery(
-      _firestore.collection('bodyWeights').where('userId', isEqualTo: userId),
-    );
-    for (final collection in [
-      'assignedRoutines',
-      'tasks',
-      'schedules',
-      'goals',
-    ]) {
-      await _deleteQuery(
-        _firestore.collection(collection).where('ownerId', isEqualTo: userId),
-      );
-      await _deleteQuery(
-        _firestore.collection(collection).where('clientId', isEqualTo: userId),
-      );
-      await _deleteQuery(
-        _firestore
-            .collection(collection)
-            .where('assignedClientId', isEqualTo: userId),
-      );
+    for (final entry in _accountDeletionRootFieldQueries.entries) {
+      for (final field in entry.value) {
+        await _deleteQuery(
+          _firestore.collection(entry.key).where(field, isEqualTo: userId),
+        );
+      }
     }
     await _deleteDocIfExists(
       _firestore.collection('trainerProfiles').doc(userId),
@@ -418,7 +411,15 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
           .collection('trainerClientLinks')
           .where('clientId', isEqualTo: userId),
     );
+    await _deleteKnownUserSubcollections(userId);
     await _deleteDocIfExists(_firestore.collection('users').doc(userId));
+  }
+
+  Future<void> _deleteKnownUserSubcollections(String userId) async {
+    final userRef = _firestore.collection('users').doc(userId);
+    for (final collection in _accountDeletionUserSubcollections) {
+      await _deleteQuery(userRef.collection(collection));
+    }
   }
 
   Future<void> _deleteQuery(Query<Map<String, dynamic>> query) async {
