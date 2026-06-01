@@ -944,6 +944,44 @@ void main() {
     expect(find.text('Historial reciente'), findsOneWidget);
   });
 
+  testWidgets('body weight card flags stale weekly tracking', (tester) async {
+    final latestDate = DateTime(2026, 5, 20, 9);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: BodyWeightCard(
+            user: const AppUser(
+              uid: 'weight-user',
+              displayName: 'Demo',
+              email: 'demo@agujetas.app',
+              photoUrl: null,
+              roles: {AppRole.normal},
+              activeRole: AppRole.normal,
+              plan: AppPlan.free,
+            ),
+            entries: [
+              BodyWeightEntry(
+                id: 'latest',
+                userId: 'weight-user',
+                weightKg: 82,
+                recordedAt: latestDate,
+              ),
+            ],
+            alertsEnabled: true,
+            now: latestDate.add(const Duration(days: 9)),
+            onSaved: (_) async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('82.0 kg · toca actualizar'), findsOneWidget);
+    expect(find.text('Último registro hace 9 días'), findsOneWidget);
+    expect(find.text('Recordatorio local activo a las 09:00.'), findsOneWidget);
+  });
+
   testWidgets('custom exercise sheet creates a local exercise with 3 sets', (
     tester,
   ) async {

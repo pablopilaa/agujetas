@@ -1174,6 +1174,7 @@ class _HomeShellState extends State<HomeShell> {
     if (!mounted) return;
     setState(() => _preferences = preferences);
     unawaited(_syncAssignedScheduleReminders(_assignedSchedules));
+    unawaited(_syncBodyWeightReminder(preferences));
     _applyPreferredTheme(preferences);
 
     try {
@@ -1188,6 +1189,7 @@ class _HomeShellState extends State<HomeShell> {
       if (!mounted) return;
       setState(() => _preferences = remotePreferences);
       unawaited(_syncAssignedScheduleReminders(_assignedSchedules));
+      unawaited(_syncBodyWeightReminder(remotePreferences));
       _applyPreferredTheme(remotePreferences);
     } catch (_) {
       if (!mounted) return;
@@ -1346,6 +1348,16 @@ class _HomeShellState extends State<HomeShell> {
     setState(() => _preferences = preferences);
     unawaited(_persistUserPreferences(preferences));
     unawaited(_syncAssignedScheduleReminders(_assignedSchedules));
+    unawaited(_syncBodyWeightReminder(preferences));
+  }
+
+  Future<void> _syncBodyWeightReminder(LocalUserPreferences preferences) async {
+    if (kIsWeb) return;
+    if (!preferences.bodyWeightAlertsEnabled) {
+      await NotificationService.cancelBodyWeightReminder();
+      return;
+    }
+    await NotificationService.scheduleBodyWeightReminder(hour: 9, minute: 0);
   }
 
   Future<void> _syncAssignedScheduleReminders(
@@ -5523,12 +5535,14 @@ class BodyWeightCard extends StatelessWidget {
     required this.entries,
     required this.alertsEnabled,
     required this.onSaved,
+    this.now,
   });
 
   final AppUser user;
   final List<BodyWeightEntry> entries;
   final bool alertsEnabled;
   final Future<void> Function(BodyWeightEntry entry) onSaved;
+  final DateTime? now;
 
   @override
   Widget build(BuildContext context) {
@@ -5537,6 +5551,11 @@ class BodyWeightCard extends StatelessWidget {
     final latest = sortedEntries.isEmpty ? null : sortedEntries.first;
     final previous = sortedEntries.length >= 2 ? sortedEntries[1] : null;
     final recentWindow = _recentBodyWeightWindow(sortedEntries);
+    final referenceNow = now ?? DateTime.now();
+    final daysSinceLatest = latest == null
+        ? null
+        : referenceNow.difference(latest.recordedAt).inDays;
+    final isDue = daysSinceLatest == null || daysSinceLatest >= 7;
     final recentAverage = recentWindow.isEmpty
         ? null
         : recentWindow.fold<double>(0, (sum, entry) => sum + entry.weightKg) /
@@ -5547,6 +5566,8 @@ class BodyWeightCard extends StatelessWidget {
       title: 'Peso corporal',
       subtitle: latest == null
           ? 'Sin registros todavía. Activá alertas y cargá tu primer peso.'
+          : isDue
+          ? '${latest.weightKg.toStringAsFixed(1)} kg · toca actualizar'
           : '${latest.weightKg.toStringAsFixed(1)} kg registrados localmente',
       action: FilledButton(
         onPressed: () => _openWeightSheet(context),
@@ -5556,6 +5577,12 @@ class BodyWeightCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (latest != null) ...[
+            _BodyWeightStatusPill(
+              isDue: isDue,
+              daysSinceLatest: daysSinceLatest,
+              alertsEnabled: alertsEnabled,
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -5770,6 +5797,69 @@ class _BodyWeightMiniMetric extends StatelessWidget {
           Text(label, style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: 4),
           Text(value, style: Theme.of(context).textTheme.titleMedium),
+        ],
+      ),
+    );
+  }
+}
+
+class _BodyWeightStatusPill extends StatelessWidget {
+  const _BodyWeightStatusPill({
+    required this.isDue,
+    required this.daysSinceLatest,
+    required this.alertsEnabled,
+  });
+
+  final bool isDue;
+  final int? daysSinceLatest;
+  final bool alertsEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final days = daysSinceLatest;
+    final label = days == null
+        ? 'Sin registro semanal'
+        : days == 0
+        ? 'Registrado hoy'
+        : isDue
+        ? 'Último registro hace $days días'
+        : 'Seguimiento al día · hace $days días';
+    final helper = alertsEnabled
+        ? 'Recordatorio local activo a las 09:00.'
+        : 'Activá alertas en Perfil para recibir aviso.';
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDue ? colors.amberContainer : colors.raised,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDue ? colors.amber : colors.primaryContainer,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isDue ? Icons.notification_important_outlined : Icons.check_circle,
+            color: isDue ? colors.amber : colors.primaryStrong,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(helper, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
         ],
       ),
     );

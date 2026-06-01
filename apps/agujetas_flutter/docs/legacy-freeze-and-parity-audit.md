@@ -725,3 +725,10 @@ Sexagésimo sexto bloque Cobertura visual de schedules:
 - El calendario mensual detecta schedules `scheduled` con una sesión local registrada el mismo día.
 - Esos schedules se muestran como `con sesión registrada` en resumen mensual, lista, detalle y color del día.
 - El detalle del schedule muestra la sesión local que lo cubre sin cambiar el estado remoto, evitando marcar como completado algo que todavía no fue confirmado contra Firestore.
+
+Sexagésimo séptimo bloque Alertas automáticas de peso:
+
+- El toggle `Seguimiento de peso` en Perfil ahora programa o cancela automáticamente el recordatorio local diario de peso a las 09:00.
+- `NotificationService` agrega cancelación explícita del recordatorio de peso para respetar el opt-out del usuario.
+- La tarjeta `Peso corporal` marca si el seguimiento semanal está al día o si el último registro ya quedó vencido.
+- El usuario sigue pudiendo forzar la programación desde la tarjeta, pero el flujo principal ya no depende de ese botón manual.

@@ -119,6 +119,12 @@ class NotificationService {
     );
   }
 
+  static Future<void> cancelBodyWeightReminder() async {
+    await initialize();
+    if (!_initialized) return;
+    await _plugin.cancel(id: 301);
+  }
+
   static Future<AgujetasNotificationResult> scheduleAssignedScheduleReminder({
     required String scheduleId,
     required String title,
