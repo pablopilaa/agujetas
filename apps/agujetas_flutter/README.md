@@ -31,6 +31,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Importacion local del historico exportado desde la app Expo legacy incluido en `assets/user_data`.
 - Importacion local de rutinas y sesiones personalizadas legacy desde `assets/user_data/catalogo_ejercicios_2026-05-13.json`.
 - CRUD local-first basico de rutinas: guardar, renombrar, duplicar, borrar y reordenar plantillas sin depender de Firestore.
+- Rutinas con sincronizacion bidireccional local-first + Firestore: carga local inmediata, push best-effort, merge de snapshots remotos por `ownerId` y eliminacion remota por ownership.
 - Editor local aislado de rutinas: abrir una plantilla importada, modificar su lista de ejercicios/orden/defaults de series, guardar cambios o guardar una copia sin tocar la sesion activa.
 - Ejercicios personalizados local-first: crear, editar, borrar, buscar, asociar imagen de galeria o asset interno propio, operar offline y sincronizar best-effort si hay backend disponible.
 - Ejercicios personalizados con sincronización bidireccional local-first + Firestore: carga local inmediata, push best-effort, merge de snapshots remotos y eliminación remota por ownership.
@@ -132,5 +133,6 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 - Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
 - Reemplazar el contrato técnico preliminar de consentimiento por términos y política de privacidad finales con asesoría legal antes de producción.
 - Crear Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente.
-- Migrar progresivamente sesiones y rutinas al mismo patrón local-first + Firestore con resolución de conflictos explícita.
+- Migrar progresivamente sesiones al mismo patron local-first + Firestore con resolucion de conflictos explicita.
+- Mejorar el contrato de orden remoto de rutinas si se quiere que el reorder se replique 1:1 entre dispositivos.
 - Cuando exista Apple Developer: agregar workflow macOS firmado y TestFlight.

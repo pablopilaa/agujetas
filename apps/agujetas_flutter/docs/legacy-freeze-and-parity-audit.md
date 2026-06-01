@@ -555,3 +555,12 @@ Cuadragésimo quinto bloque Ejercicios personalizados bidireccionales:
 - `watchCustomExercises` escucha snapshots remotos por `ownerId` y los fusiona localmente por `id`, preservando imágenes locales permitidas o `agujetas-image://...`.
 - El borrado de un ejercicio personalizado ahora intenta eliminar también el documento remoto para evitar que reaparezca desde Firestore.
 - `LocalWorkoutStore.mergeCustomExercisesLocal` agrega el contrato reutilizable de merge local-first para catálogo propio.
+
+Cuadragésimo sexto bloque Rutinas bidireccionales:
+
+- `AgujetasRepository` ahora expone `watchRoutineTemplates` y `deleteRoutineTemplate`, completando el contrato remoto de CRUD de plantillas.
+- `HomeShell` carga rutinas locales inmediatamente, sube plantillas locales best-effort a Firestore y escucha snapshots remotos para usuarios reales.
+- `watchRoutineTemplates` consulta `routineTemplates` por `ownerId`; cada documento remoto se normaliza con el id del documento para evitar ownership implícito incorrecto.
+- `LocalWorkoutStore.mergeRoutineTemplatesLocal` fusiona por `id`, actualiza cambios remotos y conserva plantillas offline no sincronizadas.
+- El borrado de una rutina local intenta eliminar también el documento remoto para que no reaparezca desde Firestore.
+- El orden local se preserva durante merges; queda pendiente modelar un `orderIndex` remoto si se quiere replicar reorder entre dispositivos.

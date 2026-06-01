@@ -743,6 +743,36 @@ class LocalWorkoutStore {
     );
   }
 
+  Future<int> mergeRoutineTemplatesLocal({
+    required String userId,
+    required List<RoutineTemplate> routines,
+  }) async {
+    if (routines.isEmpty) return 0;
+    final previous = await loadRoutineTemplates(userId);
+    final next = [...previous];
+    var changed = 0;
+
+    for (final routine in routines) {
+      if (routine.id.isEmpty || routine.exercises.isEmpty) continue;
+      final normalized = routine.copyWith(ownerId: userId);
+      final index = next.indexWhere((item) => item.id == normalized.id);
+      if (index == -1) {
+        next.insert(0, normalized);
+        changed++;
+        continue;
+      }
+      if (!_sameRoutineTemplate(next[index], normalized)) {
+        next[index] = normalized;
+        changed++;
+      }
+    }
+
+    if (changed > 0) {
+      await replaceRoutineTemplates(userId: userId, routines: next);
+    }
+    return changed;
+  }
+
   Future<void> replaceRoutineTemplates({
     required String userId,
     required List<RoutineTemplate> routines,
@@ -756,6 +786,23 @@ class LocalWorkoutStore {
       _routinesKey(userId),
       jsonEncode(normalized.map((item) => item.toJson()).toList()),
     );
+  }
+
+  bool _sameRoutineTemplate(RoutineTemplate a, RoutineTemplate b) {
+    if (a.id != b.id ||
+        a.ownerId != b.ownerId ||
+        a.title != b.title ||
+        a.assignedClientId != b.assignedClientId ||
+        a.exercises.length != b.exercises.length) {
+      return false;
+    }
+    for (var i = 0; i < a.exercises.length; i++) {
+      if (jsonEncode(a.exercises[i].toJson()) !=
+          jsonEncode(b.exercises[i].toJson())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<int> saveImportedRoutineTemplates({

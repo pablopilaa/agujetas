@@ -64,6 +64,11 @@ abstract class AgujetasRepository {
     required AppUser owner,
     required RoutineTemplate routine,
   });
+  Future<void> deleteRoutineTemplate({
+    required AppUser owner,
+    required RoutineTemplate routine,
+  });
+  Stream<List<RoutineTemplate>> watchRoutineTemplates(String ownerId);
   Future<void> saveCustomExercise({
     required AppUser owner,
     required ExerciseCatalogEntry exercise,
@@ -343,10 +348,41 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     required RoutineTemplate routine,
   }) async {
     final normalized = routine.copyWith(ownerId: owner.uid);
-    await _firestore
+    await _firestore.collection('routineTemplates').doc(normalized.id).set({
+      ...normalized.toJson(),
+      'ownerId': owner.uid,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  @override
+  Future<void> deleteRoutineTemplate({
+    required AppUser owner,
+    required RoutineTemplate routine,
+  }) async {
+    await _firestore.collection('routineTemplates').doc(routine.id).delete();
+  }
+
+  @override
+  Stream<List<RoutineTemplate>> watchRoutineTemplates(String ownerId) {
+    return _firestore
         .collection('routineTemplates')
-        .doc(normalized.id)
-        .set(normalized.toJson(), SetOptions(merge: true));
+        .where('ownerId', isEqualTo: ownerId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) =>
+                    RoutineTemplate.fromJson({...doc.data(), 'id': doc.id}),
+              )
+              .where(
+                (routine) =>
+                    routine.id.isNotEmpty &&
+                    routine.ownerId == ownerId &&
+                    routine.exercises.isNotEmpty,
+              )
+              .toList(),
+        );
   }
 
   @override
@@ -590,6 +626,17 @@ class DemoAgujetasRepository implements AgujetasRepository {
     required AppUser owner,
     required RoutineTemplate routine,
   }) async {}
+
+  @override
+  Future<void> deleteRoutineTemplate({
+    required AppUser owner,
+    required RoutineTemplate routine,
+  }) async {}
+
+  @override
+  Stream<List<RoutineTemplate>> watchRoutineTemplates(String ownerId) {
+    return const Stream.empty();
+  }
 
   @override
   Future<void> saveCustomExercise({

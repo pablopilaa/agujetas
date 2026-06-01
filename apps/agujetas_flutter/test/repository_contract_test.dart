@@ -117,6 +117,24 @@ void main() {
       ),
     );
   });
+
+  test('routine template sync uses owner scoped Firestore records', () {
+    final repository = _readRepositorySource();
+    final rules = _readFirestoreRules();
+
+    expect(repository, contains(".collection('routineTemplates')"));
+    expect(repository, contains(".where('ownerId', isEqualTo: ownerId)"));
+    expect(repository, contains("'ownerId': owner.uid"));
+    expect(repository, contains('deleteRoutineTemplate'));
+    expect(repository, contains('watchRoutineTemplates'));
+    expect(repository, contains("'id': doc.id"));
+    expect(
+      rules,
+      contains(
+        'allow create: if signedIn()\n        && ownerId(request.resource.data) == request.auth.uid',
+      ),
+    );
+  });
 }
 
 String _readRepositorySource() {

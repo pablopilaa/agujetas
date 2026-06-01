@@ -832,6 +832,59 @@ void main() {
     expect(remaining.map((routine) => routine.id), ['routine-b']);
   });
 
+  test(
+    'local workout store merges remote routines without losing local order',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = LocalWorkoutStore.instance;
+      final exercises = seedWorkout();
+
+      final first = RoutineTemplate(
+        id: 'routine-a',
+        ownerId: 'local-owner',
+        title: 'Piernas',
+        exercises: exercises.take(2).toList(),
+      );
+      final second = RoutineTemplate(
+        id: 'routine-b',
+        ownerId: 'local-owner',
+        title: 'Espalda',
+        exercises: exercises.skip(1).take(2).toList(),
+      );
+
+      await store.replaceRoutineTemplates(
+        userId: 'routine-sync-user',
+        routines: [first, second],
+      );
+
+      final changed = await store.mergeRoutineTemplatesLocal(
+        userId: 'routine-sync-user',
+        routines: [
+          second.copyWith(title: 'Espalda y bíceps remoto'),
+          RoutineTemplate(
+            id: 'routine-c',
+            ownerId: 'remote-owner',
+            title: 'Push remoto',
+            exercises: exercises.take(3).toList(),
+          ),
+        ],
+      );
+
+      final routines = await store.loadRoutineTemplates('routine-sync-user');
+      expect(changed, 2);
+      expect(routines.map((routine) => routine.id), [
+        'routine-c',
+        'routine-a',
+        'routine-b',
+      ]);
+      expect(routines.last.title, 'Espalda y bíceps remoto');
+      expect(
+        routines.every((routine) => routine.ownerId == 'routine-sync-user'),
+        true,
+      );
+    },
+  );
+
   test('local backup exports and imports all local-first data', () async {
     SharedPreferences.setMockInitialValues({});
     final store = LocalWorkoutStore.instance;

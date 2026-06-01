@@ -598,6 +598,7 @@ class _HomeShellState extends State<HomeShell> {
   List<RoutineTemplate> _localRoutines = const [];
   List<BodyWeightEntry> _localBodyWeights = const [];
   List<ExerciseCatalogEntry> _localCustomExercises = const [];
+  StreamSubscription<List<RoutineTemplate>>? _routineTemplatesSubscription;
   StreamSubscription<List<BodyWeightEntry>>? _bodyWeightsSubscription;
   StreamSubscription<List<ExerciseCatalogEntry>>? _customExercisesSubscription;
   String _sessionMode = 'Fuerza';
@@ -628,6 +629,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    unawaited(_routineTemplatesSubscription?.cancel());
     unawaited(_bodyWeightsSubscription?.cancel());
     unawaited(_customExercisesSubscription?.cancel());
     super.dispose();
@@ -884,6 +886,9 @@ class _HomeShellState extends State<HomeShell> {
         _activeRoutineTitle = routine.title;
       }
     });
+    if (_canSyncRemoteUserData) {
+      unawaited(_syncRoutineTemplateBestEffort(routine));
+    }
   }
 
   Future<void> _saveEditingRoutine() async {
@@ -934,6 +939,9 @@ class _HomeShellState extends State<HomeShell> {
         _routineEditorExercises = const [];
       }
     });
+    if (_canSyncRemoteUserData) {
+      unawaited(_deleteRoutineTemplateBestEffort(routine));
+    }
   }
 
   Future<void> _duplicateRoutine(RoutineTemplate routine) async {
@@ -968,6 +976,9 @@ class _HomeShellState extends State<HomeShell> {
       _localRoutines = next;
       _notice = 'Orden de rutinas actualizado.';
     });
+    if (_canSyncRemoteUserData) {
+      unawaited(_pushLocalRoutineTemplatesBestEffort(next));
+    }
   }
 
   void _changeTrainingMode(String mode) {
@@ -1076,6 +1087,10 @@ class _HomeShellState extends State<HomeShell> {
     }
     if (!mounted) return;
     setState(() => _localRoutines = routines);
+    if (_canSyncRemoteUserData) {
+      unawaited(_pushLocalRoutineTemplatesBestEffort(routines));
+      _startRoutineTemplateSync();
+    }
   }
 
   Future<void> _loadLocalBodyWeights() async {
@@ -1121,6 +1136,89 @@ class _HomeShellState extends State<HomeShell> {
       setState(() {
         _notice =
             'No pude sincronizar preferencias remotas; sigo con datos locales.';
+      });
+    }
+  }
+
+  bool get _canSyncRemoteUserData => widget.user.uid != 'demo-user';
+
+  void _startRoutineTemplateSync() {
+    _routineTemplatesSubscription ??= widget.repository
+        .watchRoutineTemplates(widget.user.uid)
+        .listen(
+          (routines) => unawaited(_mergeRemoteRoutineTemplates(routines)),
+          onError: (_) {
+            if (!mounted) return;
+            setState(() {
+              _notice =
+                  'No pude leer rutinas remotas; sigo con rutinas locales.';
+            });
+          },
+        );
+  }
+
+  Future<void> _mergeRemoteRoutineTemplates(
+    List<RoutineTemplate> routines,
+  ) async {
+    final changed = await _localStore.mergeRoutineTemplatesLocal(
+      userId: widget.user.uid,
+      routines: routines,
+    );
+    final merged = await _localStore.loadRoutineTemplates(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localRoutines = merged;
+      if (changed > 0) {
+        _notice = 'Sincronicé $changed rutinas.';
+      }
+    });
+  }
+
+  Future<void> _pushLocalRoutineTemplatesBestEffort(
+    List<RoutineTemplate> routines,
+  ) async {
+    try {
+      for (final routine in routines.take(100)) {
+        await widget.repository.saveRoutineTemplate(
+          owner: widget.user,
+          routine: routine,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Rutinas locales conservadas; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  Future<void> _syncRoutineTemplateBestEffort(RoutineTemplate routine) async {
+    try {
+      await widget.repository.saveRoutineTemplate(
+        owner: widget.user,
+        routine: routine,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Rutina guardada localmente; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  Future<void> _deleteRoutineTemplateBestEffort(RoutineTemplate routine) async {
+    try {
+      await widget.repository.deleteRoutineTemplate(
+        owner: widget.user,
+        routine: routine,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Rutina eliminada localmente; la eliminación remota quedó pendiente.';
       });
     }
   }
@@ -1241,8 +1339,6 @@ class _HomeShellState extends State<HomeShell> {
       unawaited(_syncBodyWeightBestEffort(entry));
     }
   }
-
-  bool get _canSyncRemoteUserData => widget.user.uid != 'demo-user';
 
   void _startBodyWeightSync() {
     _bodyWeightsSubscription ??= widget.repository

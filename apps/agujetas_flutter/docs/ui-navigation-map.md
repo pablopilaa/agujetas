@@ -133,6 +133,7 @@ flowchart TD
 | Biblioteca | Nueva rutina | Diálogo de nombre | Borrador local editable en Mis ejercicios |
 | Biblioteca | Agregar desde catálogo | Catálogo dentro de edición | Ejercicio agregado a la rutina en edición |
 | Biblioteca | Guardar cambios | Persistir rutina local | Rutina disponible offline en Mis ejercicios |
+| Biblioteca | Rutinas | Sync remoto | Merge Firestore `routineTemplates` por `ownerId` sin borrar plantillas offline |
 | Biblioteca | Agregar ejercicio | Agregar a rutina activa | Entrenamiento actual actualizado |
 | Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado |
 | Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado, guardado local y sync `/users/{uid}/preferences/app` |
@@ -165,6 +166,8 @@ flowchart TD
 - Las preferencias de Perfil se leen primero desde el dispositivo y después desde Firebase. Si Firebase falla, la app conserva el valor local y muestra aviso.
 - El peso corporal se muestra desde local inmediatamente, sube registros recientes a Firestore en segundo plano y fusiona snapshots remotos por `id`.
 - Los ejercicios personalizados siguen el mismo patrón local-first: catálogo local inmediato, sync Firestore por `ownerId`, delete remoto best-effort y sin Firebase Storage.
+- Las rutinas siguen el mismo patrón local-first: biblioteca local inmediata, sync Firestore por `ownerId`, delete remoto best-effort y sin bloquear la edición offline.
+- El orden local de rutinas se preserva al fusionar snapshots remotos; replicar ese orden entre dispositivos requiere un campo de orden remoto dedicado.
 
 ## Pendientes UX
 
