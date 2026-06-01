@@ -188,6 +188,31 @@ void main() {
     expect(find.textContaining('agendado para Sofia Demo'), findsOneWidget);
   });
 
+  testWidgets('trainer dashboard assigns a measurable goal to a client', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
+    await tester.pump();
+
+    await tester.tap(find.text('Modo entrenador').first);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.tap(find.text('Activar Pro demo'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.ensureVisible(find.text('Meta').first);
+    await tester.tap(find.text('Meta').first);
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.textContaining('Meta "Volumen semanal"'), findsOneWidget);
+    expect(find.textContaining('asignada a Sofia Demo'), findsOneWidget);
+  });
+
   testWidgets('profile plan sheet exposes Pro contract and demo activation', (
     tester,
   ) async {

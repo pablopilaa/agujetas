@@ -760,6 +760,76 @@ class AssignedSchedule {
   }
 }
 
+class AssignedGoal {
+  const AssignedGoal({
+    required this.id,
+    required this.trainerId,
+    required this.assignedClientId,
+    required this.title,
+    required this.metric,
+    required this.targetValue,
+    required this.currentValue,
+    required this.unit,
+    required this.status,
+    required this.assignedAt,
+    this.dueAt,
+    this.note,
+  });
+
+  final String id;
+  final String trainerId;
+  final String assignedClientId;
+  final String title;
+  final String metric;
+  final double targetValue;
+  final double currentValue;
+  final String unit;
+  final String status;
+  final DateTime assignedAt;
+  final DateTime? dueAt;
+  final String? note;
+
+  double get progressRatio {
+    if (targetValue <= 0) return 0;
+    return (currentValue / targetValue).clamp(0, 1);
+  }
+
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'trainerId': trainerId,
+    'assignedClientId': assignedClientId,
+    'title': title,
+    'metric': metric,
+    'targetValue': targetValue,
+    'currentValue': currentValue,
+    'unit': unit,
+    'status': status,
+    'assignedAt': assignedAt.toUtc().toIso8601String(),
+    'dueAt': dueAt?.toUtc().toIso8601String(),
+    'note': note,
+    'schemaVersion': 1,
+  };
+
+  factory AssignedGoal.fromJson(Map<String, Object?> json) {
+    return AssignedGoal(
+      id: json['id']?.toString() ?? '',
+      trainerId: json['trainerId']?.toString() ?? '',
+      assignedClientId: json['assignedClientId']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Meta asignada',
+      metric: json['metric']?.toString() ?? 'custom',
+      targetValue: _readDouble(json['targetValue']),
+      currentValue: _readDouble(json['currentValue']),
+      unit: json['unit']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'active',
+      assignedAt:
+          DateTime.tryParse(json['assignedAt']?.toString() ?? '') ??
+          DateTime.now().toUtc(),
+      dueAt: DateTime.tryParse(json['dueAt']?.toString() ?? ''),
+      note: json['note']?.toString(),
+    );
+  }
+}
+
 List<WorkoutSet> defaultWorkoutSets() => const [
   WorkoutSet(
     order: 1,

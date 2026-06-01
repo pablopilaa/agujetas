@@ -599,11 +599,13 @@ class _HomeShellState extends State<HomeShell> {
   List<BodyWeightEntry> _localBodyWeights = const [];
   List<ExerciseCatalogEntry> _localCustomExercises = const [];
   List<AssignedSchedule> _assignedSchedules = const [];
+  List<AssignedGoal> _assignedGoals = const [];
   StreamSubscription<List<LocalWorkoutSession>>? _sessionsSubscription;
   StreamSubscription<List<RoutineTemplate>>? _routineTemplatesSubscription;
   StreamSubscription<List<BodyWeightEntry>>? _bodyWeightsSubscription;
   StreamSubscription<List<ExerciseCatalogEntry>>? _customExercisesSubscription;
   StreamSubscription<List<AssignedSchedule>>? _assignedSchedulesSubscription;
+  StreamSubscription<List<AssignedGoal>>? _assignedGoalsSubscription;
   String _sessionMode = 'Fuerza';
   String _activeRoutineTitle = 'Empuje A';
   String? _editingRoutineId;
@@ -627,6 +629,7 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_loadLocalBodyWeights());
     unawaited(_loadLocalCustomExercises());
     _watchAssignedSchedules();
+    _watchAssignedGoals();
     unawaited(_loadUserPreferences());
     unawaited(_restoreActiveDraft());
   }
@@ -638,6 +641,7 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_bodyWeightsSubscription?.cancel());
     unawaited(_customExercisesSubscription?.cancel());
     unawaited(_assignedSchedulesSubscription?.cancel());
+    unawaited(_assignedGoalsSubscription?.cancel());
     super.dispose();
   }
 
@@ -660,6 +664,7 @@ class _HomeShellState extends State<HomeShell> {
         selectedSessionMode: _sessionMode,
         routines: _localRoutines,
         assignedSchedules: _assignedSchedules,
+        assignedGoals: _assignedGoals,
         onSessionModeSelected: _selectSessionMode,
         onStartWorkout: () => _startWorkout(_sessionMode),
         onStartRoutine: _startRoutine,
@@ -767,6 +772,15 @@ class _HomeShellState extends State<HomeShell> {
         .listen((schedules) {
           if (!mounted) return;
           setState(() => _assignedSchedules = schedules);
+        });
+  }
+
+  void _watchAssignedGoals() {
+    _assignedGoalsSubscription = widget.repository
+        .watchAssignedGoalsForClient(widget.user.uid)
+        .listen((goals) {
+          if (!mounted) return;
+          setState(() => _assignedGoals = goals);
         });
   }
 
@@ -1736,6 +1750,7 @@ class HomeDashboard extends StatefulWidget {
     required this.selectedSessionMode,
     required this.routines,
     required this.assignedSchedules,
+    required this.assignedGoals,
     required this.onSessionModeSelected,
     required this.onStartWorkout,
     required this.onStartRoutine,
@@ -1751,6 +1766,7 @@ class HomeDashboard extends StatefulWidget {
   final String selectedSessionMode;
   final List<RoutineTemplate> routines;
   final List<AssignedSchedule> assignedSchedules;
+  final List<AssignedGoal> assignedGoals;
   final ValueChanged<String> onSessionModeSelected;
   final VoidCallback onStartWorkout;
   final ValueChanged<RoutineTemplate> onStartRoutine;
@@ -1844,6 +1860,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
             user: widget.user,
             repository: widget.repository,
             schedules: widget.assignedSchedules,
+            goals: widget.assignedGoals,
             controller: _inviteController,
             busy: _busy,
             onAcceptInvite: _acceptInvite,
@@ -1965,6 +1982,11 @@ class _TrainerPanel extends StatelessWidget {
                                   icon: const Icon(Icons.event_available),
                                   label: const Text('Agendar'),
                                 ),
+                                OutlinedButton.icon(
+                                  onPressed: () => _assignDefaultGoal(client),
+                                  icon: const Icon(Icons.flag_outlined),
+                                  label: const Text('Meta'),
+                                ),
                               ],
                             ),
                           ],
@@ -2043,6 +2065,25 @@ class _TrainerPanel extends StatelessWidget {
       onNotice('No pude agendar la sesión: $error');
     }
   }
+
+  Future<void> _assignDefaultGoal(TrainerClientLink client) async {
+    try {
+      final goal = await repository.assignGoalToClient(
+        trainer: user,
+        client: client,
+        title: 'Volumen semanal',
+        metric: 'weekly_volume',
+        targetValue: 18000,
+        unit: 'kg-reps',
+        currentValue: 0,
+        dueAt: DateTime.now().toUtc().add(const Duration(days: 14)),
+        note: 'Objetivo inicial de volumen acumulado para medir tolerancia.',
+      );
+      onNotice('Meta "${goal.title}" asignada a ${client.clientName}.');
+    } catch (error) {
+      onNotice('No pude asignar la meta: $error');
+    }
+  }
 }
 
 class _AthletePanel extends StatelessWidget {
@@ -2050,6 +2091,7 @@ class _AthletePanel extends StatelessWidget {
     required this.user,
     required this.repository,
     required this.schedules,
+    required this.goals,
     required this.controller,
     required this.busy,
     required this.onAcceptInvite,
@@ -2058,6 +2100,7 @@ class _AthletePanel extends StatelessWidget {
   final AppUser user;
   final AgujetasRepository repository;
   final List<AssignedSchedule> schedules;
+  final List<AssignedGoal> goals;
   final TextEditingController controller;
   final bool busy;
   final VoidCallback onAcceptInvite;
@@ -2164,6 +2207,35 @@ class _AthletePanel extends StatelessWidget {
                         ),
                         title: Text(schedule.title),
                         subtitle: Text(_scheduleSubtitle(schedule)),
+                      ),
+                  ],
+                ),
+        ),
+        DashboardCard(
+          icon: Icons.flag_outlined,
+          title: 'Metas del entrenador',
+          subtitle: goals.isEmpty
+              ? 'Las metas medibles asignadas por tu entrenador aparecen acá.'
+              : '${goals.length} meta${goals.length == 1 ? '' : 's'} activa${goals.length == 1 ? '' : 's'}',
+          child: goals.isEmpty
+              ? null
+              : Column(
+                  children: [
+                    for (final goal in goals.take(3))
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          child: Text('${(goal.progressRatio * 100).round()}%'),
+                        ),
+                        title: Text(goal.title),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_goalSubtitle(goal)),
+                            const SizedBox(height: 6),
+                            LinearProgressIndicator(value: goal.progressRatio),
+                          ],
+                        ),
                       ),
                   ],
                 ),
@@ -5247,10 +5319,21 @@ String _scheduleSubtitle(AssignedSchedule schedule) {
   return '${_formatShortDateTime(schedule.scheduledFor)}$routineLabel';
 }
 
+String _goalSubtitle(AssignedGoal goal) {
+  final current = _formatDecimal(goal.currentValue);
+  final target = _formatDecimal(goal.targetValue);
+  final due = goal.dueAt == null ? '' : ' · vence ${_shortDate(goal.dueAt!)}';
+  return '$current / $target ${goal.unit}$due';
+}
+
 String _dateKey(DateTime value) =>
     '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 
 String _shortDate(DateTime value) => '${value.day}/${value.month}';
+
+String _formatDecimal(double value) => value == value.roundToDouble()
+    ? value.round().toString()
+    : value.toStringAsFixed(1);
 
 String _formatShortDateTime(DateTime value) {
   final local = value.toLocal();

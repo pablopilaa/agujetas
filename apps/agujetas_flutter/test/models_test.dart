@@ -146,6 +146,33 @@ void main() {
     expect(restored.routineTitle, 'Empuje A');
   });
 
+  test('assigned goal serializes measurable trainer client payload', () {
+    final goal = AssignedGoal(
+      id: 'goal-1',
+      trainerId: 'trainer-1',
+      assignedClientId: 'client-1',
+      title: 'Volumen semanal',
+      metric: 'weekly_volume',
+      targetValue: 18000,
+      currentValue: 4500,
+      unit: 'kg-reps',
+      status: 'active',
+      assignedAt: DateTime.utc(2026, 6, 1),
+      dueAt: DateTime.utc(2026, 6, 15),
+      note: 'Medir tolerancia al volumen.',
+    );
+
+    final restored = AssignedGoal.fromJson(goal.toJson());
+
+    expect(restored.id, 'goal-1');
+    expect(restored.trainerId, 'trainer-1');
+    expect(restored.assignedClientId, 'client-1');
+    expect(restored.title, 'Volumen semanal');
+    expect(restored.metric, 'weekly_volume');
+    expect(restored.progressRatio, 0.25);
+    expect(restored.dueAt, DateTime.utc(2026, 6, 15));
+  });
+
   test('legacy single weight fields migrate into segments', () {
     final set = WorkoutSet.fromJson({
       'order': 2,

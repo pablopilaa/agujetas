@@ -42,7 +42,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
   - `normal`: usuario autogestionado.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.
 - Vinculacion entrenador-entrenado por codigo de invitacion.
-- Modo entrenador Pro con primera asignacion real de rutinas, tareas y schedules: el entrenador puede asignar una plantilla existente a un entrenado vinculado, enviar una tarea puntual, agendar una sesion y el usuario normal ve rutinas/tareas/schedules asignados desde `assignedRoutines`, `tasks` y `schedules`.
+- Modo entrenador Pro con primera asignacion real de rutinas, tareas, schedules y metas: el entrenador puede asignar una plantilla existente a un entrenado vinculado, enviar una tarea puntual, agendar una sesion, asignar una meta medible y el usuario normal ve rutinas/tareas/schedules/metas asignados desde `assignedRoutines`, `tasks`, `schedules` y `goals`.
 - Series con:
   - `setType`: `normal`, `warmup`, `dropset`.
   - `segments`: pesos/reps multiples, por ejemplo `20 kg x 8 + 10 kg x 6`.

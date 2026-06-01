@@ -602,3 +602,12 @@ Quincuagésimo bloque Schedules entrenador-entrenado:
 - El usuario normal tiene una sección `Schedules asignados` y el calendario mensual recibe esos schedules por `assignedClientId`.
 - El calendario mensual ahora marca días con schedules, lista los schedules del mes y abre detalle con nota y rutina sugerida.
 - Quedan pendientes edición/cancelación de schedules, recordatorios push/locales de schedule y conflicto visual cuando una sesión planificada ya fue completada.
+
+Quincuagésimo primer bloque Metas entrenador-entrenado:
+
+- Se agregó el modelo `AssignedGoal` como contrato de meta medible asignada por entrenador.
+- `AgujetasRepository` expone `assignGoalToClient` y `watchAssignedGoalsForClient`.
+- Firebase escribe metas en `goals/{id}` con `trainerId`, `ownerId`, `clientId`, `assignedClientId`, métrica, valor objetivo, progreso actual, unidad y vencimiento opcional.
+- El panel entrenador muestra `Meta` por entrenado activo y crea una meta de volumen semanal.
+- El usuario normal tiene una sección `Metas del entrenador` con porcentaje y barra de progreso.
+- Quedan pendientes edición de progreso, cierre de meta, metas derivadas automáticamente del historial y notificaciones por desvíos.
