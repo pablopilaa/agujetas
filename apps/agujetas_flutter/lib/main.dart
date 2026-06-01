@@ -422,6 +422,7 @@ class _HomeShellState extends State<HomeShell> {
         onExercisesChanged: onLibraryExercisesChanged,
         onStartRoutine: _startRoutine,
         onEditRoutine: _editRoutine,
+        onCreateRoutine: _createRoutine,
         onSaveRoutine: _saveRoutine,
         onSaveEditingRoutine: _saveEditingRoutine,
         onSaveEditingRoutineAsCopy: _saveEditingRoutineAsCopy,
@@ -576,6 +577,20 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  void _createRoutine(String title) {
+    final normalizedTitle = title.trim().isEmpty
+        ? 'Rutina nueva'
+        : title.trim();
+    setState(() {
+      _routineEditorExercises = const [];
+      _editingRoutineId = const Uuid().v4();
+      _editingRoutineTitle = normalizedTitle;
+      _tab = 3;
+      _notice =
+          'Rutina "$normalizedTitle" creada como borrador local. Agregá ejercicios y guardala.';
+    });
+  }
+
   Future<void> _saveRoutine(RoutineTemplate routine) async {
     await _localStore.saveRoutineTemplateLocal(
       userId: widget.user.uid,
@@ -597,6 +612,13 @@ class _HomeShellState extends State<HomeShell> {
     final id = _editingRoutineId;
     final title = _editingRoutineTitle;
     if (id == null || title == null) return;
+    if (_routineEditorExercises.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _notice = 'Agregá al menos un ejercicio antes de guardar la rutina.';
+      });
+      return;
+    }
     await _saveRoutine(
       RoutineTemplate(
         id: id,
@@ -5279,6 +5301,7 @@ class LibraryScreen extends StatefulWidget {
     required this.onExercisesChanged,
     required this.onStartRoutine,
     required this.onEditRoutine,
+    required this.onCreateRoutine,
     required this.onSaveRoutine,
     required this.onSaveEditingRoutine,
     required this.onSaveEditingRoutineAsCopy,
@@ -5301,6 +5324,7 @@ class LibraryScreen extends StatefulWidget {
   final ValueChanged<List<WorkoutExercise>> onExercisesChanged;
   final ValueChanged<RoutineTemplate> onStartRoutine;
   final ValueChanged<RoutineTemplate> onEditRoutine;
+  final ValueChanged<String> onCreateRoutine;
   final Future<void> Function(RoutineTemplate routine) onSaveRoutine;
   final Future<void> Function() onSaveEditingRoutine;
   final Future<void> Function() onSaveEditingRoutineAsCopy;
@@ -5332,10 +5356,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
       _favoritesOnly;
 
   @override
+  void initState() {
+    super.initState();
+    _showMine = widget.editingRoutineId != null;
+  }
+
+  @override
+  void didUpdateWidget(covariant LibraryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.editingRoutineId == null && widget.editingRoutineId != null) {
+      _showMine = true;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isEditingRoutine = widget.editingRoutineId != null;
     final editingTitle = widget.editingRoutineTitle ?? 'Rutina sin nombre';
-    final showMine = _showMine || isEditingRoutine;
+    final showMine = _showMine;
     return AppScaffold(
       title: 'Biblioteca',
       user: widget.user,
@@ -5345,9 +5383,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
         icon: const Icon(Icons.add_circle_outline),
       ),
       bottomAction: FilledButton.icon(
-        onPressed: () => _openCustomExerciseSheet(),
-        icon: const Icon(Icons.add),
-        label: const Text('Crear ejercicio personalizado'),
+        onPressed: showMine && !isEditingRoutine
+            ? _promptCreateRoutine
+            : () => _openCustomExerciseSheet(),
+        icon: Icon(showMine && !isEditingRoutine ? Icons.post_add : Icons.add),
+        label: Text(
+          showMine && !isEditingRoutine
+              ? 'Nueva rutina'
+              : 'Crear ejercicio personalizado',
+        ),
       ),
       menuActions: [
         AppMenuAction(
@@ -5400,7 +5444,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           FutureBuilder<List<ExerciseCatalogEntry>>(
             future: _catalogFuture,
             builder: (context, snapshot) {
-              final catalog = snapshot.data ?? const <ExerciseCatalogEntry>[];
+              final catalog = snapshot.data ?? _seedCatalogEntries();
               final filtered = _filterCatalog(catalog).take(18).toList();
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -5452,21 +5496,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
             action: FilledButton(
               onPressed: () async {
                 if (isEditingRoutine) {
-                  await widget.onSaveEditingRoutine();
-                } else {
-                  final routine = RoutineTemplate(
-                    id: const Uuid().v4(),
-                    ownerId: widget.user.uid,
-                    title: 'Rutina base Agujetas',
-                    exercises: widget.exercises,
-                  );
-                  await widget.onSaveRoutine(routine);
+                  await _saveEditingRoutineFromLibrary();
+                  return;
                 }
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Rutina guardada localmente')),
-                  );
-                }
+                final routine = RoutineTemplate(
+                  id: const Uuid().v4(),
+                  ownerId: widget.user.uid,
+                  title: 'Rutina base Agujetas',
+                  exercises: widget.exercises,
+                );
+                await widget.onSaveRoutine(routine);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Rutina guardada localmente')),
+                );
               },
               child: const Text('Guardar'),
             ),
@@ -5475,8 +5518,24 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: [
+                      FilledButton.icon(
+                        key: const ValueKey('routine-save-changes'),
+                        onPressed: _saveEditingRoutineFromLibrary,
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('Guardar cambios'),
+                      ),
                       OutlinedButton.icon(
                         onPressed: () async {
+                          if (widget.exercises.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Agregá al menos un ejercicio antes de copiar.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
                           await widget.onSaveEditingRoutineAsCopy();
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -5490,21 +5549,39 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         label: const Text('Guardar copia'),
                       ),
                       OutlinedButton.icon(
-                        onPressed: () {
-                          final routine = RoutineTemplate(
-                            id: widget.editingRoutineId!,
-                            ownerId: widget.user.uid,
-                            title: editingTitle,
-                            exercises: widget.exercises,
-                          );
-                          widget.onStartRoutine(routine);
-                        },
+                        onPressed: widget.exercises.isEmpty
+                            ? null
+                            : () {
+                                final routine = RoutineTemplate(
+                                  id: widget.editingRoutineId!,
+                                  ownerId: widget.user.uid,
+                                  title: editingTitle,
+                                  exercises: widget.exercises,
+                                );
+                                widget.onStartRoutine(routine);
+                              },
                         icon: const Icon(Icons.play_arrow),
                         label: const Text('Entrenar'),
                       ),
+                      OutlinedButton.icon(
+                        key: const ValueKey('routine-add-from-catalog'),
+                        onPressed: () => setState(() => _showMine = false),
+                        icon: const Icon(Icons.search),
+                        label: const Text('Agregar desde catálogo'),
+                      ),
                     ],
                   )
-                : null,
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _promptCreateRoutine,
+                        icon: const Icon(Icons.post_add),
+                        label: const Text('Nueva rutina'),
+                      ),
+                    ],
+                  ),
           ),
           if (widget.routines.isNotEmpty)
             DashboardCard(
@@ -5619,9 +5696,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
           _selectedMuscleGroup != null ||
           _selectedEquipment != null ||
           _favoritesOnly;
-      final source = hasFilters
-          ? catalog
-          : catalog.where((item) => item.usageCount > 0);
+      final usedCatalog = catalog.where((item) => item.usageCount > 0).toList();
+      final source = hasFilters || usedCatalog.isEmpty ? catalog : usedCatalog;
       return source.where(_matchesLibraryFilters).toList();
     }
     final normalized = _normalizeLibraryText(_query);
@@ -5726,6 +5802,65 @@ class _LibraryScreenState extends State<LibraryScreen> {
     widget.onExercisesChanged([...widget.exercises, exercise]);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${exercise.name} agregado a la rutina')),
+    );
+  }
+
+  Future<void> _saveEditingRoutineFromLibrary() async {
+    if (widget.exercises.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Agregá al menos un ejercicio antes de guardar.'),
+        ),
+      );
+      return;
+    }
+    await widget.onSaveEditingRoutine();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Rutina guardada localmente')));
+  }
+
+  Future<void> _promptCreateRoutine() async {
+    final controller = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Nueva rutina'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Nombre de la rutina',
+            hintText: 'Ej. Empuje pesado',
+          ),
+          onSubmitted: (value) => Navigator.of(dialogContext).pop(value.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
+            child: const Text('Crear'),
+          ),
+        ],
+      ),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) => controller.dispose());
+    final normalizedTitle = title?.trim();
+    if (normalizedTitle == null || normalizedTitle.isEmpty) return;
+    widget.onCreateRoutine(normalizedTitle);
+    if (!mounted) return;
+    setState(() {
+      _showMine = true;
+      _query = '';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Rutina "$normalizedTitle" lista para editar')),
     );
   }
 
@@ -5932,6 +6067,20 @@ Future<List<ExerciseCatalogEntry>> _loadCatalogSnapshot() async {
     });
 }
 
+List<ExerciseCatalogEntry> _seedCatalogEntries() {
+  return seedWorkout()
+      .map(
+        (exercise) => ExerciseCatalogEntry(
+          id: exercise.id,
+          name: exercise.name,
+          muscleGroup: exercise.muscleGroup,
+          imageUri: exercise.imageUri,
+          usageCount: 1,
+        ),
+      )
+      .toList();
+}
+
 class _CatalogTile extends StatelessWidget {
   const _CatalogTile({
     required this.item,
@@ -5989,6 +6138,7 @@ class _CatalogTile extends StatelessWidget {
                 icon: const Icon(Icons.star_border),
               ),
               IconButton.filledTonal(
+                key: ValueKey('catalog-add-${item.id}'),
                 tooltip: 'Agregar',
                 onPressed: onAdd,
                 icon: const Icon(Icons.add),

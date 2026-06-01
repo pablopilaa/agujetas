@@ -142,6 +142,58 @@ void main() {
     expect(find.text('Press banca'), findsWidgets);
   });
 
+  testWidgets(
+    'library creates a named routine draft and adds catalog exercises',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        AgujetasApp(repository: DemoAgujetasRepository()),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Biblioteca'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mis ejercicios'));
+      await tester.pumpAndSettle();
+
+      final newRoutineButton = find.widgetWithText(
+        OutlinedButton,
+        'Nueva rutina',
+      );
+      await tester.ensureVisible(newRoutineButton.first);
+      await tester.tap(newRoutineButton.first);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.enterText(find.byType(TextField).last, 'Empuje viernes');
+      await tester.tap(find.widgetWithText(FilledButton, 'Crear'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Editando: Empuje viernes'), findsOneWidget);
+      expect(find.textContaining('0 ejercicios'), findsWidgets);
+
+      final saveButton = find.byKey(const ValueKey('routine-save-changes'));
+
+      await tester.tap(find.byKey(const ValueKey('routine-add-from-catalog')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Más usados'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('catalog-add-bench_press')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Mis ejercicios'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('1 ejercicios'), findsWidgets);
+      expect(saveButton, findsOneWidget);
+    },
+  );
+
   testWidgets('library removes an exercise from the routine order', (
     tester,
   ) async {
@@ -177,6 +229,7 @@ void main() {
               onExercisesChanged: (next) => setState(() => exercises = next),
               onStartRoutine: (_) {},
               onEditRoutine: (_) {},
+              onCreateRoutine: (_) {},
               onSaveRoutine: (_) async {},
               onSaveEditingRoutine: () async {},
               onSaveEditingRoutineAsCopy: () async {},
@@ -263,6 +316,7 @@ void main() {
             onExercisesChanged: (_) {},
             onStartRoutine: (_) {},
             onEditRoutine: (_) {},
+            onCreateRoutine: (_) {},
             onSaveRoutine: (_) async {},
             onSaveEditingRoutine: () async {},
             onSaveEditingRoutineAsCopy: () async {},

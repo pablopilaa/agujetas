@@ -429,3 +429,12 @@ Vigésimo noveno bloque Android test implementado:
 - `NotificationService.initialize()` deja de pedir permisos al abrir la app; las notificaciones se solicitan sólo cuando el usuario programa una alerta.
 - Las alertas de descanso y peso intentan alarma exacta y caen a `inexactAllowWhileIdle` si Android deniega exact alarms, sin romper el entrenamiento ni el guardado local.
 - Los snackbars distinguen alerta exacta, alerta inexacta, permiso denegado o disponibilidad nativa ausente.
+
+Trigésimo bloque Biblioteca implementado:
+
+- Biblioteca permite crear una rutina nueva con nombre propio como borrador local, sin depender de rutinas legacy ni de la rutina activa.
+- Una rutina nueva puede alternar entre Mis ejercicios y Catálogo para agregar ejercicios antes de guardarse.
+- El guardado de rutina editada bloquea plantillas vacías y pide al menos un ejercicio, evitando guardar rutinas inútiles.
+- El módulo de edición muestra un botón explícito `Guardar cambios` además de las acciones de copia, entrenamiento y agregar desde catálogo.
+- Si el catálogo JSON grande todavía no cargó, la pantalla muestra ejercicios semilla como fallback temporal para no quedar vacía.
+- Test de widget cubre crear borrador de rutina, pasar al catálogo y agregar un ejercicio.

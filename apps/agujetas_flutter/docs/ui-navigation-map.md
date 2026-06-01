@@ -67,6 +67,9 @@ flowchart TD
   H2 --> H4["Elegir imagen del repositorio"]
   H --> H5["Agregar ejercicio a rutina"]
   H --> H6["Reordenar rutina con six-dot grip"]
+  H --> H7["Nueva rutina local"]
+  H7 --> H8["Agregar desde catálogo"]
+  H7 --> H9["Guardar cambios"]
 
   I["Perfil"] --> I1["Apariencia: sistema / claro / oscuro"]
   I --> I2["Exportar respaldo local JSON"]
@@ -112,6 +115,9 @@ flowchart TD
 | Biblioteca | Crear ejercicio personalizado | Formulario de ejercicio | Nuevo ejercicio en rutina y Firestore |
 | Biblioteca | Elegir imagen de galería | Selector nativo | `imageUri` local asociado |
 | Biblioteca | Elegir imagen del repositorio | Selector interno | `agujetas-image://...` asociado |
+| Biblioteca | Nueva rutina | Diálogo de nombre | Borrador local editable en Mis ejercicios |
+| Biblioteca | Agregar desde catálogo | Catálogo dentro de edición | Ejercicio agregado a la rutina en edición |
+| Biblioteca | Guardar cambios | Persistir rutina local | Rutina disponible offline en Mis ejercicios |
 | Biblioteca | Agregar ejercicio | Agregar a rutina activa | Entrenamiento actual actualizado |
 | Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado |
 | Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado |
