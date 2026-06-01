@@ -80,7 +80,15 @@ class AuthGate extends StatelessWidget {
         if (user == null) {
           return LoginScreen(repository: repository);
         }
-        return HomeShell(
+        if (user.uid == 'demo-user') {
+          return HomeShell(
+            repository: repository,
+            user: user,
+            themeMode: themeMode,
+            onThemeModeChanged: onThemeModeChanged,
+          );
+        }
+        return PrivacyConsentGate(
           repository: repository,
           user: user,
           themeMode: themeMode,
@@ -88,6 +96,74 @@ class AuthGate extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+class PrivacyConsentGate extends StatefulWidget {
+  PrivacyConsentGate({
+    super.key,
+    required this.repository,
+    required this.user,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+    LocalWorkoutStore? localStore,
+  }) : localStore = localStore ?? LocalWorkoutStore.instance;
+
+  final AgujetasRepository repository;
+  final AppUser user;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final LocalWorkoutStore localStore;
+
+  @override
+  State<PrivacyConsentGate> createState() => _PrivacyConsentGateState();
+}
+
+class _PrivacyConsentGateState extends State<PrivacyConsentGate> {
+  late Future<LocalPrivacyConsent?> _consentFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _consentFuture = widget.localStore.loadPrivacyConsent(widget.user.uid);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<LocalPrivacyConsent?>(
+      future: _consentFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SplashScreen();
+        }
+        final consent = snapshot.data;
+        if (consent?.isCurrent != true) {
+          return PrivacyConsentScreen(
+            user: widget.user,
+            onAccept: _acceptConsent,
+            onSignOut: widget.repository.signOut,
+          );
+        }
+        return HomeShell(
+          repository: widget.repository,
+          user: widget.user,
+          themeMode: widget.themeMode,
+          onThemeModeChanged: widget.onThemeModeChanged,
+        );
+      },
+    );
+  }
+
+  Future<void> _acceptConsent() async {
+    await widget.localStore.savePrivacyConsent(
+      userId: widget.user.uid,
+      consent: LocalPrivacyConsent(acceptedAt: DateTime.now().toUtc()),
+    );
+    if (mounted) {
+      setState(() {
+        _consentFuture = widget.localStore.loadPrivacyConsent(widget.user.uid);
+      });
+    }
   }
 }
 
@@ -111,6 +187,174 @@ class SplashScreen extends StatelessWidget {
           dark: Theme.of(context).brightness == Brightness.dark,
         ),
       ),
+    );
+  }
+}
+
+class PrivacyConsentScreen extends StatefulWidget {
+  const PrivacyConsentScreen({
+    super.key,
+    required this.user,
+    required this.onAccept,
+    required this.onSignOut,
+  });
+
+  final AppUser user;
+  final Future<void> Function() onAccept;
+  final Future<void> Function() onSignOut;
+
+  @override
+  State<PrivacyConsentScreen> createState() => _PrivacyConsentScreenState();
+}
+
+class _PrivacyConsentScreenState extends State<PrivacyConsentScreen> {
+  bool _termsAccepted = false;
+  bool _syncAccepted = false;
+  bool _mediaAcknowledged = false;
+  bool _notificationsAcknowledged = false;
+  bool _saving = false;
+  String? _error;
+
+  bool get _canContinue =>
+      _termsAccepted &&
+      _syncAccepted &&
+      _mediaAcknowledged &&
+      _notificationsAcknowledged &&
+      !_saving;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.appColors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(child: BrandMark(size: 72, dark: dark)),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Privacidad y datos',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: colors.primaryStrong,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Antes de empezar, confirmá cómo Agujetas maneja tus datos de entrenamiento.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colors.textSecondary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 18),
+                  _ConsentTile(
+                    value: _termsAccepted,
+                    onChanged: (value) =>
+                        setState(() => _termsAccepted = value),
+                    title: 'Acepto términos y política de privacidad',
+                    subtitle:
+                        'Tus sesiones, rutinas, peso corporal y ejercicios propios pertenecen a tu cuenta.',
+                  ),
+                  _ConsentTile(
+                    value: _syncAccepted,
+                    onChanged: (value) => setState(() => _syncAccepted = value),
+                    title: 'Entiendo la sincronización con Firebase',
+                    subtitle:
+                        'Si iniciás sesión con Google, Agujetas puede guardar datos propios en Firebase Auth y Firestore. No usa Firebase Storage en el plan gratuito.',
+                  ),
+                  _ConsentTile(
+                    value: _mediaAcknowledged,
+                    onChanged: (value) =>
+                        setState(() => _mediaAcknowledged = value),
+                    title: 'Entiendo el uso de imágenes locales',
+                    subtitle:
+                        'La galería sólo se solicita si querés asociar una imagen a un ejercicio personalizado.',
+                  ),
+                  _ConsentTile(
+                    value: _notificationsAcknowledged,
+                    onChanged: (value) =>
+                        setState(() => _notificationsAcknowledged = value),
+                    title: 'Entiendo el uso de notificaciones',
+                    subtitle:
+                        'Los avisos de descanso o peso se piden cuando activás esas funciones, no al abrir la app.',
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    InfoBanner(text: _error!),
+                  ],
+                  const SizedBox(height: 18),
+                  FilledButton.icon(
+                    onPressed: _canContinue ? _accept : null,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check_circle_outline),
+                    label: const Text('Aceptar y continuar'),
+                  ),
+                  TextButton(
+                    onPressed: _saving ? null : widget.onSignOut,
+                    child: const Text('Cerrar sesión'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _accept() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.onAccept();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = 'No se pudo guardar el consentimiento: $error');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
+  }
+}
+
+class _ConsentTile extends StatelessWidget {
+  const _ConsentTile({
+    required this.value,
+    required this.onChanged,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return CheckboxListTile(
+      value: value,
+      onChanged: (next) => onChanged(next ?? false),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      controlAffinity: ListTileControlAffinity.leading,
+      contentPadding: EdgeInsets.zero,
     );
   }
 }

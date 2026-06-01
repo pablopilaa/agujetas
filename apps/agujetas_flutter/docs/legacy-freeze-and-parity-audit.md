@@ -514,3 +514,12 @@ Cuadragésimo bloque Cobertura de cleanup remoto implementado:
 - El cleanup cliente borra subcolecciones conocidas bajo `/users/{uid}` antes de borrar el documento `users/{uid}`: sesiones, rutinas, plantillas, peso, ejercicios propios, historial, borradores, exports, consentimientos, dispositivos y preferencias.
 - Se agregó un test de contrato de repositorio para que futuras ediciones no reduzcan sin querer la cobertura de campos ni el orden subcolecciones-antes-documento.
 - Sigue pendiente una Cloud Function/admin cleanup para subcolecciones futuras o rutas nuevas que no estén en este contrato cliente.
+
+Cuadragésimo primer bloque Consentimiento implementado:
+
+- Se agregó un gate post-login de privacidad y datos antes de entrar a Home para usuarios reales.
+- El consentimiento exige aceptar términos/política de privacidad, sincronización Firebase, uso de galería local y notificaciones antes de operar la app comercial.
+- El consentimiento se guarda local-first por usuario en `SharedPreferences` con versión de esquema y se borra junto con `clearAllLocalData`.
+- La demo conserva navegación directa para no romper la experiencia de preview sin guardado.
+- Tests unitarios cubren persistencia/limpieza del consentimiento y tests de widget cubren que Home queda bloqueado hasta aceptar.
+- Queda pendiente reemplazar estos textos internos por términos y política de privacidad legales finales antes de producción.

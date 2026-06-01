@@ -12,6 +12,64 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  testWidgets('privacy consent gate blocks app until accepted', (tester) async {
+    tester.view.physicalSize = const Size(900, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const user = AppUser(
+      uid: 'consent-user',
+      displayName: 'Consent User',
+      email: 'consent@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: PrivacyConsentGate(
+          repository: DemoAgujetasRepository(),
+          user: user,
+          themeMode: ThemeMode.light,
+          onThemeModeChanged: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Privacidad y datos'), findsOneWidget);
+    expect(find.text('Aceptar y continuar'), findsOneWidget);
+    await tester.tap(find.text('Aceptar y continuar'));
+    await tester.pumpAndSettle();
+    expect(
+      await LocalWorkoutStore.instance.loadPrivacyConsent(user.uid),
+      isNull,
+    );
+
+    for (final label in [
+      'Acepto términos y política de privacidad',
+      'Entiendo la sincronización con Firebase',
+      'Entiendo el uso de imágenes locales',
+      'Entiendo el uso de notificaciones',
+    ]) {
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('Aceptar y continuar'));
+    await tester.pumpAndSettle();
+
+    final consent = await LocalWorkoutStore.instance.loadPrivacyConsent(
+      user.uid,
+    );
+    expect(consent?.isCurrent, isTrue);
+    expect(find.text('Modo de cuenta'), findsOneWidget);
+  });
+
   testWidgets('demo user can switch to trainer dashboard', (tester) async {
     await tester.pumpWidget(AgujetasApp(repository: DemoAgujetasRepository()));
     await tester.pump();

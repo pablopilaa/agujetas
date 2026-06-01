@@ -6,7 +6,10 @@ Este documento describe la estructura navegable de la app Flutter. Debe usarse c
 
 ```mermaid
 flowchart TD
-  A["Login"] -->|Continuar con Google| B["Inicio"]
+  A["Login"] -->|Continuar con Google sin consentimiento| A2["Consentimiento de privacidad"]
+  A2 -->|Aceptar términos y datos| B["Inicio"]
+  A2 -->|Cerrar sesión| A
+  A -->|Continuar con Google con consentimiento| B
   A -->|Ver demo sin guardar| B
 
   B["Inicio / Home"] --> M["Modo de cuenta"]
@@ -93,6 +96,8 @@ flowchart TD
 | --- | --- | --- | --- |
 | Login | App sin usuario autenticado | Continuar con Google | Inicio autenticado |
 | Login | App sin usuario autenticado | Ver demo sin guardar | Inicio con `DemoAgujetasRepository` |
+| Consentimiento | Usuario autenticado sin aceptación vigente | Aceptar y continuar | Guardar consentimiento local y entrar a Inicio |
+| Consentimiento | Usuario autenticado sin aceptación vigente | Cerrar sesión | Login |
 | Inicio | Login, bottom nav | Cambiar a Modo usuario | Inicio normal |
 | Inicio | Usuario Free | Tocar Modo entrenador | Popup de upgrade Pro |
 | Inicio | Usuario Pro | Tocar Modo entrenador | Panel entrenador |
@@ -152,6 +157,7 @@ flowchart TD
 - El área táctil mínima del handle debe ser 44 x 44 px.
 - Todo reorder debe tener alternativa accesible: mover arriba y mover abajo.
 - Cada tarjeta clicable debe tener feedback visual y destino claro.
+- El consentimiento post-login se guarda localmente por usuario y bloquea Inicio hasta aceptar términos, sync Firebase, galería local y notificaciones.
 
 ## Pendientes UX
 

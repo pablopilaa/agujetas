@@ -229,6 +229,67 @@ class LocalUserPreferences {
   }
 }
 
+class LocalPrivacyConsent {
+  const LocalPrivacyConsent({
+    required this.acceptedAt,
+    this.schemaVersion = currentSchemaVersion,
+    this.termsAccepted = true,
+    this.firebaseSyncAccepted = true,
+    this.localMediaAcknowledged = true,
+    this.notificationsAcknowledged = true,
+  });
+
+  static const currentSchemaVersion = 1;
+
+  final DateTime acceptedAt;
+  final int schemaVersion;
+  final bool termsAccepted;
+  final bool firebaseSyncAccepted;
+  final bool localMediaAcknowledged;
+  final bool notificationsAcknowledged;
+
+  bool get isCurrent =>
+      schemaVersion >= currentSchemaVersion &&
+      termsAccepted &&
+      firebaseSyncAccepted &&
+      localMediaAcknowledged &&
+      notificationsAcknowledged;
+
+  Map<String, Object?> toJson() => {
+    'acceptedAt': acceptedAt.toUtc().toIso8601String(),
+    'schemaVersion': schemaVersion,
+    'termsAccepted': termsAccepted,
+    'firebaseSyncAccepted': firebaseSyncAccepted,
+    'localMediaAcknowledged': localMediaAcknowledged,
+    'notificationsAcknowledged': notificationsAcknowledged,
+  };
+
+  factory LocalPrivacyConsent.fromJson(Map<String, Object?> json) {
+    return LocalPrivacyConsent(
+      acceptedAt:
+          DateTime.tryParse(json['acceptedAt']?.toString() ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      schemaVersion: _readIntWithDefault(
+        json['schemaVersion'],
+        currentSchemaVersion,
+      ),
+      termsAccepted: _readBoolWithDefault(json['termsAccepted'], false),
+      firebaseSyncAccepted: _readBoolWithDefault(
+        json['firebaseSyncAccepted'],
+        false,
+      ),
+      localMediaAcknowledged: _readBoolWithDefault(
+        json['localMediaAcknowledged'],
+        false,
+      ),
+      notificationsAcknowledged: _readBoolWithDefault(
+        json['notificationsAcknowledged'],
+        false,
+      ),
+    );
+  }
+}
+
 String? _optionalString(Object? value) {
   final text = value?.toString().trim();
   return text == null || text.isEmpty ? null : text;
@@ -298,6 +359,26 @@ class LocalWorkoutStore {
     );
   }
 
+  Future<LocalPrivacyConsent?> loadPrivacyConsent(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_privacyConsentKey(userId));
+    if (raw == null || raw.isEmpty) return null;
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    return LocalPrivacyConsent.fromJson(decoded.cast<String, Object?>());
+  }
+
+  Future<void> savePrivacyConsent({
+    required String userId,
+    required LocalPrivacyConsent consent,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _privacyConsentKey(userId),
+      jsonEncode(consent.toJson()),
+    );
+  }
+
   Future<void> clearAllLocalData(String userId) async {
     final prefs = await SharedPreferences.getInstance();
     await Future.wait([
@@ -307,6 +388,7 @@ class LocalWorkoutStore {
       prefs.remove(_bodyWeightsKey(userId)),
       prefs.remove(_customExercisesKey(userId)),
       prefs.remove(_preferencesKey(userId)),
+      prefs.remove(_privacyConsentKey(userId)),
     ]);
   }
 
@@ -775,6 +857,9 @@ class LocalWorkoutStore {
 
   String _preferencesKey(String userId) =>
       'agujetas.localUserPreferences.v1.$userId';
+
+  String _privacyConsentKey(String userId) =>
+      'agujetas.localPrivacyConsent.v1.$userId';
 }
 
 List<T> _upsertById<T>(

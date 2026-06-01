@@ -227,6 +227,26 @@ void main() {
     expect(otherPreferences.localGalleryEnabled, isFalse);
   });
 
+  test('local workout store persists privacy consent by user', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+
+    expect(await store.loadPrivacyConsent('consent-user'), isNull);
+
+    await store.savePrivacyConsent(
+      userId: 'consent-user',
+      consent: LocalPrivacyConsent(acceptedAt: DateTime.utc(2026, 6, 1)),
+    );
+
+    final consent = await store.loadPrivacyConsent('consent-user');
+    final otherConsent = await store.loadPrivacyConsent('other-user');
+
+    expect(consent, isNotNull);
+    expect(consent!.isCurrent, isTrue);
+    expect(consent.acceptedAt, DateTime.utc(2026, 6, 1));
+    expect(otherConsent, isNull);
+  });
+
   test('local workout store clears all local data for one user', () async {
     SharedPreferences.setMockInitialValues({});
     final store = LocalWorkoutStore.instance;
@@ -274,6 +294,10 @@ void main() {
       userId: userId,
       preferences: const LocalUserPreferences(localGalleryEnabled: true),
     );
+    await store.savePrivacyConsent(
+      userId: userId,
+      consent: LocalPrivacyConsent(acceptedAt: DateTime.utc(2026, 6, 1)),
+    );
     await store.saveSession(
       userId: 'other-user',
       sessionMode: 'Fuerza',
@@ -292,6 +316,7 @@ void main() {
       (await store.loadUserPreferences(userId)).localGalleryEnabled,
       isFalse,
     );
+    expect(await store.loadPrivacyConsent(userId), isNull);
     expect(await store.loadSessions('other-user'), hasLength(1));
   });
 
