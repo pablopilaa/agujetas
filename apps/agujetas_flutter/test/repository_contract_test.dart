@@ -234,6 +234,28 @@ void main() {
       ),
     );
   });
+
+  test('assigned client actions update task schedule and goal records', () {
+    final repository = _readRepositorySource();
+    final rules = _readFirestoreRules();
+
+    expect(repository, contains('updateAssignedTaskStatus'));
+    expect(repository, contains(".collection('tasks').doc(task.id).update"));
+    expect(repository, contains('updateAssignedScheduleStatus'));
+    expect(
+      repository,
+      contains(".collection('schedules').doc(schedule.id).update"),
+    );
+    expect(repository, contains('updateAssignedGoalProgress'));
+    expect(repository, contains(".collection('goals').doc(goal.id).update"));
+    expect(repository, contains("'currentValue': currentValue"));
+    expect(
+      rules,
+      contains(
+        'allow read, update, delete: if canAccessRecord(resource.data);',
+      ),
+    );
+  });
 }
 
 String _readRepositorySource() {

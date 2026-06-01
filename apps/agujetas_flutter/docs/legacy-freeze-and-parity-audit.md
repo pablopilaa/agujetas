@@ -611,3 +611,11 @@ Quincuagésimo primer bloque Metas entrenador-entrenado:
 - El panel entrenador muestra `Meta` por entrenado activo y crea una meta de volumen semanal.
 - El usuario normal tiene una sección `Metas del entrenador` con porcentaje y barra de progreso.
 - Quedan pendientes edición de progreso, cierre de meta, metas derivadas automáticamente del historial y notificaciones por desvíos.
+
+Quincuagésimo segundo bloque Acciones del entrenado sobre asignaciones:
+
+- `AgujetasRepository` expone updates para tareas, schedules y metas asignadas: `updateAssignedTaskStatus`, `updateAssignedScheduleStatus` y `updateAssignedGoalProgress`.
+- Firebase actualiza `tasks/{id}`, `schedules/{id}` y `goals/{id}` solo si el documento pertenece al usuario vinculado o a su entrenador activo según reglas existentes.
+- La demo actualiza sus listas en memoria y emite streams para que preview/tests no dependan de Firestore.
+- El usuario normal puede tocar `Completar` en una tarea, `Cancelar` en un schedule y `+25%` en una meta.
+- Quedan pendientes edición fina: comentarios de entrega, reprogramación de schedule, input manual de progreso de meta y auditoría de cambios por entrenador.

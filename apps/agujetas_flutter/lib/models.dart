@@ -699,6 +699,19 @@ class AssignedTask {
       dueAt: DateTime.tryParse(json['dueAt']?.toString() ?? ''),
     );
   }
+
+  AssignedTask copyWith({String? status}) {
+    return AssignedTask(
+      id: id,
+      trainerId: trainerId,
+      assignedClientId: assignedClientId,
+      title: title,
+      description: description,
+      status: status ?? this.status,
+      assignedAt: assignedAt,
+      dueAt: dueAt,
+    );
+  }
 }
 
 class AssignedSchedule {
@@ -756,6 +769,21 @@ class AssignedSchedule {
       note: json['note']?.toString(),
       routineTemplateId: json['routineTemplateId']?.toString(),
       routineTitle: json['routineTitle']?.toString(),
+    );
+  }
+
+  AssignedSchedule copyWith({String? status, DateTime? scheduledFor}) {
+    return AssignedSchedule(
+      id: id,
+      trainerId: trainerId,
+      assignedClientId: assignedClientId,
+      title: title,
+      scheduledFor: scheduledFor ?? this.scheduledFor,
+      status: status ?? this.status,
+      assignedAt: assignedAt,
+      note: note,
+      routineTemplateId: routineTemplateId,
+      routineTitle: routineTitle,
     );
   }
 }
@@ -826,6 +854,23 @@ class AssignedGoal {
           DateTime.now().toUtc(),
       dueAt: DateTime.tryParse(json['dueAt']?.toString() ?? ''),
       note: json['note']?.toString(),
+    );
+  }
+
+  AssignedGoal copyWith({double? currentValue, String? status}) {
+    return AssignedGoal(
+      id: id,
+      trainerId: trainerId,
+      assignedClientId: assignedClientId,
+      title: title,
+      metric: metric,
+      targetValue: targetValue,
+      currentValue: currentValue ?? this.currentValue,
+      unit: unit,
+      status: status ?? this.status,
+      assignedAt: assignedAt,
+      dueAt: dueAt,
+      note: note,
     );
   }
 }

@@ -213,6 +213,71 @@ void main() {
     expect(find.textContaining('asignada a Sofia Demo'), findsOneWidget);
   });
 
+  testWidgets('athlete dashboard updates task schedule and goal actions', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 2200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _AssignmentActionRepository();
+    final notices = <String>[];
+    const user = AppUser(
+      uid: 'client-action-user',
+      displayName: 'Cliente',
+      email: 'cliente@agujetas.app',
+      photoUrl: null,
+      roles: {AppRole.normal},
+      activeRole: AppRole.normal,
+      plan: AppPlan.free,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: HomeDashboard(
+            user: user,
+            repository: repository,
+            inviteCode: null,
+            notice: null,
+            onInviteCreated: (_) {},
+            onNotice: notices.add,
+            selectedSessionMode: 'Fuerza',
+            routines: const [],
+            assignedSchedules: [repository.schedule],
+            assignedGoals: [repository.goal],
+            onSessionModeSelected: (_) {},
+            onStartWorkout: () {},
+            onStartRoutine: (_) {},
+            onOpenCalendar: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Completar'));
+    await tester.tap(find.text('Completar'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.ensureVisible(find.text('Cancelar'));
+    await tester.tap(find.text('Cancelar'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.ensureVisible(find.text('+25%'));
+    await tester.tap(find.text('+25%'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(repository.updatedTaskStatus, 'completed');
+    expect(repository.updatedScheduleStatus, 'cancelled');
+    expect(repository.updatedGoalValue, 4500);
+    expect(notices, contains('Tarea "Registrar peso corporal" completada.'));
+    expect(notices, contains('Schedule "Sesión técnica" cancelado.'));
+    expect(notices, contains('Meta "Volumen semanal" actualizada.'));
+  });
+
   testWidgets('profile plan sheet exposes Pro contract and demo activation', (
     tester,
   ) async {
@@ -1969,3 +2034,75 @@ String _monthNameForTest(int month) => const [
   'Noviembre',
   'Diciembre',
 ][month - 1];
+
+class _AssignmentActionRepository extends DemoAgujetasRepository {
+  final task = AssignedTask(
+    id: 'task-action',
+    trainerId: 'trainer-1',
+    assignedClientId: 'client-action-user',
+    title: 'Registrar peso corporal',
+    description: 'Cargar peso semanal.',
+    status: 'pending',
+    assignedAt: DateTime.utc(2026, 6, 1),
+  );
+
+  final schedule = AssignedSchedule(
+    id: 'schedule-action',
+    trainerId: 'trainer-1',
+    assignedClientId: 'client-action-user',
+    title: 'Sesión técnica',
+    scheduledFor: DateTime.utc(2026, 6, 10, 21),
+    status: 'scheduled',
+    assignedAt: DateTime.utc(2026, 6, 1),
+  );
+
+  final goal = AssignedGoal(
+    id: 'goal-action',
+    trainerId: 'trainer-1',
+    assignedClientId: 'client-action-user',
+    title: 'Volumen semanal',
+    metric: 'weekly_volume',
+    targetValue: 18000,
+    currentValue: 0,
+    unit: 'kg-reps',
+    status: 'active',
+    assignedAt: DateTime.utc(2026, 6, 1),
+  );
+
+  String? updatedTaskStatus;
+  String? updatedScheduleStatus;
+  double? updatedGoalValue;
+
+  @override
+  Stream<List<AssignedTask>> watchAssignedTasksForClient(String clientId) {
+    return Stream.value([task]);
+  }
+
+  @override
+  Future<void> updateAssignedTaskStatus({
+    required AppUser user,
+    required AssignedTask task,
+    required String status,
+  }) async {
+    updatedTaskStatus = status;
+  }
+
+  @override
+  Future<void> updateAssignedScheduleStatus({
+    required AppUser user,
+    required AssignedSchedule schedule,
+    required String status,
+  }) async {
+    updatedScheduleStatus = status;
+  }
+
+  @override
+  Future<void> updateAssignedGoalProgress({
+    required AppUser user,
+    required AssignedGoal goal,
+    required double currentValue,
+    required String status,
+  }) async {
+    updatedGoalValue = currentValue;
+  }
+}

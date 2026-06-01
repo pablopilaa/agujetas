@@ -69,6 +69,11 @@ abstract class AgujetasRepository {
     DateTime? dueAt,
   });
   Stream<List<AssignedTask>> watchAssignedTasksForClient(String clientId);
+  Future<void> updateAssignedTaskStatus({
+    required AppUser user,
+    required AssignedTask task,
+    required String status,
+  });
   Future<AssignedSchedule> assignScheduleToClient({
     required AppUser trainer,
     required TrainerClientLink client,
@@ -80,6 +85,11 @@ abstract class AgujetasRepository {
   Stream<List<AssignedSchedule>> watchAssignedSchedulesForClient(
     String clientId,
   );
+  Future<void> updateAssignedScheduleStatus({
+    required AppUser user,
+    required AssignedSchedule schedule,
+    required String status,
+  });
   Future<AssignedGoal> assignGoalToClient({
     required AppUser trainer,
     required TrainerClientLink client,
@@ -92,6 +102,12 @@ abstract class AgujetasRepository {
     String? note,
   });
   Stream<List<AssignedGoal>> watchAssignedGoalsForClient(String clientId);
+  Future<void> updateAssignedGoalProgress({
+    required AppUser user,
+    required AssignedGoal goal,
+    required double currentValue,
+    required String status,
+  });
   Future<void> saveSession({
     required AppUser user,
     required LocalWorkoutSession session,
@@ -469,6 +485,24 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
   }
 
   @override
+  Future<void> updateAssignedTaskStatus({
+    required AppUser user,
+    required AssignedTask task,
+    required String status,
+  }) async {
+    if (task.assignedClientId != user.uid) {
+      throw StateError('Esta tarea no pertenece al usuario actual.');
+    }
+    await _firestore.collection('tasks').doc(task.id).update({
+      'status': status,
+      'completedAt': status == 'completed'
+          ? FieldValue.serverTimestamp()
+          : null,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  @override
   Future<AssignedSchedule> assignScheduleToClient({
     required AppUser trainer,
     required TrainerClientLink client,
@@ -525,6 +559,21 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
                   .toList()
                 ..sort((a, b) => a.scheduledFor.compareTo(b.scheduledFor)),
         );
+  }
+
+  @override
+  Future<void> updateAssignedScheduleStatus({
+    required AppUser user,
+    required AssignedSchedule schedule,
+    required String status,
+  }) async {
+    if (schedule.assignedClientId != user.uid) {
+      throw StateError('Este schedule no pertenece al usuario actual.');
+    }
+    await _firestore.collection('schedules').doc(schedule.id).update({
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   @override
@@ -585,6 +634,23 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
                   .toList()
                 ..sort((a, b) => a.assignedAt.compareTo(b.assignedAt)),
         );
+  }
+
+  @override
+  Future<void> updateAssignedGoalProgress({
+    required AppUser user,
+    required AssignedGoal goal,
+    required double currentValue,
+    required String status,
+  }) async {
+    if (goal.assignedClientId != user.uid) {
+      throw StateError('Esta meta no pertenece al usuario actual.');
+    }
+    await _firestore.collection('goals').doc(goal.id).update({
+      'currentValue': currentValue,
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   @override
@@ -1028,6 +1094,17 @@ class DemoAgujetasRepository implements AgujetasRepository {
   }
 
   @override
+  Future<void> updateAssignedTaskStatus({
+    required AppUser user,
+    required AssignedTask task,
+    required String status,
+  }) async {
+    _assignedTaskItems.removeWhere((item) => item.id == task.id);
+    _assignedTaskItems.insert(0, task.copyWith(status: status));
+    _assignedTasks.add(List.unmodifiable(_assignedTaskItems));
+  }
+
+  @override
   Future<AssignedSchedule> assignScheduleToClient({
     required AppUser trainer,
     required TrainerClientLink client,
@@ -1074,6 +1151,17 @@ class DemoAgujetasRepository implements AgujetasRepository {
   }
 
   @override
+  Future<void> updateAssignedScheduleStatus({
+    required AppUser user,
+    required AssignedSchedule schedule,
+    required String status,
+  }) async {
+    _assignedScheduleItems.removeWhere((item) => item.id == schedule.id);
+    _assignedScheduleItems.insert(0, schedule.copyWith(status: status));
+    _assignedSchedules.add(List.unmodifiable(_assignedScheduleItems));
+  }
+
+  @override
   Future<AssignedGoal> assignGoalToClient({
     required AppUser trainer,
     required TrainerClientLink client,
@@ -1117,6 +1205,21 @@ class DemoAgujetasRepository implements AgujetasRepository {
       (items) =>
           items.where((goal) => goal.assignedClientId == clientId).toList(),
     );
+  }
+
+  @override
+  Future<void> updateAssignedGoalProgress({
+    required AppUser user,
+    required AssignedGoal goal,
+    required double currentValue,
+    required String status,
+  }) async {
+    _assignedGoalItems.removeWhere((item) => item.id == goal.id);
+    _assignedGoalItems.insert(
+      0,
+      goal.copyWith(currentValue: currentValue, status: status),
+    );
+    _assignedGoals.add(List.unmodifiable(_assignedGoalItems));
   }
 
   @override

@@ -1864,6 +1864,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
             controller: _inviteController,
             busy: _busy,
             onAcceptInvite: _acceptInvite,
+            onNotice: widget.onNotice,
           ),
       ],
     );
@@ -2095,6 +2096,7 @@ class _AthletePanel extends StatelessWidget {
     required this.controller,
     required this.busy,
     required this.onAcceptInvite,
+    required this.onNotice,
   });
 
   final AppUser user;
@@ -2104,6 +2106,7 @@ class _AthletePanel extends StatelessWidget {
   final TextEditingController controller;
   final bool busy;
   final VoidCallback onAcceptInvite;
+  final ValueChanged<String> onNotice;
 
   @override
   Widget build(BuildContext context) {
@@ -2183,6 +2186,12 @@ class _AthletePanel extends StatelessWidget {
                             ),
                             title: Text(task.title),
                             subtitle: Text(task.description),
+                            trailing: task.status == 'completed'
+                                ? const Icon(Icons.check_circle)
+                                : TextButton(
+                                    onPressed: () => _completeTask(task),
+                                    child: const Text('Completar'),
+                                  ),
                           ),
                       ],
                     ),
@@ -2206,7 +2215,16 @@ class _AthletePanel extends StatelessWidget {
                           child: Icon(Icons.calendar_today_outlined),
                         ),
                         title: Text(schedule.title),
-                        subtitle: Text(_scheduleSubtitle(schedule)),
+                        subtitle: Text(
+                          '${_scheduleSubtitle(schedule)}'
+                          '${schedule.status == 'cancelled' ? ' · cancelado' : ''}',
+                        ),
+                        trailing: schedule.status == 'cancelled'
+                            ? const Icon(Icons.event_busy)
+                            : TextButton(
+                                onPressed: () => _cancelSchedule(schedule),
+                                child: const Text('Cancelar'),
+                              ),
                       ),
                   ],
                 ),
@@ -2236,12 +2254,64 @@ class _AthletePanel extends StatelessWidget {
                             LinearProgressIndicator(value: goal.progressRatio),
                           ],
                         ),
+                        trailing: TextButton(
+                          onPressed: goal.status == 'completed'
+                              ? null
+                              : () => _advanceGoal(goal),
+                          child: const Text('+25%'),
+                        ),
                       ),
                   ],
                 ),
         ),
       ],
     );
+  }
+
+  Future<void> _completeTask(AssignedTask task) async {
+    try {
+      await repository.updateAssignedTaskStatus(
+        user: user,
+        task: task,
+        status: 'completed',
+      );
+      onNotice('Tarea "${task.title}" completada.');
+    } catch (error) {
+      onNotice('No pude completar la tarea: $error');
+    }
+  }
+
+  Future<void> _cancelSchedule(AssignedSchedule schedule) async {
+    try {
+      await repository.updateAssignedScheduleStatus(
+        user: user,
+        schedule: schedule,
+        status: 'cancelled',
+      );
+      onNotice('Schedule "${schedule.title}" cancelado.');
+    } catch (error) {
+      onNotice('No pude cancelar el schedule: $error');
+    }
+  }
+
+  Future<void> _advanceGoal(AssignedGoal goal) async {
+    final increment = goal.targetValue * 0.25;
+    final nextValue = (goal.currentValue + increment).clamp(
+      0,
+      goal.targetValue,
+    );
+    final nextStatus = nextValue >= goal.targetValue ? 'completed' : 'active';
+    try {
+      await repository.updateAssignedGoalProgress(
+        user: user,
+        goal: goal,
+        currentValue: nextValue.toDouble(),
+        status: nextStatus,
+      );
+      onNotice('Meta "${goal.title}" actualizada.');
+    } catch (error) {
+      onNotice('No pude actualizar la meta: $error');
+    }
   }
 }
 

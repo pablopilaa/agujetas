@@ -115,8 +115,11 @@ flowchart TD
 | Inicio | Usuario Pro | Tocar Modo entrenador | Panel entrenador |
 | Inicio | Usuario vinculado | Rutinas asignadas | Lista desde Firestore `assignedRoutines` |
 | Inicio | Usuario vinculado | Tareas del entrenador | Lista desde Firestore `tasks` |
+| Inicio | Tarea asignada | Completar | Actualizar `tasks/{id}.status = completed` |
 | Inicio | Usuario vinculado | Schedules asignados | Lista desde Firestore `schedules` |
+| Inicio | Schedule asignado | Cancelar | Actualizar `schedules/{id}.status = cancelled` |
 | Inicio | Usuario vinculado | Metas del entrenador | Lista desde Firestore `goals` con progreso |
+| Inicio | Meta asignada | +25% | Actualizar `goals/{id}.currentValue` y completar si llega al objetivo |
 | Inicio | Selector Fuerza / Hipertrofia / Técnica / Libre | Elegir modo de sesión | Entrenar con modo elegido |
 | Inicio | CTA iniciar entrenamiento | Iniciar sesión recomendada | Entrenar |
 | Inicio | Card calendario | Ver calendario mensual | Bottom sheet de calendario con navegación por mes |
@@ -194,6 +197,7 @@ flowchart TD
 - Las sesiones siguen el mismo patrón local-first: calendario/progreso leen del dispositivo, sync Firestore por `ownerId`, delete remoto best-effort y merge por `id`.
 - El `id` local de sesión es el `docId` remoto; no se usa `add()` para evitar duplicados imposibles de reconciliar.
 - Las asignaciones de entrenador viven en `assignedRoutines`, `tasks`, `schedules` y `goals`: el entrenador escribe sólo si tiene vínculo activo con el entrenado y el usuario normal lee sus rutinas/tareas/schedules/metas por `assignedClientId`.
+- Las acciones del entrenado sobre asignaciones no deben mutar UI solamente: completado de tarea, cancelación de schedule y avance de meta deben pasar por `AgujetasRepository` y escribir Firestore/demo.
 
 ## Pendientes UX
 

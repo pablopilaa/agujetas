@@ -43,6 +43,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
   - `trainer`: entrenador que tambien puede entrenar como usuario normal.
 - Vinculacion entrenador-entrenado por codigo de invitacion.
 - Modo entrenador Pro con primera asignacion real de rutinas, tareas, schedules y metas: el entrenador puede asignar una plantilla existente a un entrenado vinculado, enviar una tarea puntual, agendar una sesion, asignar una meta medible y el usuario normal ve rutinas/tareas/schedules/metas asignados desde `assignedRoutines`, `tasks`, `schedules` y `goals`.
+- El usuario normal puede accionar asignaciones recibidas: completar tareas, cancelar schedules y actualizar progreso de metas con persistencia en Firestore/demo.
 - Series con:
   - `setType`: `normal`, `warmup`, `dropset`.
   - `segments`: pesos/reps multiples, por ejemplo `20 kg x 8 + 10 kg x 6`.
