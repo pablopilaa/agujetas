@@ -108,6 +108,7 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
       throw StateError('No hay una sesión activa para eliminar esta cuenta.');
     }
 
+    await _reauthenticateForAccountDeletion(currentUser);
     await _deleteKnownFirestoreData(user.uid);
     try {
       await currentUser.delete();
@@ -122,6 +123,37 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
       try {
         await GoogleSignIn.instance.disconnect();
       } catch (_) {}
+    }
+  }
+
+  Future<void> _reauthenticateForAccountDeletion(fb.User currentUser) async {
+    try {
+      if (kIsWeb) {
+        final provider = fb.GoogleAuthProvider();
+        final result = await currentUser.reauthenticateWithPopup(provider);
+        if (result.user?.uid != currentUser.uid) {
+          throw StateError('La cuenta Google elegida no coincide.');
+        }
+        return;
+      }
+
+      await GoogleSignIn.instance.initialize(serverClientId: _webClientId);
+      final googleUser = await GoogleSignIn.instance.authenticate();
+      final googleAuth = googleUser.authentication;
+      final credential = fb.GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+      final result = await currentUser.reauthenticateWithCredential(credential);
+      if (result.user?.uid != currentUser.uid) {
+        throw StateError('La cuenta Google elegida no coincide.');
+      }
+    } on fb.FirebaseAuthException catch (error) {
+      if (error.code == 'requires-recent-login') {
+        throw const AccountDeletionRequiresRecentLoginException();
+      }
+      rethrow;
+    } catch (_) {
+      throw const AccountDeletionRequiresRecentLoginException();
     }
   }
 

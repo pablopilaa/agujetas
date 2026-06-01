@@ -494,8 +494,15 @@ Trigésimo séptimo bloque Limpieza y ownership implementado:
 Trigésimo octavo bloque Borrado de cuenta remoto implementado:
 
 - `AgujetasRepository` incorpora `deleteAccount(AppUser user)` como contrato explícito para borrar una cuenta, en vez de limitar Perfil a limpiar datos locales.
-- El repositorio Firebase borra documentos conocidos del usuario en `sessions`, `routineTemplates`, `customExercises`, `bodyWeights`, `assignedRoutines`, `tasks`, `schedules`, `goals`, `trainerProfiles`, `trainerInvites`, `trainerClientLinks` y `users/{uid}` antes de intentar eliminar Firebase Auth.
-- Si Firebase Auth exige login reciente, la UI muestra un mensaje específico de reautenticación en vez de decir genéricamente que falló el borrado.
+- El repositorio Firebase reautentica con Google antes de borrar documentos conocidos del usuario en `sessions`, `routineTemplates`, `customExercises`, `bodyWeights`, `assignedRoutines`, `tasks`, `schedules`, `goals`, `trainerProfiles`, `trainerInvites`, `trainerClientLinks` y `users/{uid}`.
+- Después de la limpieza Firestore conocida, elimina Firebase Auth; si Google/Firebase no permite reautenticar, la UI muestra un mensaje específico y no avanza con el borrado remoto.
 - El modo demo también implementa `deleteAccount`, limpiando streams locales y cerrando la sesión demo.
 - El diálogo de Perfil deja de prometer sólo borrado local y comunica el alcance real: dispositivo, Firestore conocido y Firebase Auth.
-- Queda pendiente para producción una Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente y un flujo de reautenticación Google dedicado.
+- Queda pendiente para producción una Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente.
+
+Trigésimo noveno bloque Reautenticación segura de borrado implementado:
+
+- `FirebaseAgujetasRepository.deleteAccount` ahora reautentica con Google antes de borrar Firestore, evitando que un `requires-recent-login` deje documentos remotos parcialmente eliminados con Auth todavía activo.
+- En web usa el provider de Google desde Firebase Auth; en Android/iOS vuelve a autenticar con `google_sign_in` y valida que el `uid` reautenticado coincida con la cuenta actual.
+- El diálogo de Perfil avisa que el flujo puede pedir volver a ingresar con Google antes de proceder.
+- El test de widget conserva la cobertura del caso de reautenticación requerida y valida el nuevo texto preventivo.

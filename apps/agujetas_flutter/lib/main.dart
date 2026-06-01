@@ -7681,7 +7681,7 @@ class ProfileScreen extends StatelessWidget {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Eliminar cuenta'),
         content: const Text(
-          'Esto borra de este dispositivo sesiones, rutinas, peso corporal, ejercicios personalizados, preferencias y el entrenamiento activo. También intenta borrar tus documentos remotos conocidos de Firestore y tu cuenta de Firebase Auth.',
+          'Esto puede pedirte que vuelvas a ingresar con Google. Después borra de este dispositivo sesiones, rutinas, peso corporal, ejercicios personalizados, preferencias y el entrenamiento activo. También intenta borrar tus documentos remotos conocidos de Firestore y tu cuenta de Firebase Auth.',
         ),
         actions: [
           TextButton(

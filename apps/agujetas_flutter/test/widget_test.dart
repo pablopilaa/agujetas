@@ -1631,6 +1631,10 @@ void main() {
       find.textContaining('documentos remotos conocidos de Firestore'),
       findsOneWidget,
     );
+    expect(
+      find.textContaining('vuelvas a ingresar con Google'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.widgetWithText(FilledButton, 'Eliminar cuenta'));
     await tester.pumpAndSettle();
