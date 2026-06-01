@@ -518,7 +518,6 @@ class LocalWorkoutStore {
     required String userId,
     required BodyWeightEntry entry,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
     final previous = await loadBodyWeights(userId);
     final normalized = BodyWeightEntry(
       id: entry.id,
@@ -531,9 +530,64 @@ class LocalWorkoutStore {
       normalized,
       ...previous.where((item) => item.id != normalized.id),
     ]..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
+    await replaceBodyWeightsLocal(userId: userId, entries: next);
+  }
+
+  Future<int> mergeBodyWeightsLocal({
+    required String userId,
+    required List<BodyWeightEntry> entries,
+  }) async {
+    if (entries.isEmpty) return 0;
+    final previous = await loadBodyWeights(userId);
+    final byId = <String, BodyWeightEntry>{
+      for (final entry in previous) entry.id: entry,
+    };
+    var changed = 0;
+    for (final entry in entries) {
+      if (entry.id.isEmpty) continue;
+      final normalized = BodyWeightEntry(
+        id: entry.id,
+        userId: userId,
+        weightKg: entry.weightKg,
+        recordedAt: entry.recordedAt,
+        note: entry.note,
+      );
+      final previousEntry = byId[normalized.id];
+      byId[normalized.id] = normalized;
+      if (previousEntry == null ||
+          previousEntry.userId != normalized.userId ||
+          previousEntry.weightKg != normalized.weightKg ||
+          previousEntry.recordedAt != normalized.recordedAt ||
+          previousEntry.note != normalized.note) {
+        changed++;
+      }
+    }
+    await replaceBodyWeightsLocal(userId: userId, entries: byId.values);
+    return changed;
+  }
+
+  Future<void> replaceBodyWeightsLocal({
+    required String userId,
+    required Iterable<BodyWeightEntry> entries,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final normalized =
+        entries
+            .where((entry) => entry.id.isNotEmpty)
+            .map(
+              (entry) => BodyWeightEntry(
+                id: entry.id,
+                userId: userId,
+                weightKg: entry.weightKg,
+                recordedAt: entry.recordedAt,
+                note: entry.note,
+              ),
+            )
+            .toList()
+          ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt));
     await prefs.setString(
       _bodyWeightsKey(userId),
-      jsonEncode(next.take(1000).map((item) => item.toJson()).toList()),
+      jsonEncode(normalized.take(1000).map((item) => item.toJson()).toList()),
     );
   }
 
@@ -808,7 +862,7 @@ class LocalWorkoutStore {
         (item) => item.id,
       ),
     );
-    await _replaceBodyWeights(
+    await replaceBodyWeightsLocal(
       userId: userId,
       entries: _upsertById(
         previousBodyWeights,
@@ -830,29 +884,6 @@ class LocalWorkoutStore {
       routines: importedRoutines.length,
       bodyWeights: importedBodyWeights.length,
       customExercises: importedCustomExercises.length,
-    );
-  }
-
-  Future<void> _replaceBodyWeights({
-    required String userId,
-    required List<BodyWeightEntry> entries,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final normalized = entries
-        .map(
-          (entry) => BodyWeightEntry(
-            id: entry.id,
-            userId: userId,
-            weightKg: entry.weightKg,
-            recordedAt: entry.recordedAt,
-            note: entry.note,
-          ),
-        )
-        .take(1000)
-        .toList();
-    await prefs.setString(
-      _bodyWeightsKey(userId),
-      jsonEncode(normalized.map((item) => item.toJson()).toList()),
     );
   }
 

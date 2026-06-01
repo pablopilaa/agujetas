@@ -396,7 +396,11 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
         .map(
           (snapshot) =>
               snapshot.docs
-                  .map((doc) => BodyWeightEntry.fromJson(doc.data()))
+                  .map(
+                    (doc) =>
+                        BodyWeightEntry.fromJson({...doc.data(), 'id': doc.id}),
+                  )
+                  .where((entry) => entry.id.isNotEmpty)
                   .toList()
                 ..sort((a, b) => b.recordedAt.compareTo(a.recordedAt)),
         );

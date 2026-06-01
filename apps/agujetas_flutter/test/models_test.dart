@@ -491,6 +491,51 @@ void main() {
     expect(entries.first.weightKg, 81.9);
   });
 
+  test(
+    'local workout store merges remote body weights without losing local',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = LocalWorkoutStore.instance;
+
+      await store.saveBodyWeightLocal(
+        userId: 'weight-sync-user',
+        entry: BodyWeightEntry(
+          id: 'local-only',
+          userId: 'weight-sync-user',
+          weightKg: 82,
+          recordedAt: DateTime.utc(2026, 5, 1),
+        ),
+      );
+
+      final changed = await store.mergeBodyWeightsLocal(
+        userId: 'weight-sync-user',
+        entries: [
+          BodyWeightEntry(
+            id: 'remote-only',
+            userId: 'other-user',
+            weightKg: 81.5,
+            recordedAt: DateTime.utc(2026, 5, 2),
+          ),
+          BodyWeightEntry(
+            id: 'local-only',
+            userId: 'weight-sync-user',
+            weightKg: 81.8,
+            recordedAt: DateTime.utc(2026, 5, 3),
+          ),
+        ],
+      );
+
+      final entries = await store.loadBodyWeights('weight-sync-user');
+
+      expect(changed, 2);
+      expect(entries.map((entry) => entry.id), ['local-only', 'remote-only']);
+      expect(entries.map((entry) => entry.userId).toSet(), {
+        'weight-sync-user',
+      });
+      expect(entries.first.weightKg, 81.8);
+    },
+  );
+
   test('local workout store persists custom exercises by user', () async {
     SharedPreferences.setMockInitialValues({});
     final store = LocalWorkoutStore.instance;

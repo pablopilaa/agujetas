@@ -114,6 +114,7 @@ flowchart TD
 | Progreso | Bottom nav | Registrar peso | Bottom sheet de peso |
 | Progreso | Alertarme cada mañana | Programar alerta diaria | Notificación local diaria |
 | Progreso | Peso corporal | Ver tendencia | Último peso, promedio reciente, delta e historial local |
+| Progreso | Peso corporal | Sync remoto | Merge Firestore `bodyWeights` por `id` sin borrar registros offline |
 | Progreso | Volumen semanal | Revisar tendencia local | Comparación con semana previa cuando existe historial |
 | Progreso | Dropsets | Revisar series efectivas | Conteo real desde sesiones locales o sesión activa |
 | Progreso | Calendario | Ver calendario mensual | Bottom sheet de calendario con sesiones históricas |
@@ -161,6 +162,7 @@ flowchart TD
 - El consentimiento post-login se guarda localmente por usuario y bloquea Inicio hasta aceptar términos, sync Firebase, galería local y notificaciones.
 - Cada consentimiento guarda versión de esquema, términos, privacidad, datos y notificaciones. Si una versión cambia, el usuario real debe volver a aceptar.
 - Las preferencias de Perfil se leen primero desde el dispositivo y después desde Firebase. Si Firebase falla, la app conserva el valor local y muestra aviso.
+- El peso corporal se muestra desde local inmediatamente, sube registros recientes a Firestore en segundo plano y fusiona snapshots remotos por `id`.
 
 ## Pendientes UX
 

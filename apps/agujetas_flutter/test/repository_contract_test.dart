@@ -84,6 +84,22 @@ void main() {
     expect(rules, contains('request.resource.data.plan == resource.data.plan'));
     expect(rules, contains("'preferences'"));
   });
+
+  test('body weight sync uses owner scoped Firestore records', () {
+    final repository = _readRepositorySource();
+    final rules = _readFirestoreRules();
+
+    expect(repository, contains(".collection('bodyWeights')"));
+    expect(repository, contains(".where('userId', isEqualTo: userId)"));
+    expect(repository, contains("'userId': user.uid"));
+    expect(repository, contains("'id': doc.id"));
+    expect(
+      rules,
+      contains(
+        'allow create: if signedIn()\n        && request.resource.data.userId == request.auth.uid;',
+      ),
+    );
+  });
 }
 
 String _readRepositorySource() {

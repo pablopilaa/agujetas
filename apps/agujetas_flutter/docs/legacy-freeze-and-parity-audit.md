@@ -539,3 +539,11 @@ Cuadragésimo tercer bloque Preferencias Firebase-ready:
 - `FirebaseAgujetasRepository` guarda preferencias en `/users/{uid}/preferences/app` y espeja `preferredTheme` en `users/{uid}` bajo campos ya permitidos por reglas.
 - Si Firebase falla, la app mantiene preferencias locales y muestra aviso sin bloquear entrenamiento.
 - La demo implementa el mismo contrato en memoria para que preview y tests sigan funcionando.
+
+Cuadragésimo cuarto bloque Peso corporal bidireccional:
+
+- `HomeShell` carga peso corporal local inmediatamente y, para usuarios reales, activa sync Firestore en segundo plano.
+- Los registros locales recientes se suben best-effort a `bodyWeights` sin bloquear la UI.
+- `watchBodyWeights` escucha snapshots remotos del usuario y los fusiona localmente por `id`, normalizando `userId` y preservando registros offline no sincronizados.
+- `LocalWorkoutStore.mergeBodyWeightsLocal` agrega el contrato reutilizable de merge local-first que luego puede repetirse para otros dominios.
+- Tests cubren merge local/remoto, ownership Firestore de `bodyWeights` y que el flujo siga pasando con 77 tests.

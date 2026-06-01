@@ -598,6 +598,7 @@ class _HomeShellState extends State<HomeShell> {
   List<RoutineTemplate> _localRoutines = const [];
   List<BodyWeightEntry> _localBodyWeights = const [];
   List<ExerciseCatalogEntry> _localCustomExercises = const [];
+  StreamSubscription<List<BodyWeightEntry>>? _bodyWeightsSubscription;
   String _sessionMode = 'Fuerza';
   String _activeRoutineTitle = 'Empuje A';
   String? _editingRoutineId;
@@ -622,6 +623,12 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_loadLocalCustomExercises());
     unawaited(_loadUserPreferences());
     unawaited(_restoreActiveDraft());
+  }
+
+  @override
+  void dispose() {
+    unawaited(_bodyWeightsSubscription?.cancel());
+    super.dispose();
   }
 
   @override
@@ -1073,6 +1080,10 @@ class _HomeShellState extends State<HomeShell> {
     final entries = await _localStore.loadBodyWeights(widget.user.uid);
     if (!mounted) return;
     setState(() => _localBodyWeights = entries);
+    if (_canSyncRemoteUserData) {
+      unawaited(_pushLocalBodyWeightsBestEffort(entries));
+      _startBodyWeightSync();
+    }
   }
 
   Future<void> _loadLocalCustomExercises() async {
@@ -1220,11 +1231,69 @@ class _HomeShellState extends State<HomeShell> {
       _notice =
           'Peso corporal ${entry.weightKg.toStringAsFixed(1)} kg guardado localmente.';
     });
-    unawaited(
-      widget.repository
-          .saveBodyWeight(user: widget.user, entry: entry)
-          .catchError((_) {}),
+    if (_canSyncRemoteUserData) {
+      unawaited(_syncBodyWeightBestEffort(entry));
+    }
+  }
+
+  bool get _canSyncRemoteUserData => widget.user.uid != 'demo-user';
+
+  void _startBodyWeightSync() {
+    _bodyWeightsSubscription ??= widget.repository
+        .watchBodyWeights(widget.user.uid)
+        .listen(
+          (entries) => unawaited(_mergeRemoteBodyWeights(entries)),
+          onError: (_) {
+            if (!mounted) return;
+            setState(() {
+              _notice =
+                  'No pude leer peso corporal remoto; sigo con historial local.';
+            });
+          },
+        );
+  }
+
+  Future<void> _mergeRemoteBodyWeights(List<BodyWeightEntry> entries) async {
+    final changed = await _localStore.mergeBodyWeightsLocal(
+      userId: widget.user.uid,
+      entries: entries,
     );
+    final merged = await _localStore.loadBodyWeights(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localBodyWeights = merged;
+      if (changed > 0) {
+        _notice = 'Sincronicé $changed registros de peso corporal.';
+      }
+    });
+  }
+
+  Future<void> _pushLocalBodyWeightsBestEffort(
+    List<BodyWeightEntry> entries,
+  ) async {
+    try {
+      for (final entry in entries.take(100)) {
+        await widget.repository.saveBodyWeight(user: widget.user, entry: entry);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Peso corporal local conservado; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  Future<void> _syncBodyWeightBestEffort(BodyWeightEntry entry) async {
+    try {
+      await widget.repository.saveBodyWeight(user: widget.user, entry: entry);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Peso corporal guardado localmente; la sincronización remota quedó pendiente.';
+      });
+    }
   }
 
   Future<void> _saveCustomExerciseLocally(ExerciseCatalogEntry exercise) async {

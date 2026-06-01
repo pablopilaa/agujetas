@@ -27,6 +27,7 @@ Contrato de migracion: `docs/legacy-freeze-and-parity-audit.md`.
 - Perfil permite eliminar cuenta con reautenticación Google, borrado local, limpieza de documentos remotos conocidos, subcolecciones conocidas de `users/{uid}` y eliminación de Firebase Auth.
 - El borrador de sesión activa persiste y restaura relojes de tiempo total/descanso, incluyendo timers que estaban corriendo.
 - Seguimiento de peso corporal local-first con recordatorio diario opcional y sync best-effort si hay backend disponible.
+- Peso corporal con sincronización bidireccional local-first + Firestore: carga local inmediata, push best-effort de registros locales recientes y merge de snapshots remotos sin borrar entradas locales no sincronizadas.
 - Importacion local del historico exportado desde la app Expo legacy incluido en `assets/user_data`.
 - Importacion local de rutinas y sesiones personalizadas legacy desde `assets/user_data/catalogo_ejercicios_2026-05-13.json`.
 - CRUD local-first basico de rutinas: guardar, renombrar, duplicar, borrar y reordenar plantillas sin depender de Firestore.
@@ -130,5 +131,5 @@ Despues de firmar, registrar el SHA-1/SHA-256 del keystore en Firebase Authentic
 - Crear pantallas reales de asignacion detallada de tareas/schedules/metas.
 - Reemplazar el contrato técnico preliminar de consentimiento por términos y política de privacidad finales con asesoría legal antes de producción.
 - Crear Cloud Function/admin cleanup para subcolecciones futuras no listables desde cliente.
-- Migrar progresivamente sesiones, rutinas, ejercicios propios y peso corporal al mismo patrón local-first + Firestore con resolución de conflictos explícita.
+- Migrar progresivamente sesiones, rutinas y ejercicios propios al mismo patrón local-first + Firestore con resolución de conflictos explícita.
 - Cuando exista Apple Developer: agregar workflow macOS firmado y TestFlight.
