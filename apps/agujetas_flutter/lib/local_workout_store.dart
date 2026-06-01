@@ -186,16 +186,19 @@ class LocalBackupImportResult {
 
 class LocalUserPreferences {
   const LocalUserPreferences({
+    this.preferredTheme = 'system',
     this.restAlertsEnabled = true,
     this.bodyWeightAlertsEnabled = true,
     this.localGalleryEnabled = false,
   });
 
+  final String preferredTheme;
   final bool restAlertsEnabled;
   final bool bodyWeightAlertsEnabled;
   final bool localGalleryEnabled;
 
   Map<String, Object?> toJson() => {
+    'preferredTheme': preferredTheme,
     'restAlertsEnabled': restAlertsEnabled,
     'bodyWeightAlertsEnabled': bodyWeightAlertsEnabled,
     'localGalleryEnabled': localGalleryEnabled,
@@ -204,6 +207,7 @@ class LocalUserPreferences {
 
   factory LocalUserPreferences.fromJson(Map<String, Object?> json) {
     return LocalUserPreferences(
+      preferredTheme: _readPreferredTheme(json['preferredTheme']),
       restAlertsEnabled: _readBoolWithDefault(json['restAlertsEnabled'], true),
       bodyWeightAlertsEnabled: _readBoolWithDefault(
         json['bodyWeightAlertsEnabled'],
@@ -217,17 +221,24 @@ class LocalUserPreferences {
   }
 
   LocalUserPreferences copyWith({
+    String? preferredTheme,
     bool? restAlertsEnabled,
     bool? bodyWeightAlertsEnabled,
     bool? localGalleryEnabled,
   }) {
     return LocalUserPreferences(
+      preferredTheme: preferredTheme ?? this.preferredTheme,
       restAlertsEnabled: restAlertsEnabled ?? this.restAlertsEnabled,
       bodyWeightAlertsEnabled:
           bodyWeightAlertsEnabled ?? this.bodyWeightAlertsEnabled,
       localGalleryEnabled: localGalleryEnabled ?? this.localGalleryEnabled,
     );
   }
+}
+
+String _readPreferredTheme(Object? value) {
+  final raw = value?.toString();
+  return raw == 'light' || raw == 'dark' || raw == 'system' ? raw! : 'system';
 }
 
 class LocalPrivacyConsent {

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:uuid/uuid.dart';
 
+import 'local_workout_store.dart';
 import 'models.dart';
 
 const _webClientId =
@@ -42,6 +43,11 @@ abstract class AgujetasRepository {
   Future<void> signOut();
   Future<void> deleteAccount(AppUser user);
   Future<void> setActiveRole(AppUser user, AppRole role);
+  Future<LocalUserPreferences?> loadUserPreferences(AppUser user);
+  Future<void> saveUserPreferences({
+    required AppUser user,
+    required LocalUserPreferences preferences,
+  });
   Future<void> ensureTrainerProfile(AppUser user);
   Future<TrainerInvite> createTrainerInvite(AppUser trainer);
   Future<TrainerClientLink> acceptTrainerInvite({
@@ -194,6 +200,45 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     if (role == AppRole.trainer) {
       await ensureTrainerProfile(user.copyWith(activeRole: role));
     }
+  }
+
+  @override
+  Future<LocalUserPreferences?> loadUserPreferences(AppUser user) async {
+    final userRef = _firestore.collection('users').doc(user.uid);
+    final preferencesRef = userRef.collection('preferences').doc('app');
+    final preferencesSnapshot = await preferencesRef.get();
+    final preferencesData = preferencesSnapshot.data();
+    if (preferencesData != null) {
+      return LocalUserPreferences.fromJson(
+        preferencesData.cast<String, Object?>(),
+      );
+    }
+
+    final userSnapshot = await userRef.get();
+    final userData = userSnapshot.data();
+    if (userData == null || !userData.containsKey('preferredTheme')) {
+      return null;
+    }
+    return LocalUserPreferences.fromJson(userData.cast<String, Object?>());
+  }
+
+  @override
+  Future<void> saveUserPreferences({
+    required AppUser user,
+    required LocalUserPreferences preferences,
+  }) async {
+    final userRef = _firestore.collection('users').doc(user.uid);
+    final now = FieldValue.serverTimestamp();
+    final batch = _firestore.batch();
+    batch.set(userRef, {
+      'preferredTheme': preferences.preferredTheme,
+      'updatedAt': now,
+    }, SetOptions(merge: true));
+    batch.set(userRef.collection('preferences').doc('app'), {
+      ...preferences.toJson(),
+      'updatedAt': now,
+    }, SetOptions(merge: true));
+    await batch.commit();
   }
 
   @override
@@ -452,6 +497,7 @@ class DemoAgujetasRepository implements AgujetasRepository {
   final _bodyWeights = StreamController<List<BodyWeightEntry>>.broadcast();
   final List<ExerciseCatalogEntry> _customExerciseItems = [];
   final List<BodyWeightEntry> _bodyWeightItems = [];
+  LocalUserPreferences _preferences = const LocalUserPreferences();
 
   AppUser? _user = const AppUser(
     uid: 'demo-user',
@@ -497,6 +543,19 @@ class DemoAgujetasRepository implements AgujetasRepository {
 
   @override
   Future<void> ensureTrainerProfile(AppUser user) async {}
+
+  @override
+  Future<LocalUserPreferences?> loadUserPreferences(AppUser user) async {
+    return _preferences;
+  }
+
+  @override
+  Future<void> saveUserPreferences({
+    required AppUser user,
+    required LocalUserPreferences preferences,
+  }) async {
+    _preferences = preferences;
+  }
 
   @override
   Future<void> deleteAccount(AppUser user) async {

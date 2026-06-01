@@ -67,10 +67,33 @@ void main() {
     expect(subcollectionCleanup, lessThan(userDocDelete));
     expect(repository, contains("userRef.collection(collection)"));
   });
+
+  test('remote preferences stay scoped under the authenticated user', () {
+    final repository = _readRepositorySource();
+    final rules = _readFirestoreRules();
+
+    expect(
+      repository,
+      contains("userRef.collection('preferences').doc('app')"),
+    );
+    expect(
+      repository,
+      contains("'preferredTheme': preferences.preferredTheme"),
+    );
+    expect(repository, contains('LocalUserPreferences.fromJson'));
+    expect(rules, contains('request.resource.data.plan == resource.data.plan'));
+    expect(rules, contains("'preferences'"));
+  });
 }
 
 String _readRepositorySource() {
   final file = File('lib/repositories.dart');
   expect(file.existsSync(), isTrue, reason: 'Missing lib/repositories.dart');
+  return file.readAsStringSync();
+}
+
+String _readFirestoreRules() {
+  final file = File('../../firebase/firestore.rules');
+  expect(file.existsSync(), isTrue, reason: 'Missing firebase/firestore.rules');
   return file.readAsStringSync();
 }

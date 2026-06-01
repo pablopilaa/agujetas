@@ -1578,6 +1578,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     var preferences = const LocalUserPreferences();
+    var selectedTheme = ThemeMode.light;
     const user = AppUser(
       uid: 'profile-preferences-user',
       displayName: 'Demo',
@@ -1596,9 +1597,18 @@ void main() {
             builder: (context, setState) => ProfileScreen(
               user: user,
               repository: DemoAgujetasRepository(),
-              themeMode: ThemeMode.light,
+              themeMode: selectedTheme,
               preferences: preferences,
-              onThemeModeChanged: (_) {},
+              onThemeModeChanged: (next) => setState(() {
+                selectedTheme = next;
+                preferences = preferences.copyWith(
+                  preferredTheme: next == ThemeMode.dark
+                      ? 'dark'
+                      : next == ThemeMode.light
+                      ? 'light'
+                      : 'system',
+                );
+              }),
               onPreferencesChanged: (next) =>
                   setState(() => preferences = next),
               onExportLocalBackup: () async => '{}',
@@ -1623,6 +1633,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Oscuro'));
+    await tester.pumpAndSettle();
+    expect(selectedTheme, ThemeMode.dark);
+    expect(preferences.preferredTheme, 'dark');
 
     final gallerySetting = find.text('Galería local');
     await tester.ensureVisible(gallerySetting);

@@ -176,6 +176,22 @@ extension AppUserUiX on AppUser {
   }
 }
 
+ThemeMode _themeModeFromPreference(String value) {
+  return switch (value) {
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
+}
+
+String _themeModeToPreference(ThemeMode mode) {
+  return switch (mode) {
+    ThemeMode.light => 'light',
+    ThemeMode.dark => 'dark',
+    ThemeMode.system => 'system',
+  };
+}
+
 class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
@@ -691,7 +707,7 @@ class _HomeShellState extends State<HomeShell> {
         repository: widget.repository,
         themeMode: widget.themeMode,
         preferences: _preferences,
-        onThemeModeChanged: widget.onThemeModeChanged,
+        onThemeModeChanged: _updateThemeMode,
         onPreferencesChanged: _updateUserPreferences,
         onExportLocalBackup: _exportLocalBackup,
         onImportLocalBackup: _importLocalBackup,
@@ -1069,16 +1085,65 @@ class _HomeShellState extends State<HomeShell> {
     final preferences = await _localStore.loadUserPreferences(widget.user.uid);
     if (!mounted) return;
     setState(() => _preferences = preferences);
+    _applyPreferredTheme(preferences);
+
+    try {
+      final remotePreferences = await widget.repository.loadUserPreferences(
+        widget.user,
+      );
+      if (remotePreferences == null) return;
+      await _localStore.saveUserPreferences(
+        userId: widget.user.uid,
+        preferences: remotePreferences,
+      );
+      if (!mounted) return;
+      setState(() => _preferences = remotePreferences);
+      _applyPreferredTheme(remotePreferences);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'No pude sincronizar preferencias remotas; sigo con datos locales.';
+      });
+    }
   }
 
   void _updateUserPreferences(LocalUserPreferences preferences) {
     setState(() => _preferences = preferences);
-    unawaited(
-      _localStore.saveUserPreferences(
-        userId: widget.user.uid,
-        preferences: preferences,
-      ),
+    unawaited(_persistUserPreferences(preferences));
+  }
+
+  Future<void> _persistUserPreferences(LocalUserPreferences preferences) async {
+    await _localStore.saveUserPreferences(
+      userId: widget.user.uid,
+      preferences: preferences,
     );
+    try {
+      await widget.repository.saveUserPreferences(
+        user: widget.user,
+        preferences: preferences,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Preferencias guardadas localmente; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  void _updateThemeMode(ThemeMode mode) {
+    widget.onThemeModeChanged(mode);
+    _updateUserPreferences(
+      _preferences.copyWith(preferredTheme: _themeModeToPreference(mode)),
+    );
+  }
+
+  void _applyPreferredTheme(LocalUserPreferences preferences) {
+    final mode = _themeModeFromPreference(preferences.preferredTheme);
+    if (mode != widget.themeMode) {
+      widget.onThemeModeChanged(mode);
+    }
   }
 
   Future<void> _deleteLocalAccount() async {

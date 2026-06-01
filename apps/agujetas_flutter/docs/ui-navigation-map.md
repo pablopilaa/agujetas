@@ -133,7 +133,8 @@ flowchart TD
 | Biblioteca | Guardar cambios | Persistir rutina local | Rutina disponible offline en Mis ejercicios |
 | Biblioteca | Agregar ejercicio | Agregar a rutina activa | Entrenamiento actual actualizado |
 | Biblioteca | Grip six dots | Reordenar rutina | Misma pantalla, orden actualizado |
-| Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado |
+| Perfil | Bottom nav, menú lateral | Cambiar tema | ThemeMode actualizado, guardado local y sync `/users/{uid}/preferences/app` |
+| Perfil | Permisos | Cambiar alertas/galería | Guardado local y sync `/users/{uid}/preferences/app` |
 | Perfil | Plan y suscripción | Ver planes | Sheet Agujetas Free / Agujetas Pro |
 | Planes Agujetas | Agujetas Pro demo | Elegir Agujetas Pro | Activa Pro demo y modo entrenador |
 | Perfil | Privacidad y datos | Exportar mis datos | Dialog con JSON local y acción de copiar |
@@ -159,6 +160,7 @@ flowchart TD
 - Cada tarjeta clicable debe tener feedback visual y destino claro.
 - El consentimiento post-login se guarda localmente por usuario y bloquea Inicio hasta aceptar términos, sync Firebase, galería local y notificaciones.
 - Cada consentimiento guarda versión de esquema, términos, privacidad, datos y notificaciones. Si una versión cambia, el usuario real debe volver a aceptar.
+- Las preferencias de Perfil se leen primero desde el dispositivo y después desde Firebase. Si Firebase falla, la app conserva el valor local y muestra aviso.
 
 ## Pendientes UX
 

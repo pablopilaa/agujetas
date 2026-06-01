@@ -213,6 +213,7 @@ void main() {
     await store.saveUserPreferences(
       userId: 'preferences-user',
       preferences: const LocalUserPreferences(
+        preferredTheme: 'dark',
         restAlertsEnabled: false,
         bodyWeightAlertsEnabled: true,
         localGalleryEnabled: true,
@@ -222,9 +223,11 @@ void main() {
     final preferences = await store.loadUserPreferences('preferences-user');
     final otherPreferences = await store.loadUserPreferences('other-user');
 
+    expect(preferences.preferredTheme, 'dark');
     expect(preferences.restAlertsEnabled, isFalse);
     expect(preferences.bodyWeightAlertsEnabled, isTrue);
     expect(preferences.localGalleryEnabled, isTrue);
+    expect(otherPreferences.preferredTheme, 'system');
     expect(otherPreferences.localGalleryEnabled, isFalse);
   });
 

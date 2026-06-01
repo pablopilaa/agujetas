@@ -531,3 +531,11 @@ Cuadragésimo segundo bloque Contrato de consentimiento versionado:
 - Un consentimiento viejo, sin versión o con términos anteriores vuelve a bloquear `HomeShell` y fuerza reaceptación.
 - `docs/legal-consent-contract.md` documenta las reglas para humanos e IA: no bypass para usuarios reales, no aceptación parcial, no cloud de imágenes sin consentimiento nuevo y no Lyfta en builds comerciales.
 - Tests unitarios y widget tests verifican versión vigente, consentimiento viejo inválido y bloqueo post-login.
+
+Cuadragésimo tercer bloque Preferencias Firebase-ready:
+
+- `LocalUserPreferences` ahora incluye `preferredTheme` además de permisos de descanso, peso y galería local.
+- `HomeShell` carga preferencias local-first, aplica el tema guardado y luego intenta traer la versión remota desde Firebase.
+- `FirebaseAgujetasRepository` guarda preferencias en `/users/{uid}/preferences/app` y espeja `preferredTheme` en `users/{uid}` bajo campos ya permitidos por reglas.
+- Si Firebase falla, la app mantiene preferencias locales y muestra aviso sin bloquear entrenamiento.
+- La demo implementa el mismo contrato en memoria para que preview y tests sigan funcionando.
