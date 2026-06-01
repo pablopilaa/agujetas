@@ -732,3 +732,10 @@ Sexagésimo séptimo bloque Alertas automáticas de peso:
 - `NotificationService` agrega cancelación explícita del recordatorio de peso para respetar el opt-out del usuario.
 - La tarjeta `Peso corporal` marca si el seguimiento semanal está al día o si el último registro ya quedó vencido.
 - El usuario sigue pudiendo forzar la programación desde la tarjeta, pero el flujo principal ya no depende de ese botón manual.
+
+Sexagésimo octavo bloque Corrección de peso corporal:
+
+- El historial reciente de `Peso corporal` ahora muestra acciones para editar o eliminar registros cargados.
+- Editar conserva el mismo `id` y la fecha original, por lo que corrige el registro local y sincroniza el mismo documento remoto si hay sesión Google.
+- Borrar elimina local-first y luego intenta borrar `bodyWeights/{id}` en Firestore para usuarios autenticados.
+- `LocalWorkoutStore` suma `deleteBodyWeightLocal`; `AgujetasRepository` suma `deleteBodyWeight` con implementación Firebase y demo.

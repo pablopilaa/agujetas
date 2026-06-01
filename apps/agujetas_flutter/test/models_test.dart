@@ -752,6 +752,38 @@ void main() {
     expect(entries.first.weightKg, 81.9);
   });
 
+  test('local workout store deletes one body weight entry by user', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = LocalWorkoutStore.instance;
+
+    await store.saveBodyWeightLocal(
+      userId: 'weight-user',
+      entry: BodyWeightEntry(
+        id: 'delete-me',
+        userId: 'weight-user',
+        weightKg: 82,
+        recordedAt: DateTime.utc(2026, 5, 1),
+      ),
+    );
+    await store.saveBodyWeightLocal(
+      userId: 'weight-user',
+      entry: BodyWeightEntry(
+        id: 'keep-me',
+        userId: 'weight-user',
+        weightKg: 81,
+        recordedAt: DateTime.utc(2026, 5, 2),
+      ),
+    );
+
+    await store.deleteBodyWeightLocal(
+      userId: 'weight-user',
+      entryId: 'delete-me',
+    );
+
+    final entries = await store.loadBodyWeights('weight-user');
+    expect(entries.map((entry) => entry.id), ['keep-me']);
+  });
+
   test(
     'local workout store merges remote body weights without losing local',
     () async {

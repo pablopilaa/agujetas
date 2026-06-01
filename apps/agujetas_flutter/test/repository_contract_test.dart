@@ -97,6 +97,7 @@ void main() {
 
     expect(repository, contains(".collection('bodyWeights')"));
     expect(repository, contains(".where('userId', isEqualTo: userId)"));
+    expect(repository, contains('Future<void> deleteBodyWeight'));
     expect(repository, contains("'userId': user.uid"));
     expect(repository, contains("'id': doc.id"));
     expect(

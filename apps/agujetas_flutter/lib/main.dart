@@ -704,6 +704,7 @@ class _HomeShellState extends State<HomeShell> {
         bodyWeightAlertsEnabled: _preferences.bodyWeightAlertsEnabled,
         onOpenCalendar: () => _openCalendar(context),
         onBodyWeightSaved: _saveBodyWeightLocally,
+        onBodyWeightDeleted: _deleteBodyWeightLocally,
       ),
       LibraryScreen(
         user: widget.user,
@@ -1508,6 +1509,23 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _deleteBodyWeightLocally(BodyWeightEntry entry) async {
+    await _localStore.deleteBodyWeightLocal(
+      userId: widget.user.uid,
+      entryId: entry.id,
+    );
+    final entries = await _localStore.loadBodyWeights(widget.user.uid);
+    if (!mounted) return;
+    setState(() {
+      _localBodyWeights = entries;
+      _notice =
+          'Peso corporal ${entry.weightKg.toStringAsFixed(1)} kg eliminado localmente.';
+    });
+    if (_canSyncRemoteUserData) {
+      unawaited(_deleteBodyWeightBestEffort(entry));
+    }
+  }
+
   void _startBodyWeightSync() {
     _bodyWeightsSubscription ??= widget.repository
         .watchBodyWeights(widget.user.uid)
@@ -1562,6 +1580,18 @@ class _HomeShellState extends State<HomeShell> {
       setState(() {
         _notice =
             'Peso corporal guardado localmente; la sincronización remota quedó pendiente.';
+      });
+    }
+  }
+
+  Future<void> _deleteBodyWeightBestEffort(BodyWeightEntry entry) async {
+    try {
+      await widget.repository.deleteBodyWeight(user: widget.user, entry: entry);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _notice =
+            'Peso corporal eliminado localmente; la eliminación remota quedó pendiente.';
       });
     }
   }
@@ -5535,6 +5565,7 @@ class BodyWeightCard extends StatelessWidget {
     required this.entries,
     required this.alertsEnabled,
     required this.onSaved,
+    required this.onDeleted,
     this.now,
   });
 
@@ -5542,6 +5573,7 @@ class BodyWeightCard extends StatelessWidget {
   final List<BodyWeightEntry> entries;
   final bool alertsEnabled;
   final Future<void> Function(BodyWeightEntry entry) onSaved;
+  final Future<void> Function(BodyWeightEntry entry) onDeleted;
   final DateTime? now;
 
   @override
@@ -5618,7 +5650,7 @@ class BodyWeightCard extends StatelessWidget {
                 style: TextStyle(color: context.appColors.textSecondary),
               ),
             ],
-            if (sortedEntries.length >= 2) ...[
+            if (sortedEntries.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
                 'Historial reciente',
@@ -5626,7 +5658,11 @@ class BodyWeightCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               for (final entry in sortedEntries.take(5))
-                _BodyWeightHistoryRow(entry: entry),
+                _BodyWeightHistoryRow(
+                  entry: entry,
+                  onEdit: () => _openWeightSheet(context, initial: entry),
+                  onDelete: () => _confirmDeleteWeight(context, entry),
+                ),
             ],
           ],
           const SizedBox(height: 8),
@@ -5687,9 +5723,15 @@ class BodyWeightCard extends StatelessWidget {
     };
   }
 
-  Future<void> _openWeightSheet(BuildContext context) async {
-    final controller = TextEditingController();
-    final weight = await showModalBottomSheet<double>(
+  Future<void> _openWeightSheet(
+    BuildContext context, {
+    BodyWeightEntry? initial,
+  }) async {
+    final controller = TextEditingController(
+      text: initial == null ? '' : initial.weightKg.toStringAsFixed(1),
+    );
+    final noteController = TextEditingController(text: initial?.note ?? '');
+    final entry = await showModalBottomSheet<BodyWeightEntry>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
@@ -5702,7 +5744,7 @@ class BodyWeightCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Registrar peso',
+                initial == null ? 'Registrar peso' : 'Editar peso',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 12),
@@ -5716,26 +5758,71 @@ class BodyWeightCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
+              TextField(
+                controller: noteController,
+                minLines: 1,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Nota opcional',
+                  prefixIcon: Icon(Icons.notes_outlined),
+                ),
+              ),
+              const SizedBox(height: 12),
               FilledButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).pop(double.tryParse(controller.text.replaceAll(',', '.'))),
-                child: const Text('Guardar peso'),
+                onPressed: () {
+                  final weight = double.tryParse(
+                    controller.text.replaceAll(',', '.'),
+                  );
+                  if (weight == null || weight <= 0) return;
+                  final note = noteController.text.trim();
+                  Navigator.of(context).pop(
+                    BodyWeightEntry(
+                      id: initial?.id ?? const Uuid().v4(),
+                      userId: user.uid,
+                      weightKg: weight,
+                      recordedAt: initial?.recordedAt ?? DateTime.now(),
+                      note: note.isEmpty ? null : note,
+                    ),
+                  );
+                },
+                child: Text(
+                  initial == null ? 'Guardar peso' : 'Guardar cambio',
+                ),
               ),
             ],
           ),
         );
       },
     );
-    if (weight == null || weight <= 0) return;
-    await onSaved(
-      BodyWeightEntry(
-        id: const Uuid().v4(),
-        userId: user.uid,
-        weightKg: weight,
-        recordedAt: DateTime.now(),
+    if (entry == null) return;
+    await onSaved(entry);
+  }
+
+  Future<void> _confirmDeleteWeight(
+    BuildContext context,
+    BodyWeightEntry entry,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar registro de peso'),
+        content: Text(
+          'Esto borra el registro de ${entry.weightKg.toStringAsFixed(1)} kg del historial local.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
       ),
     );
+    if (confirmed != true) return;
+    await onDeleted(entry);
   }
 
   String _weightDeltaLabel(BodyWeightEntry latest, BodyWeightEntry previous) {
@@ -5867,9 +5954,15 @@ class _BodyWeightStatusPill extends StatelessWidget {
 }
 
 class _BodyWeightHistoryRow extends StatelessWidget {
-  const _BodyWeightHistoryRow({required this.entry});
+  const _BodyWeightHistoryRow({
+    required this.entry,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   final BodyWeightEntry entry;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -5893,6 +5986,18 @@ class _BodyWeightHistoryRow extends StatelessWidget {
           Text(
             '${entry.weightKg.toStringAsFixed(1)} kg',
             style: Theme.of(context).textTheme.labelLarge,
+          ),
+          IconButton(
+            tooltip: 'Editar peso',
+            visualDensity: VisualDensity.compact,
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+          ),
+          IconButton(
+            tooltip: 'Eliminar peso',
+            visualDensity: VisualDensity.compact,
+            onPressed: onDelete,
+            icon: const Icon(Icons.delete_outline, size: 18),
           ),
         ],
       ),
@@ -7498,6 +7603,7 @@ class ProgressScreen extends StatelessWidget {
     required this.bodyWeightAlertsEnabled,
     required this.onOpenCalendar,
     required this.onBodyWeightSaved,
+    required this.onBodyWeightDeleted,
   });
 
   final AppUser user;
@@ -7508,6 +7614,7 @@ class ProgressScreen extends StatelessWidget {
   final bool bodyWeightAlertsEnabled;
   final VoidCallback onOpenCalendar;
   final Future<void> Function(BodyWeightEntry entry) onBodyWeightSaved;
+  final Future<void> Function(BodyWeightEntry entry) onBodyWeightDeleted;
 
   @override
   Widget build(BuildContext context) {
@@ -7674,6 +7781,7 @@ class ProgressScreen extends StatelessWidget {
           entries: bodyWeights,
           alertsEnabled: bodyWeightAlertsEnabled,
           onSaved: onBodyWeightSaved,
+          onDeleted: onBodyWeightDeleted,
         ),
         DashboardCard(
           icon: Icons.calendar_month_outlined,

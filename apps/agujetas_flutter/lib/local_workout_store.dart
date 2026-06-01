@@ -626,6 +626,17 @@ class LocalWorkoutStore {
     await replaceBodyWeightsLocal(userId: userId, entries: next);
   }
 
+  Future<void> deleteBodyWeightLocal({
+    required String userId,
+    required String entryId,
+  }) async {
+    final previous = await loadBodyWeights(userId);
+    await replaceBodyWeightsLocal(
+      userId: userId,
+      entries: previous.where((entry) => entry.id != entryId),
+    );
+  }
+
   Future<int> mergeBodyWeightsLocal({
     required String userId,
     required List<BodyWeightEntry> entries,

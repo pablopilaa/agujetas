@@ -831,6 +831,7 @@ void main() {
             entries: const [],
             alertsEnabled: true,
             onSaved: (entry) async => saved = entry,
+            onDeleted: (_) async {},
           ),
         ),
       ),
@@ -838,7 +839,7 @@ void main() {
 
     await tester.tap(find.text('Registrar'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), '81,7');
+    await tester.enterText(find.byType(TextField).first, '81,7');
     await tester.tap(find.text('Guardar peso'));
     await tester.pumpAndSettle();
 
@@ -867,6 +868,7 @@ void main() {
             entries: const [],
             alertsEnabled: false,
             onSaved: (_) async {},
+            onDeleted: (_) async {},
           ),
         ),
       ),
@@ -923,6 +925,7 @@ void main() {
             ],
             alertsEnabled: true,
             onSaved: (_) async {},
+            onDeleted: (_) async {},
           ),
         ),
       ),
@@ -971,6 +974,7 @@ void main() {
             alertsEnabled: true,
             now: latestDate.add(const Duration(days: 9)),
             onSaved: (_) async {},
+            onDeleted: (_) async {},
           ),
         ),
       ),
@@ -980,6 +984,61 @@ void main() {
     expect(find.text('82.0 kg · toca actualizar'), findsOneWidget);
     expect(find.text('Último registro hace 9 días'), findsOneWidget);
     expect(find.text('Recordatorio local activo a las 09:00.'), findsOneWidget);
+  });
+
+  testWidgets('body weight history supports edit and delete actions', (
+    tester,
+  ) async {
+    final entry = BodyWeightEntry(
+      id: 'weight-entry',
+      userId: 'weight-user',
+      weightKg: 82,
+      recordedAt: DateTime(2026, 5, 20, 9),
+    );
+    BodyWeightEntry? saved;
+    BodyWeightEntry? deleted;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AgujetasTheme.light(),
+        home: Scaffold(
+          body: BodyWeightCard(
+            user: const AppUser(
+              uid: 'weight-user',
+              displayName: 'Demo',
+              email: 'demo@agujetas.app',
+              photoUrl: null,
+              roles: {AppRole.normal},
+              activeRole: AppRole.normal,
+              plan: AppPlan.free,
+            ),
+            entries: [entry],
+            alertsEnabled: true,
+            now: DateTime(2026, 5, 21, 9),
+            onSaved: (value) async => saved = value,
+            onDeleted: (value) async => deleted = value,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Editar peso'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, '81,5');
+    await tester.tap(find.text('Guardar cambio'));
+    await tester.pumpAndSettle();
+
+    expect(saved, isNotNull);
+    expect(saved!.id, 'weight-entry');
+    expect(saved!.weightKg, 81.5);
+    expect(saved!.recordedAt, entry.recordedAt);
+
+    await tester.tap(find.byTooltip('Eliminar peso'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar'));
+    await tester.pumpAndSettle();
+
+    expect(deleted, entry);
   });
 
   testWidgets('custom exercise sheet creates a local exercise with 3 sets', (
@@ -1369,6 +1428,7 @@ void main() {
               bodyWeightAlertsEnabled: false,
               onOpenCalendar: () {},
               onBodyWeightSaved: (_) async {},
+              onBodyWeightDeleted: (_) async {},
             ),
           ),
         ),

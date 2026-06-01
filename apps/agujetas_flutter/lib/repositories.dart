@@ -172,6 +172,10 @@ abstract class AgujetasRepository {
     required AppUser user,
     required BodyWeightEntry entry,
   });
+  Future<void> deleteBodyWeight({
+    required AppUser user,
+    required BodyWeightEntry entry,
+  });
   Stream<List<BodyWeightEntry>> watchBodyWeights(String userId);
 }
 
@@ -1016,6 +1020,14 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
   }
 
   @override
+  Future<void> deleteBodyWeight({
+    required AppUser user,
+    required BodyWeightEntry entry,
+  }) async {
+    await _firestore.collection('bodyWeights').doc(entry.id).delete();
+  }
+
+  @override
   Stream<List<BodyWeightEntry>> watchBodyWeights(String userId) {
     return _firestore
         .collection('bodyWeights')
@@ -1650,6 +1662,15 @@ class DemoAgujetasRepository implements AgujetasRepository {
   }) async {
     _bodyWeightItems.removeWhere((item) => item.id == entry.id);
     _bodyWeightItems.insert(0, entry);
+    _bodyWeights.add(List.unmodifiable(_bodyWeightItems));
+  }
+
+  @override
+  Future<void> deleteBodyWeight({
+    required AppUser user,
+    required BodyWeightEntry entry,
+  }) async {
+    _bodyWeightItems.removeWhere((item) => item.id == entry.id);
     _bodyWeights.add(List.unmodifiable(_bodyWeightItems));
   }
 
