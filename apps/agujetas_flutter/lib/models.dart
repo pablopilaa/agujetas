@@ -662,6 +662,8 @@ class AssignedTask {
     required this.status,
     required this.assignedAt,
     this.dueAt,
+    this.completedAt,
+    this.completionNote,
   });
 
   final String id;
@@ -672,6 +674,8 @@ class AssignedTask {
   final String status;
   final DateTime assignedAt;
   final DateTime? dueAt;
+  final DateTime? completedAt;
+  final String? completionNote;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -682,6 +686,8 @@ class AssignedTask {
     'status': status,
     'assignedAt': assignedAt.toUtc().toIso8601String(),
     'dueAt': dueAt?.toUtc().toIso8601String(),
+    'completedAt': completedAt?.toUtc().toIso8601String(),
+    'completionNote': completionNote,
     'schemaVersion': 1,
   };
 
@@ -697,10 +703,16 @@ class AssignedTask {
           DateTime.tryParse(json['assignedAt']?.toString() ?? '') ??
           DateTime.now().toUtc(),
       dueAt: DateTime.tryParse(json['dueAt']?.toString() ?? ''),
+      completedAt: DateTime.tryParse(json['completedAt']?.toString() ?? ''),
+      completionNote: json['completionNote']?.toString(),
     );
   }
 
-  AssignedTask copyWith({String? status}) {
+  AssignedTask copyWith({
+    String? status,
+    DateTime? completedAt,
+    String? completionNote,
+  }) {
     return AssignedTask(
       id: id,
       trainerId: trainerId,
@@ -710,6 +722,8 @@ class AssignedTask {
       status: status ?? this.status,
       assignedAt: assignedAt,
       dueAt: dueAt,
+      completedAt: completedAt ?? this.completedAt,
+      completionNote: completionNote ?? this.completionNote,
     );
   }
 }

@@ -1990,6 +1990,11 @@ class _TrainerPanel extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 10),
+                            _TrainerClientAssignmentPreview(
+                              repository: repository,
+                              client: client,
+                            ),
                           ],
                         ),
                       ),
@@ -2084,6 +2089,182 @@ class _TrainerPanel extends StatelessWidget {
     } catch (error) {
       onNotice('No pude asignar la meta: $error');
     }
+  }
+}
+
+class _TrainerClientAssignmentPreview extends StatefulWidget {
+  const _TrainerClientAssignmentPreview({
+    required this.repository,
+    required this.client,
+  });
+
+  final AgujetasRepository repository;
+  final TrainerClientLink client;
+
+  @override
+  State<_TrainerClientAssignmentPreview> createState() =>
+      _TrainerClientAssignmentPreviewState();
+}
+
+class _TrainerClientAssignmentPreviewState
+    extends State<_TrainerClientAssignmentPreview> {
+  late Stream<List<AssignedTask>> _taskStream;
+  late Stream<List<AssignedSchedule>> _scheduleStream;
+  late Stream<List<AssignedGoal>> _goalStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _setStreams();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TrainerClientAssignmentPreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.client.clientId != widget.client.clientId ||
+        oldWidget.repository != widget.repository) {
+      _setStreams();
+    }
+  }
+
+  void _setStreams() {
+    _taskStream = widget.repository.watchAssignedTasksForClient(
+      widget.client.clientId,
+    );
+    _scheduleStream = widget.repository.watchAssignedSchedulesForClient(
+      widget.client.clientId,
+    );
+    _goalStream = widget.repository.watchAssignedGoalsForClient(
+      widget.client.clientId,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: context.appColors.raised,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: context.appColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Seguimiento',
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          StreamBuilder<List<AssignedTask>>(
+            stream: _taskStream,
+            builder: (context, snapshot) {
+              final tasks = snapshot.data ?? const <AssignedTask>[];
+              final completed = tasks
+                  .where((task) => task.status == 'completed')
+                  .length;
+              return _AssignmentSummaryLine(
+                icon: Icons.task_alt_outlined,
+                label: tasks.isEmpty
+                    ? 'Sin tareas enviadas'
+                    : '$completed/${tasks.length} tareas completas',
+                detail: tasks.isEmpty ? null : _latestTaskDetail(tasks.first),
+              );
+            },
+          ),
+          StreamBuilder<List<AssignedSchedule>>(
+            stream: _scheduleStream,
+            builder: (context, snapshot) {
+              final schedules = snapshot.data ?? const <AssignedSchedule>[];
+              final nextScheduled = schedules
+                  .where((schedule) => schedule.status == 'scheduled')
+                  .toList();
+              return _AssignmentSummaryLine(
+                icon: Icons.event_available_outlined,
+                label: schedules.isEmpty
+                    ? 'Sin schedules'
+                    : '${nextScheduled.length}/${schedules.length} schedules activos',
+                detail: schedules.isEmpty
+                    ? null
+                    : '${schedules.first.title} · ${_scheduleStatusLabel(schedules.first.status)}',
+              );
+            },
+          ),
+          StreamBuilder<List<AssignedGoal>>(
+            stream: _goalStream,
+            builder: (context, snapshot) {
+              final goals = snapshot.data ?? const <AssignedGoal>[];
+              return _AssignmentSummaryLine(
+                icon: Icons.flag_outlined,
+                label: goals.isEmpty
+                    ? 'Sin metas activas'
+                    : '${goals.length} meta${goals.length == 1 ? '' : 's'} asignada${goals.length == 1 ? '' : 's'}',
+                detail: goals.isEmpty
+                    ? null
+                    : '${goals.first.title} · ${(goals.first.progressRatio * 100).round()}%',
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _latestTaskDetail(AssignedTask task) {
+    final note = task.completionNote?.trim();
+    if (task.status == 'completed' && note != null && note.isNotEmpty) {
+      return '${task.title} · "$note"';
+    }
+    return '${task.title} · ${_taskStatusLabel(task.status)}';
+  }
+}
+
+class _AssignmentSummaryLine extends StatelessWidget {
+  const _AssignmentSummaryLine({
+    required this.icon,
+    required this.label,
+    this.detail,
+  });
+
+  final IconData icon;
+  final String label;
+  final String? detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: context.appColors.textSecondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                if (detail != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    detail!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelMedium,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -2269,11 +2450,18 @@ class _AthletePanel extends StatelessWidget {
   }
 
   void _openTaskAction(BuildContext context, AssignedTask task) {
+    var completionNote = task.completionNote ?? '';
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          24 + MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
         child: ListView(
           shrinkWrap: true,
           children: [
@@ -2288,11 +2476,21 @@ class _AthletePanel extends StatelessWidget {
                 background: context.appColors.raised,
               ),
             ],
+            const SizedBox(height: 14),
+            TextField(
+              minLines: 2,
+              maxLines: 4,
+              onChanged: (value) => completionNote = value,
+              decoration: const InputDecoration(
+                labelText: 'Comentario para tu entrenador',
+                hintText: 'Ejemplo: peso cargado, molestias, o cómo salió.',
+              ),
+            ),
             const SizedBox(height: 16),
             FilledButton.icon(
               onPressed: () {
                 Navigator.of(sheetContext).pop();
-                _completeTask(task);
+                _completeTask(task, completionNote: completionNote);
               },
               icon: const Icon(Icons.check_circle_outline),
               label: const Text('Marcar como completada'),
@@ -2406,12 +2604,16 @@ class _AthletePanel extends StatelessWidget {
     );
   }
 
-  Future<void> _completeTask(AssignedTask task) async {
+  Future<void> _completeTask(
+    AssignedTask task, {
+    String? completionNote,
+  }) async {
     try {
       await repository.updateAssignedTaskStatus(
         user: user,
         task: task,
         status: 'completed',
+        completionNote: completionNote,
       );
       onNotice('Tarea "${task.title}" completada.');
     } catch (error) {
@@ -5560,6 +5762,14 @@ String _scheduleSubtitle(AssignedSchedule schedule) {
   final routine = schedule.routineTitle?.trim();
   final routineLabel = routine == null || routine.isEmpty ? '' : ' · $routine';
   return '${_formatShortDateTime(schedule.scheduledFor)}$routineLabel';
+}
+
+String _taskStatusLabel(String status) {
+  return switch (status) {
+    'completed' => 'completada',
+    'pending' => 'pendiente',
+    _ => status,
+  };
 }
 
 String _scheduleStatusLabel(String status) {

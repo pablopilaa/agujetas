@@ -241,6 +241,7 @@ void main() {
 
     expect(repository, contains('updateAssignedTaskStatus'));
     expect(repository, contains(".collection('tasks').doc(task.id).update"));
+    expect(repository, contains("'completionNote': normalizedNote"));
     expect(repository, contains('updateAssignedScheduleStatus'));
     expect(
       repository,

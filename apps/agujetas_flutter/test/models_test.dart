@@ -110,6 +110,8 @@ void main() {
       status: 'pending',
       assignedAt: DateTime.utc(2026, 6, 1),
       dueAt: DateTime.utc(2026, 6, 8),
+      completedAt: DateTime.utc(2026, 6, 7, 20),
+      completionNote: 'Peso cargado sin molestias.',
     );
 
     final restored = AssignedTask.fromJson(task.toJson());
@@ -120,6 +122,8 @@ void main() {
     expect(restored.title, 'Registrar peso corporal');
     expect(restored.status, 'pending');
     expect(restored.dueAt, DateTime.utc(2026, 6, 8));
+    expect(restored.completedAt, DateTime.utc(2026, 6, 7, 20));
+    expect(restored.completionNote, 'Peso cargado sin molestias.');
   });
 
   test('assigned schedule serializes trainer client calendar payload', () {

@@ -628,3 +628,11 @@ Quincuagésimo tercer bloque Acciones detalladas y calendario de schedules:
 - Las metas asignadas reemplazan el avance fijo `+25%` por un diálogo de carga manual del valor actual y completan la meta si alcanza el objetivo.
 - El calendario mensual diferencia schedules planificados, completados y cancelados con chips/resumen de estado y marcas de color por día.
 - Quedan pendientes comentarios/evidencia de entrega por tarea, auditoría visible para entrenador y recordatorios locales de schedules planificados.
+
+Quincuagésimo cuarto bloque Seguimiento visible para entrenador:
+
+- `AssignedTask` guarda `completionNote` y `completedAt`, y `updateAssignedTaskStatus` persiste el comentario de cierre en Firestore/demo.
+- La hoja de tarea del entrenado permite escribir un comentario para el entrenador antes de marcarla como completada.
+- Cada entrenado activo en el panel entrenador muestra un bloque `Seguimiento` con tareas completas, schedules activos y avance de metas usando los streams existentes por `assignedClientId`.
+- El entrenador puede ver el último comentario de una tarea completada sin salir del panel principal.
+- Quedan pendientes adjuntos reales de evidencia, historial cronológico/auditoría de cambios y respuestas del entrenador sobre cada tarea.

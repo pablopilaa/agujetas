@@ -73,6 +73,7 @@ abstract class AgujetasRepository {
     required AppUser user,
     required AssignedTask task,
     required String status,
+    String? completionNote,
   });
   Future<AssignedSchedule> assignScheduleToClient({
     required AppUser trainer,
@@ -490,15 +491,20 @@ class FirebaseAgujetasRepository implements AgujetasRepository {
     required AppUser user,
     required AssignedTask task,
     required String status,
+    String? completionNote,
   }) async {
     if (task.assignedClientId != user.uid) {
       throw StateError('Esta tarea no pertenece al usuario actual.');
     }
+    final normalizedNote = completionNote?.trim();
     await _firestore.collection('tasks').doc(task.id).update({
       'status': status,
       'completedAt': status == 'completed'
           ? FieldValue.serverTimestamp()
           : null,
+      'completionNote': normalizedNote == null || normalizedNote.isEmpty
+          ? null
+          : normalizedNote,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -1102,9 +1108,20 @@ class DemoAgujetasRepository implements AgujetasRepository {
     required AppUser user,
     required AssignedTask task,
     required String status,
+    String? completionNote,
   }) async {
     _assignedTaskItems.removeWhere((item) => item.id == task.id);
-    _assignedTaskItems.insert(0, task.copyWith(status: status));
+    final normalizedNote = completionNote?.trim();
+    _assignedTaskItems.insert(
+      0,
+      task.copyWith(
+        status: status,
+        completedAt: status == 'completed' ? DateTime.now().toUtc() : null,
+        completionNote: normalizedNote == null || normalizedNote.isEmpty
+            ? null
+            : normalizedNote,
+      ),
+    );
     _assignedTasks.add(List.unmodifiable(_assignedTaskItems));
   }
 

@@ -115,8 +115,8 @@ flowchart TD
 | Inicio | Usuario Pro | Tocar Modo entrenador | Panel entrenador |
 | Inicio | Usuario vinculado | Rutinas asignadas | Lista desde Firestore `assignedRoutines` |
 | Inicio | Usuario vinculado | Tareas del entrenador | Lista desde Firestore `tasks` |
-| Inicio | Tarea asignada | Revisar | Hoja de accion con descripcion, vencimiento y completar |
-| Inicio | Tarea asignada | Marcar como completada | Actualizar `tasks/{id}.status = completed` |
+| Inicio | Tarea asignada | Revisar | Hoja de accion con descripcion, vencimiento, comentario y completar |
+| Inicio | Tarea asignada | Marcar como completada | Actualizar `tasks/{id}.status = completed` y `completionNote` |
 | Inicio | Usuario vinculado | Schedules asignados | Lista desde Firestore `schedules` |
 | Inicio | Schedule asignado | Gestionar | Hoja de accion con estado, nota, cancelar o reprogramar |
 | Inicio | Schedule asignado | Cancelar schedule | Actualizar `schedules/{id}.status = cancelled` |
@@ -177,6 +177,7 @@ flowchart TD
 | Panel entrenador | Entrenado activo | Enviar tarea | Crear `tasks/{id}` con `trainerId`, `assignedClientId`, descripción y vencimiento opcional |
 | Panel entrenador | Entrenado activo | Agendar | Crear `schedules/{id}` con `trainerId`, `assignedClientId`, fecha, nota y rutina opcional |
 | Panel entrenador | Entrenado activo | Meta | Crear `goals/{id}` con `trainerId`, `assignedClientId`, métrica, objetivo y vencimiento opcional |
+| Panel entrenador | Entrenado activo | Seguimiento | Leer tareas, schedules y metas por `assignedClientId` para ver estado y comentario de cierre |
 
 ## Reglas De Interacción
 
@@ -201,7 +202,8 @@ flowchart TD
 - Las sesiones siguen el mismo patrón local-first: calendario/progreso leen del dispositivo, sync Firestore por `ownerId`, delete remoto best-effort y merge por `id`.
 - El `id` local de sesión es el `docId` remoto; no se usa `add()` para evitar duplicados imposibles de reconciliar.
 - Las asignaciones de entrenador viven en `assignedRoutines`, `tasks`, `schedules` y `goals`: el entrenador escribe sólo si tiene vínculo activo con el entrenado y el usuario normal lee sus rutinas/tareas/schedules/metas por `assignedClientId`.
-- Las acciones del entrenado sobre asignaciones no deben mutar UI solamente: completado de tarea, cancelacion/reprogramacion de schedule y progreso manual de meta deben pasar por `AgujetasRepository` y escribir Firestore/demo.
+- Las acciones del entrenado sobre asignaciones no deben mutar UI solamente: completado de tarea con comentario, cancelacion/reprogramacion de schedule y progreso manual de meta deben pasar por `AgujetasRepository` y escribir Firestore/demo.
+- El entrenador debe ver seguimiento agregado por entrenado sin entrar a configuracion: tareas completas, schedules activos/cancelados y porcentaje de metas.
 
 ## Pendientes UX
 

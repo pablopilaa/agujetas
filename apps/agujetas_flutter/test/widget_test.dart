@@ -160,6 +160,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('enviada a Sofia Demo'), findsOneWidget);
+    expect(find.text('0/1 tareas completas'), findsOneWidget);
   });
 
   testWidgets('trainer dashboard schedules a client session', (tester) async {
@@ -261,6 +262,10 @@ void main() {
     await tester.ensureVisible(find.text('Revisar'));
     await tester.tap(find.text('Revisar'));
     await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Comentario para tu entrenador'),
+      'Peso cargado sin molestias.',
+    );
     await tester.tap(find.text('Marcar como completada'));
     await tester.pumpAndSettle();
 
@@ -278,6 +283,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.updatedTaskStatus, 'completed');
+    expect(repository.updatedTaskNote, 'Peso cargado sin molestias.');
     expect(repository.updatedScheduleStatus, 'cancelled');
     expect(repository.updatedGoalValue, 9000);
     expect(notices, contains('Tarea "Registrar peso corporal" completada.'));
@@ -2077,6 +2083,7 @@ class _AssignmentActionRepository extends DemoAgujetasRepository {
   );
 
   String? updatedTaskStatus;
+  String? updatedTaskNote;
   String? updatedScheduleStatus;
   double? updatedGoalValue;
 
@@ -2090,8 +2097,10 @@ class _AssignmentActionRepository extends DemoAgujetasRepository {
     required AppUser user,
     required AssignedTask task,
     required String status,
+    String? completionNote,
   }) async {
     updatedTaskStatus = status;
+    updatedTaskNote = completionNote;
   }
 
   @override
