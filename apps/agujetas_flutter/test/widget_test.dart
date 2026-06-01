@@ -166,6 +166,17 @@ void main() {
       find.textContaining('asignó Registrar peso corporal'),
       findsOneWidget,
     );
+
+    await tester.tap(find.text('Ver historial').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Actividad de Sofia Demo'), findsOneWidget);
+    expect(find.text('Todo'), findsOneWidget);
+    expect(find.text('Tareas'), findsOneWidget);
+    await tester.tap(find.text('Tareas'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1 de 1 evento'), findsOneWidget);
+    expect(find.textContaining('asignó Registrar peso corporal'), findsWidgets);
   });
 
   testWidgets('trainer dashboard schedules a client session', (tester) async {

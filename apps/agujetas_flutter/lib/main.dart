@@ -2227,6 +2227,19 @@ class _TrainerClientAssignmentPreviewState
               );
             },
           ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _openAssignmentTimelineSheet(
+                context,
+                repository: widget.repository,
+                clientId: widget.client.clientId,
+                title: 'Actividad de ${widget.client.clientName}',
+              ),
+              icon: const Icon(Icons.manage_search),
+              label: const Text('Ver historial'),
+            ),
+          ),
         ],
       ),
     );
@@ -2341,6 +2354,18 @@ class _AssignmentTimelineCardState extends State<AssignmentTimelineCard> {
           subtitle: events.isEmpty
               ? 'Cuando haya tareas, schedules o metas, los cambios quedan registrados acá.'
               : '${events.length} evento${events.length == 1 ? '' : 's'} reciente${events.length == 1 ? '' : 's'}',
+          action: events.isEmpty
+              ? null
+              : TextButton.icon(
+                  onPressed: () => _openAssignmentTimelineSheet(
+                    context,
+                    repository: widget.repository,
+                    clientId: widget.clientId,
+                    title: 'Actividad de asignaciones',
+                  ),
+                  icon: const Icon(Icons.manage_search),
+                  label: const Text('Ver todo'),
+                ),
           child: events.isEmpty
               ? null
               : Column(
@@ -2361,6 +2386,138 @@ class _AssignmentTimelineCardState extends State<AssignmentTimelineCard> {
                 ),
         );
       },
+    );
+  }
+}
+
+class AssignmentTimelineSheet extends StatefulWidget {
+  const AssignmentTimelineSheet({
+    super.key,
+    required this.repository,
+    required this.clientId,
+    required this.title,
+  });
+
+  final AgujetasRepository repository;
+  final String clientId;
+  final String title;
+
+  @override
+  State<AssignmentTimelineSheet> createState() =>
+      _AssignmentTimelineSheetState();
+}
+
+class _AssignmentTimelineSheetState extends State<AssignmentTimelineSheet> {
+  late Stream<List<AssignmentEvent>> _eventsStream;
+  String? _selectedType;
+
+  @override
+  void initState() {
+    super.initState();
+    _eventsStream = widget.repository.watchAssignmentEventsForClient(
+      widget.clientId,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant AssignmentTimelineSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.clientId != widget.clientId ||
+        oldWidget.repository != widget.repository) {
+      _eventsStream = widget.repository.watchAssignmentEventsForClient(
+        widget.clientId,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<AssignmentEvent>>(
+      stream: _eventsStream,
+      builder: (context, snapshot) {
+        final events = snapshot.data ?? const <AssignmentEvent>[];
+        final filtered = _selectedType == null
+            ? events
+            : events
+                  .where((event) => event.targetType == _selectedType)
+                  .toList();
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+          children: [
+            Text(widget.title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              events.isEmpty
+                  ? 'Todavía no hay actividad registrada.'
+                  : '${filtered.length} de ${events.length} evento${events.length == 1 ? '' : 's'}',
+              style: Theme.of(context).textTheme.labelMedium,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _FilterChipButton(
+                  label: 'Todo',
+                  selected: _selectedType == null,
+                  onSelected: () => setState(() => _selectedType = null),
+                ),
+                for (final entry in _assignmentEventTypeLabels.entries)
+                  _FilterChipButton(
+                    label: entry.value,
+                    selected: _selectedType == entry.key,
+                    onSelected: () => setState(() => _selectedType = entry.key),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (filtered.isEmpty)
+              DashboardCard(
+                icon: Icons.history,
+                title: events.isEmpty
+                    ? 'Sin actividad todavía'
+                    : 'Sin eventos para este filtro',
+                subtitle: events.isEmpty
+                    ? 'Cuando haya asignaciones o cambios, van a aparecer en este historial.'
+                    : 'Cambiá el filtro para revisar otros tipos de asignación.',
+              )
+            else
+              for (final event in filtered)
+                Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(_assignmentEventIcon(event.targetType)),
+                    ),
+                    title: Text(_eventTimelineLabel(event)),
+                    subtitle: Text(
+                      '${_formatShortDateTime(event.occurredAt)} · ${_eventActorLabel(event.actorRole)} · ${_assignmentEventTypeLabel(event.targetType)}',
+                    ),
+                  ),
+                ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FilterChipButton extends StatelessWidget {
+  const _FilterChipButton({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
     );
   }
 }
@@ -5919,6 +6076,17 @@ String _eventActorLabel(String actorRole) {
   };
 }
 
+const _assignmentEventTypeLabels = <String, String>{
+  'routine': 'Rutinas',
+  'task': 'Tareas',
+  'schedule': 'Schedules',
+  'goal': 'Metas',
+};
+
+String _assignmentEventTypeLabel(String targetType) {
+  return _assignmentEventTypeLabels[targetType] ?? 'Asignación';
+}
+
 IconData _assignmentEventIcon(String targetType) {
   return switch (targetType) {
     'routine' => Icons.fitness_center,
@@ -5927,6 +6095,33 @@ IconData _assignmentEventIcon(String targetType) {
     'goal' => Icons.flag_outlined,
     _ => Icons.history,
   };
+}
+
+void _openAssignmentTimelineSheet(
+  BuildContext context, {
+  required AgujetasRepository repository,
+  required String clientId,
+  required String title,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.82,
+      minChildSize: 0.45,
+      maxChildSize: 0.94,
+      builder: (_, scrollController) => PrimaryScrollController(
+        controller: scrollController,
+        child: AssignmentTimelineSheet(
+          repository: repository,
+          clientId: clientId,
+          title: title,
+        ),
+      ),
+    ),
+  );
 }
 
 String _dateKey(DateTime value) =>

@@ -645,3 +645,11 @@ Quincuagésimo quinto bloque Auditoría cronológica de asignaciones:
 - Las reglas Firestore permiten leer/escribir `assignmentEvents` con el mismo criterio de vínculo activo usado en asignaciones.
 - El usuario normal ve una tarjeta `Actividad de asignaciones`; el panel entrenador muestra el último cambio dentro de `Seguimiento`.
 - Quedan pendientes respuestas del entrenador por evento, adjuntos/evidencia real y una pantalla completa de auditoría filtrable.
+
+Quincuagésimo sexto bloque Timeline filtrable de asignaciones:
+
+- `Actividad de asignaciones` ahora abre una hoja completa con filtros por `Todo`, `Rutinas`, `Tareas`, `Schedules` y `Metas`.
+- El panel entrenador agrega `Ver historial` por entrenado activo y abre el mismo timeline filtrable scoped al `assignedClientId`.
+- La hoja muestra conteo filtrado, actor, fecha/hora, tipo de asignación y resumen del evento.
+- Tests de widget cubren enviar tarea, abrir historial del entrenado y filtrar por tareas.
+- Quedan pendientes pantalla full-route si el timeline crece, respuestas del entrenador por evento y adjuntos/evidencia.

@@ -126,6 +126,7 @@ flowchart TD
 | Inicio | Meta asignada | Actualizar | Dialog con valor manual de progreso |
 | Inicio | Meta asignada | Guardar valor | Actualizar `goals/{id}.currentValue` y completar si llega al objetivo |
 | Inicio | Actividad de asignaciones | Ver timeline | Leer `assignmentEvents` por `assignedClientId` |
+| Inicio | Actividad de asignaciones | Ver todo | Hoja filtrable por Todo / Rutinas / Tareas / Schedules / Metas |
 | Inicio | Selector Fuerza / Hipertrofia / Técnica / Libre | Elegir modo de sesión | Entrenar con modo elegido |
 | Inicio | CTA iniciar entrenamiento | Iniciar sesión recomendada | Entrenar |
 | Inicio | Card calendario | Ver calendario mensual | Bottom sheet de calendario con navegación por mes |
@@ -181,6 +182,7 @@ flowchart TD
 | Panel entrenador | Entrenado activo | Meta | Crear `goals/{id}` con `trainerId`, `assignedClientId`, métrica, objetivo y vencimiento opcional |
 | Panel entrenador | Entrenado activo | Seguimiento | Leer tareas, schedules y metas por `assignedClientId` para ver estado y comentario de cierre |
 | Panel entrenador | Entrenado activo | Último cambio | Leer `assignmentEvents` por `assignedClientId` |
+| Panel entrenador | Entrenado activo | Ver historial | Hoja filtrable de `assignmentEvents` del entrenado |
 
 ## Reglas De Interacción
 
@@ -208,6 +210,7 @@ flowchart TD
 - Las acciones del entrenado sobre asignaciones no deben mutar UI solamente: completado de tarea con comentario, cancelacion/reprogramacion de schedule y progreso manual de meta deben pasar por `AgujetasRepository` y escribir Firestore/demo.
 - El entrenador debe ver seguimiento agregado por entrenado sin entrar a configuracion: tareas completas, schedules activos/cancelados y porcentaje de metas.
 - Cada acción de asignación debe crear un evento en `assignmentEvents` para que entrenador y entrenado tengan una auditoria cronológica básica.
+- El timeline de asignaciones debe poder filtrarse por tipo para revisar rutinas, tareas, schedules o metas sin mezclar eventos.
 
 ## Pendientes UX
 
